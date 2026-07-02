@@ -18,7 +18,7 @@ export default function Navbar() {
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50)
+      setIsScrolled(window.scrollY > 30)
     }
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
@@ -29,7 +29,11 @@ export default function Navbar() {
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-      className="fixed top-0 left-0 right-0 z-50 px-6 md:px-12 py-4 bg-white/95 backdrop-blur-md border-b border-primary/10 shadow-sm"
+      className={`fixed top-0 left-0 right-0 z-50 px-6 md:px-12 py-5 transition-all duration-300 ${
+        isScrolled 
+          ? 'bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-sm py-3' 
+          : 'bg-transparent border-b border-transparent'
+      }`}
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link href="#" className="flex items-center">
@@ -38,7 +42,9 @@ export default function Navbar() {
             alt="Fico Mana Self Portrait Studio"
             width={160}
             height={48}
-            className="h-10 w-auto"
+            className={`h-10 w-auto transition-all duration-300 ${
+              isScrolled ? '' : 'brightness-0 invert'
+            }`}
             priority
           />
         </Link>
@@ -48,7 +54,11 @@ export default function Navbar() {
             <a
               key={link.href}
               href={link.href}
-              className="text-xs font-medium tracking-[0.2em] uppercase text-foreground/75 hover:text-primary transition-colors duration-300"
+              className={`text-xs font-semibold tracking-[0.2em] uppercase transition-colors duration-300 ${
+                isScrolled 
+                  ? 'text-slate-700 hover:text-primary' 
+                  : 'text-[#F5F0E8] hover:text-white'
+              }`}
             >
               {link.label}
             </a>
@@ -57,7 +67,11 @@ export default function Navbar() {
 
         <a
           href="#booking"
-          className="text-xs font-medium tracking-[0.2em] uppercase px-6 py-2.5 bg-primary text-white hover:bg-[#03008F] transition-all duration-500"
+          className={`text-xs font-semibold tracking-[0.2em] uppercase px-6 py-2.5 transition-all duration-300 ${
+            isScrolled 
+              ? 'bg-primary text-white hover:bg-[#03008F]' 
+              : 'bg-white text-primary hover:bg-white/90'
+          }`}
         >
           Book Session
         </a>

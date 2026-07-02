@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   User, 
@@ -15,12 +15,17 @@ import {
   Printer, 
   RefreshCw, 
   ArrowRight,
-  Bookmark
+  Bookmark,
+  Upload,
+  Copy,
+  AlertCircle,
+  FileText
 } from 'lucide-react'
 import SectionHeader from '@/components/section-header'
+import { saveBooking, addNotification, uploadReceipt } from '@/lib/data-store'
+import { sendBookingCreatedEmail, sendPaymentReceivedEmail } from '@/lib/email'
 
-// Define types
-type SessionType = {
+interface SessionType {
   id: string
   title: string
   price: string
@@ -36,8 +41,8 @@ const sessionTypes: SessionType[] = [
     title: 'Solo Session',
     price: '₱1,200',
     duration: '30 mins (15m shoot / 15m select)',
-    description: 'A private space designed for self-expression, professional portraits, or graduation highlights.',
-    features: ['1 High-resolution printed photo', 'All digital raw files included', '1 Professional digital edit', 'Private background choice'],
+    description: 'Perfect for professional portraits, creative expressions, or milestones.',
+    features: ['1 Person', '1 Background color', '1 Print copy & digital copy', 'All raw files included'],
     icon: User,
   },
   {
@@ -45,8 +50,8 @@ const sessionTypes: SessionType[] = [
     title: 'Couple Session',
     price: '₱1,800',
     duration: '35 mins (20m shoot / 15m select)',
-    description: 'Celebrate love, friendship, or partnership in an intimate, distraction-free environment.',
-    features: ['2 High-resolution printed photos', 'All digital raw files included', '2 Professional digital edits', 'Private background choice'],
+    description: 'Capture your connection, friendships, or milestones together.',
+    features: ['2 Persons', '1 Background color', '2 Print copies & digital copies', 'All raw files included'],
     icon: Heart,
   },
   {
@@ -54,8 +59,8 @@ const sessionTypes: SessionType[] = [
     title: 'Family Session',
     price: '₱2,500',
     duration: '45 mins (30m shoot / 15m select)',
-    description: 'Perfect for groups of 3 to 5. Capture authentic bonds and laughter without a photographer.',
-    features: ['4 High-resolution printed photos', 'All digital raw files included', '4 Professional digital edits', 'Extended backdrop choices'],
+    description: 'Create lasting memories with your household or group.',
+    features: ['3-5 Persons', '2 Background colors', '4 Print copies & digital copies', 'All raw files included'],
     icon: Users,
   },
   {
@@ -63,8 +68,8 @@ const sessionTypes: SessionType[] = [
     title: 'With Fur Babies',
     price: '₱2,000',
     duration: '35 mins (20m shoot / 15m select)',
-    description: 'Capture special memories with your pets. Includes pet-friendly treats and extra studio care.',
-    features: ['2 High-resolution printed photos', 'All digital raw files included', '2 Professional digital edits', 'Complimentary pet treats', 'Extra clean up fee covered'],
+    description: 'Bring your pets along for a memorable portrait session.',
+    features: ['2 Persons + up to 2 pets', '1 Background color', '2 Print copies & digital copies', 'All raw files included'],
     icon: Sparkles,
   },
 ]
@@ -102,8 +107,18 @@ export default function Booking() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [note, setNote] = useState('')
+  
+  // Payment Receipt states
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [transactionRef, setTransactionRef] = useState('')
+  const [dragActive, setDragActive] = useState(false)
+  const [receiptUrl, setReceiptUrl] = useState('')
+  const [copiedText, setCopiedText] = useState(false)
+  
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [bookingId, setBookingId] = useState('')
+  
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Calendar logic
   const daysInMonth = (date: Date) => {
@@ -144,19 +159,67 @@ export default function Booking() {
     setSelectedTimeSlot('') // Reset time slot when date changes
   }
 
-  const handleBookingSubmit = (e: React.FormEvent) => {
+  const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedSession || !selectedDate || !selectedTimeSlot || !name || !email || !phone) return
+    setStep(4)
+  }
+
+  const handleBookingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedSession || !selectedDate || !selectedTimeSlot || !name || !email || !phone || !receiptFile) return
 
     setIsSubmitting(true)
     
-    // Simulate API request
-    setTimeout(() => {
+    try {
       const generatedId = 'FM-' + Math.floor(100000 + Math.random() * 900000)
       setBookingId(generatedId)
+      
+      // Upload the receipt
+      const uploadedUrl = await uploadReceipt(generatedId, receiptFile)
+      setReceiptUrl(uploadedUrl)
+      
+      const priceVal = parseFloat(selectedSession.price.replace(/[^0-9]/g, ''))
+      
+      const newBooking: any = {
+        id: generatedId,
+        customerName: name,
+        customerEmail: email,
+        customerPhone: phone,
+        packageId: selectedSession.id,
+        packageName: selectedSession.title,
+        bookingDate: selectedDate.toISOString().split('T')[0],
+        bookingTime: selectedTimeSlot,
+        note: note,
+        depositAmount: 500,
+        price: priceVal,
+        transactionRef: transactionRef,
+        bookingStatus: 'Pending Verification',
+        paymentStatus: 'Pending Verification',
+        createdAt: new Date().toISOString(),
+        receiptUrl: uploadedUrl
+      }
+      
+      // Save record in data store
+      await saveBooking(newBooking)
+      
+      // Alert staff via notifications
+      await addNotification(
+        generatedId,
+        'RECEIPT_UPLOAD',
+        `${name} submitted a GCash receipt for booking ${generatedId}.`
+      )
+      
+      // Send emails
+      await sendBookingCreatedEmail(newBooking)
+      await sendPaymentReceivedEmail(newBooking)
+      
+      setStep(5)
+    } catch (error) {
+      console.error('Error submitting booking:', error)
+    } finally {
       setIsSubmitting(false)
-      setStep(4)
-    }, 1500)
+    }
   }
 
   const resetBooking = () => {
@@ -168,6 +231,9 @@ export default function Booking() {
     setEmail('')
     setPhone('')
     setNote('')
+    setReceiptFile(null)
+    setTransactionRef('')
+    setReceiptUrl('')
     setBookingId('')
   }
 
@@ -179,6 +245,60 @@ export default function Booking() {
       month: 'long',
       day: 'numeric',
     })
+  }
+
+  // Copy utility
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedText(true)
+    setTimeout(() => setCopiedText(false), 2000)
+  }
+
+  // Drag & drop handlers
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0]
+      if (isValidFile(file)) {
+        setReceiptFile(file)
+      }
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      if (isValidFile(file)) {
+        setReceiptFile(file)
+      }
+    }
+  }
+
+  const isValidFile = (file: File) => {
+    const validTypes = ['image/jpeg', 'image/png', 'application/pdf']
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    if (!validTypes.includes(file.type)) {
+      alert('Invalid file type. Please upload a JPG, PNG, or PDF.')
+      return false
+    }
+    if (file.size > maxSize) {
+      alert('File size exceeds the 10MB limit.')
+      return false
+    }
+    return true
   }
 
   // Generate calendar days
@@ -205,19 +325,19 @@ export default function Booking() {
         <SectionHeader
           eyebrow="Booking Portal"
           title="Reserve Your Session"
-          description="Select your session, choose a slot on our interactive calendar, add special notes, and prepare for your creative photoshoot."
+          description="Select your session, choose a slot on our interactive calendar, upload your GCash deposit receipt, and await verification."
           align="center"
         />
 
         {/* Progress Bar */}
-        {step < 4 && (
+        {step < 5 && (
           <div className="max-w-xl mx-auto mb-12 relative flex justify-between items-center">
             <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-border -translate-y-1/2 z-0" />
             <div 
               className="absolute left-0 top-1/2 h-[1px] bg-primary -translate-y-1/2 z-0 transition-all duration-500" 
-              style={{ width: `${((step - 1) / 2) * 100}%` }}
+              style={{ width: `${((step - 1) / 3) * 100}%` }}
             />
-            {[1, 2, 3].map((s) => (
+            {[1, 2, 3, 4].map((s) => (
               <button
                 key={s}
                 type="button"
@@ -313,7 +433,7 @@ export default function Booking() {
               </motion.div>
             )}
 
-            {/* STEP 2: DATE & TIME (CALENDAR) */}
+            {/* STEP 2: DATE & TIME */}
             {step === 2 && (
               <motion.div
                 key="step2"
@@ -329,7 +449,7 @@ export default function Booking() {
                 </div>
 
                 <div className="grid lg:grid-cols-12 gap-8 items-start">
-                  {/* CALENDAR COLUMN */}
+                  {/* CALENDAR */}
                   <div className="lg:col-span-7 border border-border p-6 bg-card">
                     <div className="flex items-center justify-between mb-6">
                       <h4 className="text-xs font-semibold tracking-[0.15em] uppercase">
@@ -353,100 +473,88 @@ export default function Booking() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                      {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                        <span key={d} className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider py-1">
-                          {d}
-                        </span>
-                      ))}
+                    <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-semibold tracking-widest text-muted-foreground uppercase mb-4">
+                      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1">
-                      {calendarCells.map((cell, idx) => {
-                        if (cell === null) {
-                          return <div key={`blank-${idx}`} className="aspect-square" />
+                    <div className="grid grid-cols-7 gap-2">
+                      {calendarCells.map((day, idx) => {
+                        if (day === null) {
+                          return <div key={`empty-${idx}`} />
                         }
-
-                        const disabled = isPastDate(currentMonth, cell)
-                        const selected = isSameDay(selectedDate, currentMonth, cell)
-
+                        const isPast = isPastDate(currentMonth, day)
+                        const isSelected = isSameDay(selectedDate, currentMonth, day)
                         return (
                           <button
-                            key={`day-${cell}`}
+                            key={`day-${day}`}
                             type="button"
-                            disabled={disabled}
-                            onClick={() => handleDateSelect(cell)}
-                            className={`aspect-square flex items-center justify-center font-sans text-xs border transition-all ${
-                              selected
-                                ? 'bg-primary border-primary text-primary-foreground font-semibold'
-                                : disabled
-                                ? 'text-muted-foreground/30 border-transparent cursor-not-allowed bg-transparent'
-                                : 'border-transparent text-foreground hover:border-primary/30 hover:bg-secondary'
+                            disabled={isPast}
+                            onClick={() => handleDateSelect(day)}
+                            className={`aspect-square flex items-center justify-center text-xs font-medium transition-all duration-300 ${
+                              isSelected
+                                ? 'bg-primary text-primary-foreground scale-105 font-bold shadow-md shadow-primary/20'
+                                : isPast
+                                ? 'text-muted-foreground/30 cursor-not-allowed line-through'
+                                : 'text-foreground hover:border-primary hover:text-primary border border-transparent'
                             }`}
                           >
-                            {cell}
+                            {day}
                           </button>
                         )
                       })}
                     </div>
                   </div>
 
-                  {/* TIME SLOT COLUMN */}
-                  <div className="lg:col-span-5 border border-border p-6 bg-card flex flex-col h-full min-h-[300px]">
-                    <h4 className="text-xs font-semibold tracking-[0.15em] uppercase mb-4 flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5 text-primary" /> Available Slots
-                    </h4>
-
-                    {selectedDate ? (
-                      <div className="flex-1 space-y-2">
-                        <p className="text-xs text-muted-foreground mb-4">
+                  {/* TIME SLOTS */}
+                  <div className="lg:col-span-5 border border-border p-6 bg-card space-y-6">
+                    <div>
+                      <h4 className="text-xs font-semibold tracking-[0.15em] uppercase border-b border-border pb-3 mb-4">
+                        Available Time Slots
+                      </h4>
+                      {selectedDate ? (
+                        <p className="text-xs text-muted-foreground">
                           Showing slots for <span className="font-semibold text-foreground">{selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                         </p>
-                        <div className="grid gap-2">
-                          {timeSlots.map((slot) => {
-                            const dateStr = selectedDate.toDateString()
-                            const booked = isSlotBooked(dateStr, slot)
-                            const isSelected = selectedTimeSlot === slot
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Please select a date on the calendar first.</p>
+                      )}
+                    </div>
 
-                            return (
-                              <button
-                                key={slot}
-                                type="button"
-                                disabled={booked}
-                                onClick={() => setSelectedTimeSlot(slot)}
-                                className={`w-full py-3 px-4 border text-left text-xs font-medium transition-all ${
-                                  isSelected
-                                    ? 'bg-primary border-primary text-primary-foreground'
-                                    : booked
-                                    ? 'bg-secondary/40 border-border/40 text-muted-foreground/40 cursor-not-allowed line-through'
-                                    : 'bg-card border-border text-foreground hover:border-primary/40 hover:bg-secondary'
-                                }`}
-                              >
-                                <div className="flex justify-between items-center">
-                                  <span>{slot}</span>
-                                  {booked ? (
-                                    <span className="text-[10px] tracking-wider uppercase font-semibold text-muted-foreground/50 bg-secondary px-2 py-0.5 border border-border/40">Booked</span>
-                                  ) : isSelected ? (
-                                    <span className="text-[10px] tracking-wider uppercase font-semibold text-primary-foreground">Selected</span>
-                                  ) : (
-                                    <span className="text-[10px] tracking-wider uppercase font-semibold text-primary/70">Available</span>
-                                  )}
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border border-dashed border-border">
-                        <CalendarIcon className="w-8 h-8 text-muted-foreground/40 mb-3" strokeWidth={1} />
-                        <p className="text-xs text-muted-foreground">Please select a date on the calendar to view available time slots.</p>
+                    {selectedDate && (
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {timeSlots.map((slot) => {
+                          const dateStr = selectedDate.toDateString()
+                          const isBooked = isSlotBooked(dateStr, slot)
+                          const isSelected = selectedTimeSlot === slot
+                          return (
+                            <button
+                              key={slot}
+                              type="button"
+                              disabled={isBooked}
+                              onClick={() => setSelectedTimeSlot(slot)}
+                              className={`p-3.5 text-left text-xs font-semibold border flex flex-col justify-between h-[80px] transition-all duration-300 ${
+                                isSelected
+                                  ? 'border-primary bg-primary/[0.02] text-primary shadow-sm shadow-primary/10'
+                                  : isBooked
+                                  ? 'border-border bg-secondary/50 text-muted-foreground/40 cursor-not-allowed line-through'
+                                  : 'border-border bg-card text-foreground hover:border-primary/40'
+                              }`}
+                            >
+                              <span className="font-mono text-[10px]">{slot.split(' - ')[0]}</span>
+                              <span className={`text-[9px] uppercase tracking-wider ${
+                                isSelected ? 'text-primary' : isBooked ? 'text-muted-foreground/30' : 'text-muted-foreground'
+                              }`}>
+                                {isBooked ? 'Booked' : isSelected ? 'Selected' : 'Available'}
+                              </span>
+                            </button>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex justify-between pt-4">
+                <div className="flex justify-between pt-4 border-t border-border/60">
                   <button
                     type="button"
                     onClick={() => setStep(1)}
@@ -466,7 +574,7 @@ export default function Booking() {
               </motion.div>
             )}
 
-            {/* STEP 3: DETAILS & NOTE */}
+            {/* STEP 3: CONTACT DETAILS */}
             {step === 3 && (
               <motion.div
                 key="step3"
@@ -482,7 +590,7 @@ export default function Booking() {
                 </div>
 
                 <div className="grid lg:grid-cols-12 gap-8 items-start">
-                  {/* SUMMARY PANEL */}
+                  {/* SUMMARY */}
                   <div className="lg:col-span-4 border border-border p-6 bg-secondary/30 space-y-5">
                     <h4 className="text-xs font-semibold tracking-[0.15em] uppercase border-b border-border pb-3">
                       Booking Summary
@@ -509,8 +617,8 @@ export default function Booking() {
                     )}
                   </div>
 
-                  {/* FORM PANEL */}
-                  <form onSubmit={handleBookingSubmit} className="lg:col-span-8 space-y-6">
+                  {/* FORM */}
+                  <form onSubmit={handleDetailsSubmit} className="lg:col-span-8 space-y-6">
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label htmlFor="fullName" className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
@@ -573,9 +681,6 @@ export default function Booking() {
                         placeholder="Please request any background colors, props, lighting style adjustments, or pet details you would like before the shoot..."
                         className="w-full bg-background border border-border focus:border-primary/50 focus:outline-none p-3.5 text-xs font-medium resize-none leading-relaxed"
                       />
-                      <p className="text-[10px] text-muted-foreground leading-normal italic">
-                        Tip: You can request details such as background choice, specific lighting, props, or pet treats in this note before the shoot.
-                      </p>
                     </div>
 
                     <div className="flex justify-between pt-4 border-t border-border/60">
@@ -588,16 +693,200 @@ export default function Booking() {
                       </button>
                       <button
                         type="submit"
-                        disabled={isSubmitting || !name || !email || !phone}
+                        disabled={!name || !email || !phone}
+                        className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-10 py-3.5 text-xs font-medium tracking-[0.2em] uppercase transition-all duration-500 hover:bg-[#03008F]"
+                      >
+                        Proceed to Payment <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </motion.div>
+            )}
+
+            {/* STEP 4: GCASH MANUAL DEPOSIT */}
+            {step === 4 && (
+              <motion.div
+                key="step4"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="space-y-8"
+              >
+                <div className="text-center max-w-lg mx-auto">
+                  <h3 className="heading-md mb-2">4. Secure Your Booking</h3>
+                  <p className="text-sm text-muted-foreground">Scan or pay the deposit via GCash and upload your payment receipt below.</p>
+                </div>
+
+                <div className="grid lg:grid-cols-12 gap-8 items-start">
+                  {/* GCASH QR & DETAILS */}
+                  <div className="lg:col-span-5 border border-border p-6 bg-card space-y-6 flex flex-col items-center">
+                    <h4 className="text-xs font-semibold tracking-[0.15em] uppercase border-b border-border pb-3 w-full text-center">
+                      GCash Payment Instructions
+                    </h4>
+
+                    {/* QR Mockup */}
+                    <div className="w-[180px] h-[180px] bg-secondary border border-border flex flex-col items-center justify-center p-4 relative shadow-inner">
+                      {/* GCash logo header */}
+                      <div className="absolute top-2 left-2 right-2 text-center text-[10px] font-sans font-bold text-primary">
+                        GCash Official QR
+                      </div>
+                      
+                      {/* Stylized QR patterns */}
+                      <div className="w-28 h-28 border-2 border-primary flex items-center justify-center p-1.5 bg-white">
+                        <svg className="w-full h-full text-foreground fill-current" viewBox="0 0 24 24">
+                          <path d="M0 0h6v6H0zM2 2h2v2H2zM8 0h6v1H8zM18 0h6v6h-6zM20 2h2v2h-2zM0 8h1v6H0zM3 10h3v2H3zM9 8h2v2H9zM15 8h3v3h-3zM0 18h6v6H0zM2 20h2v2H2zM10 18h2v3h-2zM14 20h2v4h-2zM18 18h6v6h-6zM20 20h2v2h-2z" />
+                          <circle cx="12" cy="12" r="2" className="text-primary fill-current" />
+                        </svg>
+                      </div>
+                    </div>
+
+                    <div className="w-full space-y-4 text-xs">
+                      <div className="bg-secondary/40 p-3.5 border border-border space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Account Name:</span>
+                          <span className="font-semibold">FICO MANA Studio</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">GCash Number:</span>
+                          <div className="flex items-center gap-1.5 font-mono font-bold text-primary">
+                            <span>0917 123 4567</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard('09171234567')}
+                              className="p-1 hover:bg-primary/5 rounded transition-colors"
+                              title="Copy number"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-border/60 pt-2 mt-2">
+                          <span className="text-muted-foreground font-semibold">Deposit Required:</span>
+                          <span className="font-bold text-sm text-primary">₱500.00</span>
+                        </div>
+                      </div>
+
+                      {copiedText && (
+                        <p className="text-[10px] text-green-600 font-semibold text-center uppercase tracking-wider animate-pulse">
+                          GCash Number copied to clipboard!
+                        </p>
+                      )}
+
+                      <ol className="list-decimal pl-4 space-y-2 text-[11px] text-muted-foreground leading-relaxed">
+                        <li>Scan the QR code above or send deposit to the GCash number.</li>
+                        <li>Pay the required deposit of <strong>₱500.00</strong>.</li>
+                        <li>Save a screenshot of your successful transaction.</li>
+                        <li>Upload your payment receipt screenshot below.</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  {/* FILE UPLOAD & SUBMIT */}
+                  <form onSubmit={handleBookingSubmit} className="lg:col-span-7 space-y-6">
+                    <h4 className="text-xs font-semibold tracking-[0.15em] uppercase border-b border-border pb-3">
+                      Upload Receipt
+                    </h4>
+
+                    {/* Drag and Drop Zone */}
+                    <div
+                      onDragEnter={handleDrag}
+                      onDragOver={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`border-2 border-dashed p-8 text-center cursor-pointer transition-all duration-300 flex flex-col items-center justify-center min-h-[220px] ${
+                        dragActive
+                          ? 'border-primary bg-primary/[0.02]'
+                          : receiptFile
+                          ? 'border-green-500 bg-green-500/[0.01]'
+                          : 'border-border hover:border-primary/40 bg-card'
+                      }`}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.pdf"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+
+                      {receiptFile ? (
+                        <div className="space-y-3">
+                          <div className="w-12 h-12 bg-green-100 border border-green-200 flex items-center justify-center text-green-600 mx-auto rounded-full">
+                            <FileText className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold truncate max-w-[280px]">{receiptFile.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{(receiptFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setReceiptFile(null)
+                            }}
+                            className="text-[10px] text-red-500 font-semibold uppercase hover:underline"
+                          >
+                            Remove and select another
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="w-12 h-12 bg-primary/5 border border-primary/10 flex items-center justify-center text-primary mx-auto rounded-full">
+                            <Upload className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold">Drag & drop your GCash receipt here, or <span className="text-primary hover:underline">browse</span></p>
+                            <p className="text-[10px] text-muted-foreground mt-1">Supports JPG, PNG, and PDF (Max 1MB for local storage mode, up to 10MB default)</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="refNumber" className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+                        Transaction Reference Number (Optional)
+                      </label>
+                      <input
+                        id="refNumber"
+                        type="text"
+                        value={transactionRef}
+                        onChange={(e) => setTransactionRef(e.target.value)}
+                        placeholder="e.g. 5012 345 6789"
+                        className="w-full bg-background border border-border focus:border-primary/50 focus:outline-none p-3.5 text-xs font-medium font-mono"
+                      />
+                    </div>
+
+                    {/* Notice Banner */}
+                    <div className="bg-primary/5 border border-primary/10 p-4 flex gap-3 text-xs text-primary/80">
+                      <AlertCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                      <p className="leading-relaxed">
+                        <strong>Important:</strong> Bookings are reserved only after payment receipt verification by our studio staff. You will receive an email update within 1-2 hours.
+                      </p>
+                    </div>
+
+                    <div className="flex justify-between pt-4 border-t border-border/60">
+                      <button
+                        type="button"
+                        onClick={() => setStep(3)}
+                        className="inline-flex items-center gap-2 border border-border text-foreground px-8 py-3 text-xs font-medium tracking-[0.2em] uppercase transition-all duration-300 hover:border-primary/40 hover:text-primary"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || !receiptFile}
                         className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-10 py-3.5 text-xs font-medium tracking-[0.2em] uppercase transition-all duration-500 hover:bg-[#03008F] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isSubmitting ? (
                           <>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Processing...
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Submitting...
                           </>
                         ) : (
                           <>
-                            Confirm Booking <Bookmark className="w-3.5 h-3.5" />
+                            Submit Booking <Bookmark className="w-3.5 h-3.5" />
                           </>
                         )}
                       </button>
@@ -607,10 +896,10 @@ export default function Booking() {
               </motion.div>
             )}
 
-            {/* STEP 4: TICKET / RECEIPT CONFIRMATION */}
-            {step === 4 && (
+            {/* STEP 5: PENDING VERIFICATION / CONFIRMATION RECEIPT */}
+            {step === 5 && (
               <motion.div
-                key="step4"
+                key="step5"
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
@@ -622,8 +911,8 @@ export default function Booking() {
                     <Check className="w-8 h-8" strokeWidth={2.5} />
                   </div>
                   <div className="max-w-lg mx-auto">
-                    <h3 className="heading-md text-primary mb-1">Booking Confirmed!</h3>
-                    <p className="text-sm text-muted-foreground">Your private self-portrait session has been reserved. Please keep a screenshot of your digital studio pass.</p>
+                    <h3 className="heading-md text-primary mb-1">Booking Submitted!</h3>
+                    <p className="text-sm text-muted-foreground">Your request has been saved. Please review your pending digital studio pass.</p>
                   </div>
                 </div>
 
@@ -643,9 +932,13 @@ export default function Booking() {
                         <p className="font-serif text-lg font-bold tracking-tight text-primary">FICO MANA</p>
                         <p className="text-[8px] font-medium tracking-[0.25em] text-muted-foreground uppercase">Self Portrait Studio</p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex flex-col items-end gap-1.5">
                         <span className="text-[10px] font-mono font-bold text-primary bg-secondary px-2.5 py-1 border border-primary/20">
                           {bookingId}
+                        </span>
+                        {/* Status Badge */}
+                        <span className="text-[8px] font-semibold tracking-wider uppercase px-2 py-0.5 bg-yellow-100 text-yellow-800 border border-yellow-200">
+                          Pending Verification
                         </span>
                       </div>
                     </div>
@@ -691,12 +984,12 @@ export default function Booking() {
 
                     {/* Footer instructions */}
                     <div className="border-t border-dashed border-border pt-4 text-center space-y-4">
-                      <p className="text-[10px] text-muted-foreground leading-normal">
-                        Please arrive 10 minutes before your slot. Present this pass upon arrival.
-                      </p>
+                      <div className="bg-yellow-50 text-yellow-800 border border-yellow-100 p-3 text-[10px] text-left leading-relaxed">
+                        <strong>Receipt Uploaded:</strong> Our staff is checking your deposit transaction ref. You will receive your confirmed ticket via email at <strong>{email}</strong> once payment is approved.
+                      </div>
                       
                       {/* Barcode representation */}
-                      <div className="flex flex-col items-center justify-center space-y-1">
+                      <div className="flex flex-col items-center justify-center space-y-1 opacity-50">
                         <div className="h-10 w-full bg-foreground flex justify-between items-stretch px-1">
                           {Array.from({ length: 42 }).map((_, i) => (
                             <span 
@@ -719,15 +1012,8 @@ export default function Booking() {
                   </div>
                 </div>
 
-                {/* Print or Reset */}
-                <div className="flex flex-col sm:flex-row justify-center gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="inline-flex items-center justify-center gap-2 border border-border text-foreground px-8 py-3 text-xs font-medium tracking-[0.2em] uppercase transition-all duration-300 hover:border-primary/40 hover:text-primary"
-                  >
-                    Print / Save Pass <Printer className="w-3.5 h-3.5" />
-                  </button>
+                {/* Reset */}
+                <div className="flex justify-center gap-3 pt-4">
                   <button
                     type="button"
                     onClick={resetBooking}
