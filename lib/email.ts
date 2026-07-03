@@ -306,3 +306,88 @@ export async function sendBookingCancelledEmail(booking: any) {
   `
   return sendEmail({ bookingId: booking.id, to: booking.customerEmail, subject, html })
 }
+
+export async function sendBookingRescheduledEmail(booking: any, rebookingFee: number) {
+  const subject = `Booking Rescheduled - Reference: ${booking.id}`
+  const remainingBalance = booking.price - (booking.paymentHistory || []).reduce((acc: number, pay: any) => acc + pay.amount, 0)
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid #F59E0B;">
+      <h2 style="color: #0500D0;">FICO MANA</h2>
+      <p style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.2em; color: #5A5A8A;">Self Portrait Studio</p>
+      <hr style="border: 0; border-top: 1px dashed #D4D8F0; margin: 20px 0;" />
+      
+      <h3>Booking Schedule Updated</h3>
+      <p>Hello <strong>${booking.customerName}</strong>,</p>
+      <p>Your studio booking schedule has been updated by our administrator.</p>
+      
+      <div style="background-color: #FFFBEB; padding: 20px; border: 1px solid #FDE68A; margin: 25px 0;">
+        <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">Booking Code:</td>
+            <td style="padding: 6px 0; font-weight: bold; font-family: monospace; color: #0500D0; font-size: 16px;">${booking.id}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">New Date:</td>
+            <td style="padding: 6px 0; font-weight: bold;">${booking.bookingDate}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">New Time Slot:</td>
+            <td style="padding: 6px 0; font-weight: bold; color: #0500D0;">${booking.bookingTime}</td>
+          </tr>
+          ${rebookingFee > 0 ? `
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">Rebooking Fee Applied:</td>
+            <td style="padding: 6px 0; font-weight: bold; color: #DC2626;">₱${rebookingFee.toFixed(2)}</td>
+          </tr>
+          ` : ''}
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">Total Package Price:</td>
+            <td style="padding: 6px 0; font-weight: bold;">₱${booking.price.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">Remaining Balance to Pay:</td>
+            <td style="padding: 6px 0; font-weight: bold; color: #DC2626; font-size: 14px;">₱${remainingBalance.toFixed(2)}</td>
+          </tr>
+        </table>
+      </div>
+
+      ${rebookingFee > 0 ? `
+      <div style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0; font-size: 12px; color: #B45309;">
+        <p style="margin: 0; font-weight: bold;">Rebooking Fee Notice:</p>
+        <p style="margin: 5px 0 0 0; line-height: 1.5;">
+          A **₱500.00** rebooking fee has been applied to this schedule change as per studio policy. The remaining balance of **₱${remainingBalance.toFixed(2)}** (including the rebooking fee) is to be paid at the studio on the day of your shoot.
+        </p>
+      </div>
+      ` : ''}
+
+      <p style="font-size: 12px; color: #5A5A8A; margin-top: 20px;">Please arrive 10 minutes prior to your new slot. We look forward to hosting your session!</p>
+    </div>
+  `
+  return sendEmail({ bookingId: booking.id, to: booking.customerEmail, subject, html })
+}
+
+export async function sendGalleryLinkEmail(booking: any, driveLink: string) {
+  const subject = `Your Studio Portrait Gallery Link is Ready! - Booking: ${booking.id}`
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid #0500D0;">
+      <h2 style="color: #0500D0;">FICO MANA</h2>
+      <p style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.2em; color: #5A5A8A;">Self Portrait Studio</p>
+      <hr style="border: 0; border-top: 1px dashed #D4D8F0; margin: 20px 0;" />
+      
+      <h3>Your Digital Portraits are Ready!</h3>
+      <p>Hello <strong>${booking.customerName}</strong>,</p>
+      <p>We are excited to share that your final digital portraits are processed and ready for download.</p>
+      
+      <div style="background-color: #EEF0FF; padding: 20px; border: 1px solid #D4D8F0; margin: 25px 0; text-align: center;">
+        <p style="font-size: 14px; font-weight: bold; margin-bottom: 15px; color: #0500D0;">Access Your Google Drive Gallery</p>
+        <a href="${driveLink}" target="_blank" rel="noopener noreferrer" style="background-color: #0500D0; color: white; padding: 12px 25px; text-decoration: none; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; display: inline-block;">
+          Open Google Drive Folder
+        </a>
+      </div>
+
+      <p style="font-size: 12px; color: #5A5A8A;">Please download and save your photos. This link will be active for 30 days. Thank you for shooting with us!</p>
+    </div>
+  `
+  await sendEmail({ bookingId: booking.id, to: booking.customerEmail, subject, html })
+  await sendEmail({ bookingId: booking.id, to: 'supplier@ficomana.studio', subject: `[Supplier Copy] Gallery Link Ready - ${booking.id}`, html })
+}

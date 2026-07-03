@@ -8,32 +8,26 @@ import SectionHeader from '@/components/section-header'
 const testimonials = [
   {
     id: 1,
-    quote: "The most authentic self-portraits I've ever had. Every shot feels like it tells my story.",
-    author: 'Sarah M.',
+    quote: 'Galing ng team ng Fico Mana. Very professional at naasikaso po kami ng maayos. Mula hair and make up, pati directing sa pictures. Sana gawin na sila official photographers of PLS para same ang standards ng grad pic. Thank you to the whole team.',
+    author: 'Student from Philippine Law School',
     rating: 5,
   },
   {
     id: 2,
-    quote: 'Professional, intimate, and truly transformative. This experience changed how I see myself.',
-    author: 'James T.',
+    quote: 'Thank you Fico Mana for the incredible work! These photos are exactly what I needed as I wrap up my final semester and prepare for graduation. Thank you for making me look and feel ready for the next chapter!',
+    author: 'Leanne Genecela',
     rating: 5,
   },
   {
     id: 3,
-    quote: 'The attention to detail is extraordinary. FICO MANA elevated my portfolio completely.',
-    author: 'Maria L.',
+    quote: 'Thank you so much, Fico Mana, for making my grad photo look so beautiful! It\'s a 1M/10 po Highly recommended!',
+    author: 'Jea May Demillo',
     rating: 5,
   },
   {
     id: 4,
-    quote: 'Worth every penny. I felt genuinely comfortable creating without judgment or limitation.',
-    author: 'Alex K.',
-    rating: 5,
-  },
-  {
-    id: 5,
-    quote: 'Studio excellence meets artistic vision. A truly premium experience from start to finish.',
-    author: 'Emma R.',
+    quote: 'Hello po! Kakauwi lang po namin ng brother ko. Maraming salamat po for today! I\'m so happy and grateful po ang ganda ng pictures! natupad isa sa mga pangarap ko excited na ko ipost yung pics! Pero sa July 3 pa po yung graduation ko hehe BTS po muna.',
+    author: 'Rain Ara Pega',
     rating: 5,
   },
 ]
@@ -60,7 +54,7 @@ export default function Testimonials() {
           align="center"
         />
 
-        <div className="relative min-h-[280px] md:min-h-[240px]">
+        <div className="relative min-h-[320px] md:min-h-[280px]">
           <AnimatePresence mode="wait">
             <motion.div
               key={current.id}
@@ -76,7 +70,7 @@ export default function Testimonials() {
                 ))}
               </div>
 
-              <blockquote className="font-serif text-xl md:text-2xl lg:text-3xl font-light text-foreground leading-relaxed mb-10 text-balance">
+              <blockquote className="font-serif text-lg md:text-xl lg:text-2xl font-light text-foreground leading-relaxed mb-10 text-balance">
                 &ldquo;{current.quote}&rdquo;
               </blockquote>
 

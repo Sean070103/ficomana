@@ -4,11 +4,9 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   User, 
-  Users, 
-  Heart, 
+  GraduationCap,
   Calendar as CalendarIcon, 
   Clock, 
-  Sparkles, 
   ChevronLeft, 
   ChevronRight, 
   Check, 
@@ -22,7 +20,7 @@ import {
   FileText
 } from 'lucide-react'
 import SectionHeader from '@/components/section-header'
-import { saveBooking, addNotification, uploadReceipt } from '@/lib/data-store'
+import { saveBooking, addNotification, uploadReceipt, getBookings } from '@/lib/data-store'
 import { sendBookingCreatedEmail, sendPaymentReceivedEmail } from '@/lib/email'
 
 interface SessionType {
@@ -37,61 +35,80 @@ interface SessionType {
 
 const sessionTypes: SessionType[] = [
   {
-    id: 'solo',
-    title: 'Solo Session',
-    price: '₱1,200',
+    id: 'fico-package',
+    title: 'FICO PACKAGE',
+    price: '₱3,000',
     duration: '30 mins (15m shoot / 15m select)',
-    description: 'Perfect for professional portraits, creative expressions, or milestones.',
-    features: ['1 Person', '1 Background color', '1 Print copy & digital copy', 'All raw files included'],
+    description: 'Without Hair and Makeup. Perfect for graduation portraits with professional lighting and studio equipment.',
+    features: [
+      'Free use of Toga & Cap',
+      'Free use of Alampay',
+      'Professional Photographer',
+      '5 Edited/Enhanced Copies',
+      'Professional Light Setup',
+      '2 pegs (toga, uniform, or alampay)',
+      '2 pcs. 4R-sized Prints',
+      '4 pcs. Wallet-sized Prints',
+      '1 pc. 8R Glass-to-Glass Frame',
+      'Get ALL RAW Copies',
+      'Receive 5 enhanced photos 14 days after selection',
+    ],
     icon: User,
   },
   {
-    id: 'couple',
-    title: 'Couple Session',
-    price: '₱1,800',
-    duration: '35 mins (20m shoot / 15m select)',
-    description: 'Capture your connection, friendships, or milestones together.',
-    features: ['2 Persons', '1 Background color', '2 Print copies & digital copies', 'All raw files included'],
-    icon: Heart,
-  },
-  {
-    id: 'family',
-    title: 'Family Session',
-    price: '₱2,500',
-    duration: '45 mins (30m shoot / 15m select)',
-    description: 'Create lasting memories with your household or group.',
-    features: ['3-5 Persons', '2 Background colors', '4 Print copies & digital copies', 'All raw files included'],
-    icon: Users,
-  },
-  {
-    id: 'fur-babies',
-    title: 'With Fur Babies',
-    price: '₱2,000',
-    duration: '35 mins (20m shoot / 15m select)',
-    description: 'Bring your pets along for a memorable portrait session.',
-    features: ['2 Persons + up to 2 pets', '1 Background color', '2 Print copies & digital copies', 'All raw files included'],
-    icon: Sparkles,
+    id: 'mana-makeup',
+    title: 'MANA PACKAGE',
+    price: '₱6,000',
+    duration: '2 hours (1.5h makeup / 15m shoot / 15m select)',
+    description: 'With Hair and Makeup. A complete graduation experience with styling, shoot, and premium prints.',
+    features: [
+      'Free use of Toga & Cap',
+      'Free use of Alampay',
+      'Professional Photographer',
+      '5 Edited/Enhanced Copies',
+      'Professional Light Setup',
+      '2 pegs (toga, uniform, or alampay)',
+      '2 pcs. 4R-sized Prints',
+      '4 pcs. Wallet-sized Prints',
+      '1 pc. 8R Glass-to-Glass Frame',
+      'Get ALL RAW Copies',
+      'Receive 5 enhanced photos 14 days after selection',
+      'Professional hair & makeup',
+    ],
+    icon: GraduationCap,
   },
 ]
 
-const timeSlots = [
-  '09:00 AM - 09:45 AM',
-  '10:30 AM - 11:15 AM',
-  '01:00 PM - 01:45 PM',
-  '02:30 PM - 03:15 PM',
-  '04:00 PM - 04:45 PM',
-  '05:30 PM - 06:15 PM',
+const withMakeupSlots = [
+  '09:00 AM - 11:00 AM',
+  '11:00 AM - 01:00 PM',
+  '01:00 PM - 03:00 PM',
+  '03:00 PM - 05:00 PM',
+  '05:00 PM - 07:00 PM',
 ]
 
-// Helper to determine if a slot is booked based on a seed (to make it look realistic)
-const isSlotBooked = (dateStr: string, slot: string) => {
-  const seedStr = dateStr + slot
-  let hash = 0
-  for (let i = 0; i < seedStr.length; i++) {
-    hash = seedStr.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  return Math.abs(hash % 3) === 0 // 1 in 3 chance of being booked
-}
+const withoutMakeupSlots = [
+  '09:00 AM - 09:30 AM',
+  '09:30 AM - 10:00 AM',
+  '10:00 AM - 10:30 AM',
+  '10:30 AM - 11:00 AM',
+  '11:00 AM - 11:30 AM',
+  '11:30 AM - 12:00 PM',
+  '12:00 PM - 12:30 PM',
+  '12:30 PM - 01:00 PM',
+  '01:00 PM - 01:30 PM',
+  '01:30 PM - 02:00 PM',
+  '02:00 PM - 02:30 PM',
+  '02:30 PM - 03:00 PM',
+  '03:00 PM - 03:30 PM',
+  '03:30 PM - 04:00 PM',
+  '04:00 PM - 04:30 PM',
+  '04:30 PM - 05:00 PM',
+  '05:00 PM - 05:30 PM',
+  '05:30 PM - 06:00 PM',
+  '06:00 PM - 06:30 PM',
+  '06:30 PM - 07:00 PM',
+]
 
 export default function Booking() {
   const [step, setStep] = useState(1)
@@ -106,19 +123,37 @@ export default function Booking() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [fbName, setFbName] = useState('')
+  const [fbLink, setFbLink] = useState('')
   const [note, setNote] = useState('')
   
   // Payment Receipt states
+  const [paymentMethod, setPaymentMethod] = useState<'GCash' | 'BPI'>('GCash')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [transactionRef, setTransactionRef] = useState('')
   const [dragActive, setDragActive] = useState(false)
   const [receiptUrl, setReceiptUrl] = useState('')
   const [copiedText, setCopiedText] = useState(false)
+  const [copiedBpiText, setCopiedBpiText] = useState(false)
   
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [bookingId, setBookingId] = useState('')
+  const [allBookings, setAllBookings] = useState<any[]>([])
   
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Fetch all bookings for slot capacity checks
+  useState(() => {
+    const loadBookings = async () => {
+      try {
+        const data = await getBookings()
+        setAllBookings(data)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    loadBookings()
+  })
 
   // Calendar logic
   const daysInMonth = (date: Date) => {
@@ -159,15 +194,42 @@ export default function Booking() {
     setSelectedTimeSlot('') // Reset time slot when date changes
   }
 
+  // Count bookings for a specific slot to check capacity (limit of 2)
+  const getSlotBookingCount = (dateStr: string, slotStr: string) => {
+    return allBookings.filter(b => 
+      b.bookingDate === dateStr && 
+      b.bookingTime === slotStr &&
+      b.bookingStatus !== 'Cancelled' &&
+      b.bookingStatus !== 'Rejected'
+    ).length
+  }
+
+  const isSlotBooked = (dateStr: string, slotStr: string) => {
+    const count = getSlotBookingCount(dateStr, slotStr)
+    // Allow up to 2 makeup artists capacity per slot
+    if (count >= 2) return true
+    
+    // Fallback seed logic for display realism
+    const seedStr = dateStr + slotStr
+    let hash = 0
+    for (let i = 0; i < seedStr.length; i++) {
+      hash = seedStr.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    return Math.abs(hash % 5) === 0 // 1 in 5 chance pre-booked
+  }
+
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedSession || !selectedDate || !selectedTimeSlot || !name || !email || !phone) return
+    if (!selectedSession || !selectedDate || !selectedTimeSlot || !name || !email || !phone || !fbName || !fbLink) {
+      alert('Please fill in all required fields.')
+      return
+    }
     setStep(4)
   }
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedSession || !selectedDate || !selectedTimeSlot || !name || !email || !phone || !receiptFile) return
+    if (!selectedSession || !selectedDate || !selectedTimeSlot || !name || !email || !phone || !fbName || !fbLink || !receiptFile) return
 
     setIsSubmitting(true)
     
@@ -186,6 +248,8 @@ export default function Booking() {
         customerName: name,
         customerEmail: email,
         customerPhone: phone,
+        customerFbLink: fbLink,
+        customerFbName: fbName,
         packageId: selectedSession.id,
         packageName: selectedSession.title,
         bookingDate: selectedDate.toISOString().split('T')[0],
@@ -197,7 +261,17 @@ export default function Booking() {
         bookingStatus: 'Pending Verification',
         paymentStatus: 'Pending Verification',
         createdAt: new Date().toISOString(),
-        receiptUrl: uploadedUrl
+        receiptUrl: uploadedUrl,
+        paymentHistory: [
+          {
+            id: 'PAY-' + Math.floor(1000 + Math.random() * 9000),
+            amount: 500,
+            method: paymentMethod,
+            type: 'Deposit',
+            transactionRef: transactionRef || undefined,
+            date: new Date().toISOString()
+          }
+        ]
       }
       
       // Save record in data store
@@ -207,7 +281,7 @@ export default function Booking() {
       await addNotification(
         generatedId,
         'RECEIPT_UPLOAD',
-        `${name} submitted a GCash receipt for booking ${generatedId}.`
+        `${name} submitted a ${paymentMethod} receipt for booking ${generatedId}.`
       )
       
       // Send emails
@@ -370,11 +444,11 @@ export default function Booking() {
                 className="space-y-8"
               >
                 <div className="text-center max-w-lg mx-auto">
-                  <h3 className="heading-md mb-2">1. Choose a Session Type</h3>
-                  <p className="text-sm text-muted-foreground">Select the photoshoot package that best matches your vision.</p>
+                  <h3 className="heading-md mb-2">1. Choose a Package</h3>
+                  <p className="text-sm text-muted-foreground">Select the graduation package that best matches your vision.</p>
                 </div>
 
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+                <div className="grid md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto">
                   {sessionTypes.map((session) => {
                     const Icon = session.icon
                     const isSelected = selectedSession?.id === session.id
@@ -522,7 +596,7 @@ export default function Booking() {
 
                     {selectedDate && (
                       <div className="grid sm:grid-cols-2 gap-3">
-                        {timeSlots.map((slot) => {
+                        {(selectedSession?.id.endsWith('-makeup') ? withMakeupSlots : withoutMakeupSlots).map((slot) => {
                           const dateStr = selectedDate.toDateString()
                           const isBooked = isSlotBooked(dateStr, slot)
                           const isSelected = selectedTimeSlot === slot
@@ -666,6 +740,38 @@ export default function Booking() {
                       />
                     </div>
 
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label htmlFor="fbName" className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+                          Facebook Profile Name *
+                        </label>
+                        <input
+                          id="fbName"
+                          type="text"
+                          required
+                          value={fbName}
+                          onChange={(e) => setFbName(e.target.value)}
+                          placeholder="e.g. Juan Dela Cruz (FB)"
+                          className="w-full bg-background border border-border focus:border-primary/50 focus:outline-none p-3.5 text-xs font-medium"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label htmlFor="fbLink" className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+                          Facebook Profile Link *
+                        </label>
+                        <input
+                          id="fbLink"
+                          type="url"
+                          required
+                          value={fbLink}
+                          onChange={(e) => setFbLink(e.target.value)}
+                          placeholder="e.g. https://facebook.com/juan.delacruz"
+                          className="w-full bg-background border border-border focus:border-primary/50 focus:outline-none p-3.5 text-xs font-medium"
+                        />
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <label htmlFor="shootNote" className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
@@ -720,67 +826,153 @@ export default function Booking() {
                 </div>
 
                 <div className="grid lg:grid-cols-12 gap-8 items-start">
-                  {/* GCASH QR & DETAILS */}
+                  {/* GCASH & BPI QR & DETAILS */}
                   <div className="lg:col-span-5 border border-border p-6 bg-card space-y-6 flex flex-col items-center">
-                    <h4 className="text-xs font-semibold tracking-[0.15em] uppercase border-b border-border pb-3 w-full text-center">
-                      GCash Payment Instructions
-                    </h4>
-
-                    {/* QR Mockup */}
-                    <div className="w-[180px] h-[180px] bg-secondary border border-border flex flex-col items-center justify-center p-4 relative shadow-inner">
-                      {/* GCash logo header */}
-                      <div className="absolute top-2 left-2 right-2 text-center text-[10px] font-sans font-bold text-primary">
-                        GCash Official QR
-                      </div>
-                      
-                      {/* Stylized QR patterns */}
-                      <div className="w-28 h-28 border-2 border-primary flex items-center justify-center p-1.5 bg-white">
-                        <svg className="w-full h-full text-foreground fill-current" viewBox="0 0 24 24">
-                          <path d="M0 0h6v6H0zM2 2h2v2H2zM8 0h6v1H8zM18 0h6v6h-6zM20 2h2v2h-2zM0 8h1v6H0zM3 10h3v2H3zM9 8h2v2H9zM15 8h3v3h-3zM0 18h6v6H0zM2 20h2v2H2zM10 18h2v3h-2zM14 20h2v4h-2zM18 18h6v6h-6zM20 20h2v2h-2z" />
-                          <circle cx="12" cy="12" r="2" className="text-primary fill-current" />
-                        </svg>
-                      </div>
+                    {/* Payment Mode Selector tabs */}
+                    <div className="flex w-full border border-border mb-4 font-sans text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('GCash')}
+                        className={`flex-1 py-3 text-center font-bold uppercase tracking-wider ${
+                          paymentMethod === 'GCash' ? 'bg-primary text-white' : 'bg-secondary/40 text-slate-500 hover:bg-secondary/60'
+                        }`}
+                      >
+                        GCash QR
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('BPI')}
+                        className={`flex-1 py-3 text-center font-bold uppercase tracking-wider ${
+                          paymentMethod === 'BPI' ? 'bg-primary text-white' : 'bg-secondary/40 text-slate-500 hover:bg-secondary/60'
+                        }`}
+                      >
+                        BPI QR
+                      </button>
                     </div>
 
-                    <div className="w-full space-y-4 text-xs">
-                      <div className="bg-secondary/40 p-3.5 border border-border space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Account Name:</span>
-                          <span className="font-semibold">FICO MANA Studio</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">GCash Number:</span>
-                          <div className="flex items-center gap-1.5 font-mono font-bold text-primary">
-                            <span>0917 123 4567</span>
-                            <button
-                              type="button"
-                              onClick={() => copyToClipboard('09171234567')}
-                              className="p-1 hover:bg-primary/5 rounded transition-colors"
-                              title="Copy number"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
+                    {paymentMethod === 'GCash' ? (
+                      <>
+                        <h4 className="text-xs font-semibold tracking-[0.15em] uppercase border-b border-border pb-3 w-full text-center">
+                          GCash Payment Instructions
+                        </h4>
+
+                        {/* QR Mockup */}
+                        <div className="w-[180px] h-[180px] bg-secondary border border-border flex flex-col items-center justify-center p-4 relative shadow-inner">
+                          <div className="absolute top-2 left-2 right-2 text-center text-[10px] font-sans font-bold text-primary">
+                            GCash Official QR
+                          </div>
+                          <div className="w-28 h-28 border-2 border-primary flex items-center justify-center p-1.5 bg-white">
+                            <svg className="w-full h-full text-foreground fill-current" viewBox="0 0 24 24">
+                              <path d="M0 0h6v6H0zM2 2h2v2H2zM8 0h6v1H8zM18 0h6v6h-6zM20 2h2v2h-2zM0 8h1v6H0zM3 10h3v2H3zM9 8h2v2H9zM15 8h3v3h-3zM0 18h6v6H0zM2 20h2v2H2zM10 18h2v3h-2zM14 20h2v4h-2zM18 18h6v6h-6zM20 20h2v2h-2z" />
+                              <circle cx="12" cy="12" r="2" className="text-primary fill-current" />
+                            </svg>
                           </div>
                         </div>
-                        <div className="flex justify-between items-center border-t border-border/60 pt-2 mt-2">
-                          <span className="text-muted-foreground font-semibold">Deposit Required:</span>
-                          <span className="font-bold text-sm text-primary">₱500.00</span>
+
+                        <div className="w-full space-y-4 text-xs">
+                          <div className="bg-secondary/40 p-3.5 border border-border space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground">Account Name:</span>
+                              <span className="font-semibold">FICO MANA Studio</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground">GCash Number:</span>
+                              <div className="flex items-center gap-1.5 font-mono font-bold text-primary">
+                                <span>0917 123 4567</span>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard('09171234567')}
+                                  className="p-1 hover:bg-primary/5 rounded transition-colors"
+                                  title="Copy number"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center border-t border-border/60 pt-2 mt-2">
+                              <span className="text-muted-foreground font-semibold">Deposit Required:</span>
+                              <span className="font-bold text-sm text-primary">₱500.00</span>
+                            </div>
+                          </div>
+
+                          {copiedText && (
+                            <p className="text-[10px] text-green-600 font-semibold text-center uppercase tracking-wider animate-pulse">
+                              GCash Number copied to clipboard!
+                            </p>
+                          )}
+
+                          <ol className="list-decimal pl-4 space-y-2 text-[11px] text-muted-foreground leading-relaxed">
+                            <li>Scan the QR code above or send deposit to the GCash number.</li>
+                            <li>Pay the required deposit of <strong>₱500.00</strong>.</li>
+                            <li>Save a screenshot of your successful transaction.</li>
+                            <li>Upload your payment receipt screenshot on the right.</li>
+                          </ol>
                         </div>
-                      </div>
+                      </>
+                    ) : (
+                      <>
+                        <h4 className="text-xs font-semibold tracking-[0.15em] uppercase border-b border-border pb-3 w-full text-center">
+                          BPI Payment Instructions
+                        </h4>
 
-                      {copiedText && (
-                        <p className="text-[10px] text-green-600 font-semibold text-center uppercase tracking-wider animate-pulse">
-                          GCash Number copied to clipboard!
-                        </p>
-                      )}
+                        {/* QR Mockup */}
+                        <div className="w-[180px] h-[180px] bg-secondary border border-border flex flex-col items-center justify-center p-4 relative shadow-inner">
+                          <div className="absolute top-2 left-2 right-2 text-center text-[10px] font-sans font-bold text-primary">
+                            BPI Bank QR Code
+                          </div>
+                          <div className="w-28 h-28 border-2 border-primary flex items-center justify-center p-1.5 bg-white">
+                            <svg className="w-full h-full text-primary fill-current" viewBox="0 0 24 24">
+                              <path d="M0 0h6v6H0zM2 2h2v2H2zM8 0h6v1H8zM18 0h6v6h-6zM20 2h2v2h-2zM0 8h1v6H0zM3 10h3v2H3zM9 8h2v2H9zM15 8h3v3h-3zM0 18h6v6H0zM2 20h2v2H2zM10 18h2v3h-2zM14 20h2v4h-2zM18 18h6v6h-6zM20 20h2v2h-2z" />
+                              <rect x="9" y="14" width="6" height="3" className="text-slate-800 fill-current" />
+                            </svg>
+                          </div>
+                        </div>
 
-                      <ol className="list-decimal pl-4 space-y-2 text-[11px] text-muted-foreground leading-relaxed">
-                        <li>Scan the QR code above or send deposit to the GCash number.</li>
-                        <li>Pay the required deposit of <strong>₱500.00</strong>.</li>
-                        <li>Save a screenshot of your successful transaction.</li>
-                        <li>Upload your payment receipt screenshot below.</li>
-                      </ol>
-                    </div>
+                        <div className="w-full space-y-4 text-xs">
+                          <div className="bg-secondary/40 p-3.5 border border-border space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground">Account Name:</span>
+                              <span className="font-semibold">FICO MANA Studio</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground">BPI Account No:</span>
+                              <div className="flex items-center gap-1.5 font-mono font-bold text-primary">
+                                <span>1234 5678 90</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText('1234567890')
+                                    setCopiedBpiText(true)
+                                    setTimeout(() => setCopiedBpiText(false), 2000)
+                                  }}
+                                  className="p-1 hover:bg-primary/5 rounded transition-colors"
+                                  title="Copy account number"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center border-t border-border/60 pt-2 mt-2">
+                              <span className="text-muted-foreground font-semibold">Deposit Required:</span>
+                              <span className="font-bold text-sm text-primary">₱500.00</span>
+                            </div>
+                          </div>
+
+                          {copiedBpiText && (
+                            <p className="text-[10px] text-green-600 font-semibold text-center uppercase tracking-wider animate-pulse">
+                              BPI Account Number copied to clipboard!
+                            </p>
+                          )}
+
+                          <ol className="list-decimal pl-4 space-y-2 text-[11px] text-muted-foreground leading-relaxed">
+                            <li>Scan the BPI QR code above or transfer to the account number.</li>
+                            <li>Pay the required deposit of <strong>₱500.00</strong>.</li>
+                            <li>Save a screenshot of your successful transaction.</li>
+                            <li>Upload your payment receipt screenshot on the right.</li>
+                          </ol>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* FILE UPLOAD & SUBMIT */}
@@ -961,13 +1153,19 @@ export default function Booking() {
                         <p className="text-muted-foreground font-medium uppercase tracking-wider text-[8px] mb-0.5">Price</p>
                         <p className="font-semibold text-foreground">{selectedSession?.price}</p>
                       </div>
-                      <div className="col-span-2">
+                      <div>
                         <p className="text-muted-foreground font-medium uppercase tracking-wider text-[8px] mb-0.5">Date & Time</p>
                         <p className="font-semibold text-foreground flex items-center gap-1.5">
                           <CalendarIcon className="w-3.5 h-3.5 text-primary flex-shrink-0" /> {selectedDate?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </p>
                         <p className="font-semibold text-foreground flex items-center gap-1.5 mt-1">
                           <Clock className="w-3.5 h-3.5 text-primary flex-shrink-0" /> {selectedTimeSlot}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium uppercase tracking-wider text-[8px] mb-0.5">Queue Policy</p>
+                        <p className="font-semibold text-slate-700 bg-slate-50 border border-slate-200 px-2 py-1 w-fit rounded text-[10px] mt-0.5 uppercase tracking-wide">
+                          First-Come, First-Serve
                         </p>
                       </div>
 

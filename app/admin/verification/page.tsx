@@ -320,6 +320,25 @@ export default function PaymentVerificationQueue() {
                     <p className="font-semibold text-slate-700">{selectedBooking.customerPhone}</p>
                   </div>
                   <div>
+                    <p className="text-slate-400 font-medium text-[8px] uppercase tracking-wider">Facebook Name</p>
+                    <p className="font-semibold text-slate-700">{selectedBooking.customerFbName || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 font-medium text-[8px] uppercase tracking-wider">Facebook Link</p>
+                    {selectedBooking.customerFbLink ? (
+                      <a 
+                        href={selectedBooking.customerFbLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-[#0500D0] hover:underline font-semibold flex items-center gap-1 mt-0.5"
+                      >
+                        Visit Profile <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    ) : (
+                      <p className="text-slate-500 italic mt-0.5">No link provided</p>
+                    )}
+                  </div>
+                  <div>
                     <p className="text-slate-400 font-medium text-[8px] uppercase tracking-wider">Package / Session</p>
                     <p className="font-semibold text-[#0500D0]">{selectedBooking.packageName}</p>
                   </div>

@@ -1,0 +1,113 @@
+'use client'
+
+import { motion } from 'framer-motion'
+import Image from 'next/image'
+
+const packageIncludes = [
+  'Free use of Toga & Cap',
+  'Free use of Alampay',
+  'Professional Photographer',
+  '5 Edited/Enhanced Copies',
+  'Professional Light Setup',
+  '2 pegs (toga, uniform, or alampay)',
+  '2 pcs. 4R-sized Prints',
+  '4 pcs. Wallet-sized Prints',
+  '1 pc. 8R Glass-to-Glass Frame',
+  'Get ALL RAW Copies',
+  'Receive 5 enhanced photos 14 days after selection',
+]
+
+const packages = [
+  {
+    id: 'fico',
+    name: 'FICO PACKAGE',
+    subtitle: 'Without Hair and Makeup',
+    price: 'Php 3,000',
+  },
+  {
+    id: 'mana',
+    name: 'MANA PACKAGE',
+    subtitle: 'With Hair and Makeup',
+    price: 'Php 6,000',
+  },
+]
+
+export default function Pricing() {
+  return (
+    <section
+      id="pricing"
+      className="relative py-16 md:py-20 overflow-hidden bg-black"
+      style={{ fontFamily: 'var(--font-aileron)' }}
+    >
+      <Image
+        src="/bg_pricing.jpg"
+        alt=""
+        fill
+        className="object-cover object-center opacity-20"
+        priority={false}
+      />
+
+      <div className="relative z-10 max-w-4xl mx-auto px-6 md:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+          className="text-center mb-10 md:mb-12"
+        >
+          <p className="text-[9px] md:text-[10px] font-light tracking-[0.4em] uppercase text-white/40 mb-3">
+            Graduation Packages
+          </p>
+          <h2 className="text-xl md:text-2xl font-normal tracking-[0.14em] uppercase text-white">
+            Choose Your Package
+          </h2>
+        </motion.div>
+
+        <div className="grid md:grid-cols-2 gap-5 md:gap-7">
+          {packages.map((pkg, index) => (
+            <motion.div
+              key={pkg.id}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.08 }}
+              viewport={{ once: true }}
+              className="border border-white/12 bg-black/40 backdrop-blur-sm px-6 py-7 md:px-8 md:py-9"
+            >
+              <div className="mb-6 pb-6 border-b border-white/10 text-center md:text-left">
+                <h3 className="text-sm md:text-[15px] font-semibold tracking-[0.18em] text-white uppercase">
+                  {pkg.name}
+                </h3>
+                <p className="mt-2 text-[11px] md:text-xs font-light text-white/50 tracking-[0.08em]">
+                  {pkg.subtitle}
+                </p>
+                <p className="mt-4 text-lg md:text-xl font-light text-white tracking-[0.06em]">
+                  {pkg.price}
+                </p>
+              </div>
+
+              <p className="text-[9px] font-medium tracking-[0.3em] uppercase text-white/35 mb-5 text-center md:text-left">
+                Includes
+              </p>
+
+              <ul className="divide-y divide-white/6">
+                {packageIncludes.map((item, i) => (
+                  <li
+                    key={item}
+                    className="flex items-center gap-4 py-2.5 first:pt-0 last:pb-0"
+                  >
+                    <span className="text-[9px] font-light tabular-nums text-white/25 w-4 shrink-0">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span className="text-[11px] md:text-xs font-light text-white/70 tracking-[0.02em] leading-relaxed">
+                      {item}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}

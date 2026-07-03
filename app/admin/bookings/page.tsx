@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { getBookings, saveBooking, Booking, PaymentRecord } from '@/lib/data-store'
-import { sendBookingCancelledEmail, sendPaymentApprovedEmail, sendFinalOfficialReceiptEmail } from '@/lib/email'
+import { sendBookingCancelledEmail, sendPaymentApprovedEmail, sendFinalOfficialReceiptEmail, sendBookingRescheduledEmail, sendGalleryLinkEmail } from '@/lib/email'
 import { 
   Search, 
   Filter, 
@@ -39,6 +39,8 @@ export default function BookingsManagement() {
   const [editDate, setEditDate] = useState('')
   const [editTime, setEditTime] = useState('')
   const [editStaffNotes, setEditStaffNotes] = useState('')
+  const [chargeRebookingFee, setChargeRebookingFee] = useState(false)
+  const [editDriveLink, setEditDriveLink] = useState('')
   const [saveLoading, setSaveLoading] = useState(false)
 
   // In-studio Payment states
@@ -105,6 +107,8 @@ export default function BookingsManagement() {
     setEditDate(booking.bookingDate)
     setEditTime(booking.bookingTime)
     setEditStaffNotes(booking.staffNotes || '')
+    setChargeRebookingFee(false)
+    setEditDriveLink(booking.driveLink || '')
     setIsEditing(false)
 
     const paidSum = (booking.paymentHistory || []).reduce((acc, pay) => acc + pay.amount, 0)
@@ -175,18 +179,35 @@ export default function BookingsManagement() {
 
     setSaveLoading(true)
     try {
+      const dateChanged = editDate !== selectedBooking.bookingDate || editTime !== selectedBooking.bookingTime
+      const addedFee = (dateChanged && chargeRebookingFee) ? 500 : 0
+      const driveLinkChanged = editDriveLink !== (selectedBooking.driveLink || '')
+
       const updatedBooking: Booking = {
         ...selectedBooking,
         bookingDate: editDate,
         bookingTime: editTime,
-        staffNotes: editStaffNotes
+        staffNotes: editStaffNotes,
+        price: selectedBooking.price + addedFee,
+        driveLink: editDriveLink || undefined
       }
       
       await saveBooking(updatedBooking)
       setSelectedBooking(updatedBooking)
       setIsEditing(false)
       fetchBookings()
-      alert('Booking details updated successfully.')
+
+      // Send emails
+      if (dateChanged) {
+        await sendBookingRescheduledEmail(updatedBooking, addedFee)
+      }
+
+      if (driveLinkChanged && editDriveLink) {
+        await sendGalleryLinkEmail(updatedBooking, editDriveLink)
+        alert('Booking details updated. Drive link saved and emails dispatched.')
+      } else {
+        alert('Booking details updated successfully.')
+      }
     } catch (err) {
       console.error(err)
       alert('Failed to save details.')
@@ -453,12 +474,31 @@ export default function BookingsManagement() {
                 </h4>
                 <div className="grid grid-cols-2 gap-y-2 text-xs">
                   <div>
-                    <p className="text-slate-400 font-medium">Email Address</p>
-                    <p className="font-semibold mt-0.5">{selectedBooking.customerEmail}</p>
+                     <p className="text-slate-400 font-medium">Email Address</p>
+                     <p className="font-semibold mt-0.5">{selectedBooking.customerEmail}</p>
                   </div>
                   <div>
-                    <p className="text-slate-400 font-medium">Phone Number</p>
-                    <p className="font-semibold mt-0.5">{selectedBooking.customerPhone}</p>
+                     <p className="text-slate-400 font-medium">Phone Number</p>
+                     <p className="font-semibold mt-0.5">{selectedBooking.customerPhone}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 font-medium">Facebook Name</p>
+                    <p className="font-semibold mt-0.5">{selectedBooking.customerFbName || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 font-medium">Facebook Profile</p>
+                    {selectedBooking.customerFbLink ? (
+                      <a 
+                        href={selectedBooking.customerFbLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-primary hover:underline font-bold mt-0.5 flex items-center gap-1.5"
+                      >
+                        View Profile <ArrowUpRight className="w-3.5 h-3.5" />
+                      </a>
+                    ) : (
+                      <p className="text-slate-500 italic mt-0.5">No link provided</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -519,22 +559,68 @@ export default function BookingsManagement() {
                           onChange={(e) => setEditTime(e.target.value)}
                           className="w-full bg-slate-50 border border-slate-200 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
                         >
-                          <option value="09:00 AM - 09:45 AM">09:00 AM - 09:45 AM</option>
-                          <option value="10:30 AM - 11:15 AM">10:30 AM - 11:15 AM</option>
-                          <option value="01:00 PM - 01:45 PM">01:00 PM - 01:45 PM</option>
-                          <option value="02:30 PM - 03:15 PM">02:30 PM - 03:15 PM</option>
-                          <option value="04:00 PM - 04:45 PM">04:00 PM - 04:45 PM</option>
-                          <option value="05:30 PM - 06:15 PM">05:30 PM - 06:15 PM</option>
+                          {(selectedBooking.packageId.endsWith('-makeup') 
+                            ? ['09:00 AM - 11:00 AM', '11:00 AM - 01:00 PM', '01:00 PM - 03:00 PM', '03:00 PM - 05:00 PM', '05:00 PM - 07:00 PM'] 
+                            : [
+                                '09:00 AM - 09:30 AM', '09:30 AM - 10:00 AM', '10:00 AM - 10:30 AM', '10:30 AM - 11:00 AM',
+                                '11:00 AM - 11:30 AM', '11:30 AM - 12:00 PM', '12:00 PM - 12:30 PM', '12:30 PM - 01:00 PM',
+                                '01:00 PM - 01:30 PM', '01:30 PM - 02:00 PM', '02:00 PM - 02:30 PM', '02:30 PM - 03:00 PM',
+                                '03:00 PM - 03:30 PM', '03:30 PM - 04:00 PM', '04:00 PM - 04:30 PM', '04:30 PM - 05:00 PM',
+                                '05:00 PM - 05:30 PM', '05:30 PM - 06:00 PM', '06:00 PM - 06:30 PM', '06:30 PM - 07:00 PM'
+                              ]
+                          ).map(slot => (
+                            <option key={slot} value={slot}>{slot}</option>
+                          ))}
                         </select>
+                      </div>
+                      
+                      <div className="col-span-2 flex items-center gap-2 bg-amber-50 border border-amber-100 p-2.5">
+                        <input
+                          id="chargeFee"
+                          type="checkbox"
+                          checked={chargeRebookingFee}
+                          onChange={(e) => setChargeRebookingFee(e.target.checked)}
+                          className="w-3.5 h-3.5 text-primary border-slate-300 focus:ring-primary"
+                        />
+                        <label htmlFor="chargeFee" className="text-[10px] font-semibold text-amber-800 uppercase tracking-wide cursor-pointer select-none">
+                          Apply ₱500.00 Rebooking Fee (Reschedule charges)
+                        </label>
+                      </div>
+
+                      <div className="col-span-2 space-y-1.5">
+                        <label htmlFor="editDrive" className="text-[10px] font-bold text-slate-450 uppercase">Google Drive Gallery Link</label>
+                        <input
+                          id="editDrive"
+                          type="url"
+                          value={editDriveLink}
+                          onChange={(e) => setEditDriveLink(e.target.value)}
+                          placeholder="https://drive.google.com/drive/folders/..."
+                          className="w-full bg-slate-50 border border-slate-200 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
+                        />
                       </div>
                     </>
                   ) : (
-                    <div className="col-span-2">
-                      <p className="text-slate-400 font-medium">Appointment Time</p>
-                      <p className="font-semibold text-slate-700 mt-0.5">
-                        {selectedBooking.bookingDate} at {selectedBooking.bookingTime}
-                      </p>
-                    </div>
+                    <>
+                      <div className="col-span-2">
+                        <p className="text-slate-400 font-medium">Appointment Time</p>
+                        <p className="font-semibold text-slate-700 mt-0.5">
+                          {selectedBooking.bookingDate} at {selectedBooking.bookingTime}
+                        </p>
+                      </div>
+                      {selectedBooking.driveLink && (
+                        <div className="col-span-2 border-t border-slate-100 pt-2 mt-1">
+                          <p className="text-slate-400 font-medium">Google Drive Gallery Link</p>
+                          <a 
+                            href={selectedBooking.driveLink} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-green-600 font-semibold hover:underline mt-0.5 flex items-center gap-1 text-[11px]"
+                          >
+                            Open Drive Gallery <ArrowUpRight className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {selectedBooking.note && (

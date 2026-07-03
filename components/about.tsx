@@ -2,50 +2,16 @@
 
 import { motion } from 'framer-motion'
 import Image from 'next/image'
-import { Zap, Lightbulb, Camera, Award } from 'lucide-react'
 import SectionHeader from '@/components/section-header'
 
-const features = [
-  {
-    icon: Camera,
-    title: 'Professional Equipment',
-    description: 'High-end cameras and studio-grade lighting for exceptional results.',
-  },
-  {
-    icon: Zap,
-    title: 'Private & Comfortable',
-    description: 'Your personal creative space designed for authentic self-expression.',
-  },
-  {
-    icon: Lightbulb,
-    title: 'Unlimited Creativity',
-    description: 'No limits on poses, concepts, or creative direction.',
-  },
-  {
-    icon: Award,
-    title: 'Timeless Quality',
-    description: 'High-resolution images that stand the test of time.',
-  },
+const storyParagraphs = [
+  'FICO MANA Studio began as a self-portrait studio in February 2023, built from the shared dream of a couple who refused to let challenges define their future. Despite limited resources, uncertainties, and the struggles of starting from the ground up, they continued to pursue their passion with determination and faith. Every obstacle became a reason to work harder, turning a simple dream into a studio dedicated to celebrating life\'s most meaningful moments through photography.',
+  'Within its first year, FICO MANA quickly became one of the most trusted photography studios in Cabuyao, earning the support of the local community and opening doors to new opportunities. The studio was honored to become the official photographer for various City and Barangay pageants, further establishing its reputation for quality, creativity, and professionalism.',
+  'Today, FICO MANA Studio is a creative photography studio dedicated to capturing life\'s most meaningful moments. The studio specializes in timeless graduation portraits, creative portrait sessions, self-portrait experiences, and modern photobooth services. Every session is crafted with professional lighting, premium equipment, and artistic direction to deliver photographs that are authentic, elegant, and unforgettable.',
+  'As FICO MANA Studio continues to grow, its commitment remains the same, to provide every client with an exceptional experience and portraits that stand the test of time. Every milestone is captured with passion, creativity, and excellence, ensuring that each photograph reflects not only how clients look, but also the story behind their achievements.',
 ]
 
 export default function About() {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 16 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
-    },
-  }
-
   return (
     <section id="about" className="py-24 md:py-32 px-6 md:px-12 bg-background">
       <div className="max-w-7xl mx-auto">
@@ -71,39 +37,26 @@ export default function About() {
             </div>
           </motion.div>
 
-          <div>
+          <div className="min-w-0">
             <SectionHeader
               eyebrow="Our Story"
               title="About FICO MANA"
-              description="A private creative space where people freely express themselves using professional lighting and high-end equipment."
             />
 
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              className="grid sm:grid-cols-2 gap-4 md:gap-5"
-            >
-              {features.map((feature, index) => {
-                const Icon = feature.icon
-                return (
-                  <motion.div
-                    key={index}
-                    variants={itemVariants}
-                    className="p-5 md:p-6 bg-card border border-border hover:border-primary/30 transition-colors duration-300 group"
-                  >
-                    <div className="w-9 h-9 flex items-center justify-center bg-primary/5 mb-4 group-hover:bg-primary/10 transition-colors">
-                      <Icon className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                    </div>
-                    <h3 className="font-medium text-sm mb-2">{feature.title}</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {feature.description}
-                    </p>
-                  </motion.div>
-                )
-              })}
-            </motion.div>
+            <div className="space-y-5 md:space-y-6 -mt-6 md:-mt-10">
+              {storyParagraphs.map((paragraph, index) => (
+                <motion.p
+                  key={index}
+                  initial={{ opacity: 0, y: 12 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.08 }}
+                  viewport={{ once: true, margin: '-40px' }}
+                  className="text-sm md:text-base text-black leading-relaxed"
+                >
+                  {paragraph}
+                </motion.p>
+              ))}
+            </div>
           </div>
         </div>
       </div>

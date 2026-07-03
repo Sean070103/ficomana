@@ -5,142 +5,160 @@ import Image from 'next/image'
 import { useState } from 'react'
 import SectionHeader from '@/components/section-header'
 
-const galleryItems = [
-  {
-    id: 1,
-    image: '/model/model_4.jpg',
-    category: 'Solo',
-    caption: 'Embrace your own light.',
-    span: 'md:col-span-2 md:row-span-2',
-  },
-  {
-    id: 2,
-    image: '/model/model_2.jpg',
-    category: 'Couple',
-    caption: 'Cherish every shared moment.',
-    span: 'md:col-span-1 md:row-span-1',
-  },
-  {
-    id: 3,
-    image: '/model/model_3.jpg',
-    category: 'Graduation',
-    caption: 'A proud milestone, beautifully captured.',
-    span: 'md:col-span-1 md:row-span-2',
-  },
-  {
-    id: 4,
-    image: '/model/model_5.jpg',
-    category: 'Maternity',
-    caption: 'Celebrating new beginnings.',
-    span: 'md:col-span-1 md:row-span-1',
-  },
-  {
-    id: 5,
-    image: '/model/model_6.jpg',
-    category: 'Solo',
-    caption: 'Simplicity and focus.',
-    span: 'md:col-span-1 md:row-span-1',
-  },
-  {
-    id: 6,
-    image: '/model/model_7.jpg',
-    category: 'Couple',
-    caption: 'Laughter and genuine connection.',
-    span: 'md:col-span-1 md:row-span-2',
-  },
-  {
-    id: 7,
-    image: '/model/model_8.jpg',
-    category: 'Pets',
-    caption: '',
-    span: 'md:col-span-2 md:row-span-1',
-  },
-  {
-    id: 8,
-    image: '/model/model9.jpg',
-    category: 'Family',
-    caption: 'Bonds that last a lifetime.',
-    span: 'md:col-span-1 md:row-span-2',
-  },
+const IMAGE_WIDTH = 2040
+const IMAGE_HEIGHT = 2560
+
+type GalleryItem = {
+  id: number
+  image: string
+  category: string
+  label: string
+}
+
+const topRowItems: GalleryItem[] = [
+  { id: 1, image: '/grad/grad_3.jpg', category: 'Graduation', label: 'TOGA' },
+  { id: 2, image: '/grad/grad_1.jpg', category: 'Graduation', label: 'TOGA WITH CAP' },
+  { id: 3, image: '/grad/grad_8.jpg', category: 'Graduation', label: 'TOGA WITH CAP' },
 ]
 
-const categories = ['All', 'Solo', 'Couple', 'Graduation', 'Family', 'Maternity']
+const bottomRowItems: GalleryItem[] = [
+  { id: 4, image: '/grad/grad_4.jpg', category: 'Graduation', label: 'TOGA' },
+  { id: 5, image: '/grad/grad_5.jpg', category: 'Graduation', label: 'GLAMOUR SHOT' },
+  { id: 6, image: '/grad/grad_2.jpg', category: 'Graduation', label: '' },
+  { id: 7, image: '/grad/grad_6.jpg', category: 'Graduation', label: '' },
+  { id: 8, image: '/grad/grad_7.jpg', category: 'Graduation', label: '' },
+  { id: 9, image: '/grad/grad_9.jpg', category: 'Graduation', label: 'SABLAY' },
+]
+
+const categories = ['All', 'Graduation']
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.12, delayChildren: 0.1 },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
+  },
+}
+
+function GalleryImage({
+  item,
+  variants,
+  className = '',
+}: {
+  item: GalleryItem
+  variants: typeof itemVariants
+  className?: string
+}) {
+  return (
+    <motion.div
+      variants={variants}
+      className={`relative overflow-hidden rounded-2xl md:rounded-3xl group cursor-pointer ${className}`}
+    >
+      <Image
+        src={item.image}
+        alt={item.category}
+        width={IMAGE_WIDTH}
+        height={IMAGE_HEIGHT}
+        sizes="(max-width: 768px) 50vw, 25vw"
+        className="w-full h-auto block transition-transform duration-700 group-hover:scale-[1.02]"
+      />
+      {item.label && (
+        <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 z-10">
+          <p className="text-[9px] md:text-xs font-bold tracking-[0.2em] uppercase text-white drop-shadow-lg">
+            {item.label}
+          </p>
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-primary/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+    </motion.div>
+  )
+}
 
 export default function Gallery() {
   const [activeCategory, setActiveCategory] = useState('All')
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.12, delayChildren: 0.1 },
-    },
-  }
+  const showGallery = activeCategory === 'All' || activeCategory === 'Graduation'
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 24 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
-    },
-  }
-
-  const filteredItems = activeCategory === 'All'
-    ? galleryItems
-    : galleryItems.filter((item) => item.category === activeCategory)
+  const [grad4, grad5, grad2, grad6, grad7, grad9] = bottomRowItems
 
   return (
     <section id="gallery" className="py-24 md:py-32 px-6 md:px-12 bg-background">
       <div className="max-w-7xl mx-auto">
         <SectionHeader
           eyebrow="Portfolio"
-          title="Luxury Gallery"
-          description="Curated moments from our studio — each session crafted with intention, light, and artistry."
+          title="Graduation Gallery"
+          description="Celebrate your achievement with professionally captured graduation portraits — elegant, timeless, and uniquely yours."
         />
 
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 auto-rows-[280px] md:auto-rows-[220px]"
-        >
-          {filteredItems.map((item) => (
+        {showGallery && (
+          <div className="space-y-2 md:space-y-3">
+            {/* Top row */}
             <motion.div
-              key={item.id}
-              variants={itemVariants}
-              className={`${item.span} relative overflow-hidden group cursor-pointer bg-secondary/40 border border-border`}
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-80px' }}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3"
             >
-              <Image
-                src={item.image}
-                alt={item.category}
-                fill
-                className="object-contain transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-8 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                {item.category !== 'Pets' && (
-                  <p className="text-[10px] font-medium tracking-[0.25em] uppercase text-white/70 mb-2">
-                    {item.category}
-                  </p>
-                )}
-                {item.caption && (
-                  <p className="font-serif text-lg md:text-xl text-white font-light">
-                    {item.caption}
-                  </p>
-                )}
+              {topRowItems.map((item) => (
+                <GalleryImage key={item.id} item={item} variants={itemVariants} />
+              ))}
+            </motion.div>
+
+            {/* Bottom — mobile: 2-col grid */}
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-80px' }}
+              className="grid grid-cols-2 gap-2 md:hidden"
+            >
+              {bottomRowItems.map((item) => (
+                <GalleryImage
+                  key={item.id}
+                  item={item}
+                  variants={itemVariants}
+                  className={item.id === 4 ? 'col-span-2' : ''}
+                />
+              ))}
+            </motion.div>
+
+            {/* Bottom — desktop: reference masonry with natural image sizing */}
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-80px' }}
+              className="hidden md:flex gap-3 items-start"
+            >
+              <GalleryImage item={grad4} variants={itemVariants} className="w-[40%] shrink-0" />
+
+              <div className="flex-1 grid grid-cols-3 gap-3 items-start">
+                <GalleryImage item={grad5} variants={itemVariants} className="col-span-2" />
+                <GalleryImage item={grad2} variants={itemVariants} className="col-span-1" />
+                <GalleryImage item={grad6} variants={itemVariants} className="col-span-1" />
+                <GalleryImage item={grad7} variants={itemVariants} className="col-span-1" />
+                <GalleryImage item={grad9} variants={itemVariants} className="col-span-1" />
               </div>
             </motion.div>
-          ))}
-        </motion.div>
+          </div>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
           viewport={{ once: true }}
-          className="flex flex-wrap justify-center gap-2 md:gap-3 mt-12 md:mt-16"
+          className="flex flex-wrap justify-center gap-2 md:gap-3 pt-6"
         >
           {categories.map((cat) => (
             <button

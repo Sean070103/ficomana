@@ -14,6 +14,8 @@ export interface Booking {
   customerName: string
   customerEmail: string
   customerPhone: string
+  customerFbLink: string
+  customerFbName: string
   packageId: string
   packageName: string
   bookingDate: string
@@ -29,6 +31,7 @@ export interface Booking {
   createdAt: string
   receiptUrl?: string
   paymentHistory: PaymentRecord[]
+  driveLink?: string
 }
 
 export interface Notification {
@@ -57,10 +60,12 @@ const initialMockBookings: Booking[] = [
     customerName: 'Juan Dela Cruz',
     customerEmail: 'juan.delacruz@gmail.com',
     customerPhone: '+63 917 123 4567',
+    customerFbLink: 'https://facebook.com/juan.delacruz',
+    customerFbName: 'Juan Dela Cruz',
     packageId: 'solo',
-    packageName: 'Solo Session',
+    packageName: 'Solo Session (Without Makeup)',
     bookingDate: new Date().toISOString().split('T')[0], // Today
-    bookingTime: '09:00 AM - 09:45 AM',
+    bookingTime: '09:00 AM - 09:30 AM',
     note: 'Requesting black backdrop for graduation shoot.',
     staffNotes: 'Wants graduation cap setup.',
     depositAmount: 500,
@@ -86,14 +91,16 @@ const initialMockBookings: Booking[] = [
     customerName: 'Maria Santos',
     customerEmail: 'maria.santos@gmail.com',
     customerPhone: '+63 918 234 5678',
-    packageId: 'couple',
-    packageName: 'Couple Session',
+    customerFbLink: 'https://facebook.com/mariasantos.99',
+    customerFbName: 'Maria Santos',
+    packageId: 'couple-makeup',
+    packageName: 'Couple Session (With Makeup)',
     bookingDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], // Tomorrow
-    bookingTime: '01:00 PM - 01:45 PM',
+    bookingTime: '01:00 PM - 03:00 PM',
     note: 'Anniversary photo shoot! Bringing matching shirts.',
     staffNotes: '',
     depositAmount: 500,
-    price: 1800,
+    price: 2300,
     transactionRef: 'GC-12349827',
     bookingStatus: 'Confirmed',
     paymentStatus: 'Paid Deposit',
@@ -115,10 +122,12 @@ const initialMockBookings: Booking[] = [
     customerName: 'Jose Rizal',
     customerEmail: 'jose.rizal@gmail.com',
     customerPhone: '+63 919 345 6789',
+    customerFbLink: 'https://facebook.com/jose.rizal.ph',
+    customerFbName: 'Pepe Rizal',
     packageId: 'family',
-    packageName: 'Family Session',
+    packageName: 'Family Session (Without Makeup)',
     bookingDate: new Date().toISOString().split('T')[0], // Today
-    bookingTime: '02:30 PM - 03:15 PM',
+    bookingTime: '02:30 PM - 03:00 PM',
     note: 'Bringing 5 family members. Hope we can fit.',
     staffNotes: 'Confirmed 5 guests. Set up wider lighting backdrop.',
     depositAmount: 500,
@@ -144,14 +153,16 @@ const initialMockBookings: Booking[] = [
     customerName: 'Liza Soberano',
     customerEmail: 'liza@gmail.com',
     customerPhone: '+63 920 456 7890',
-    packageId: 'fur-babies',
-    packageName: 'With Fur Babies',
+    customerFbLink: 'https://facebook.com/liza.soberano.real',
+    customerFbName: 'Liza Soberano',
+    packageId: 'fur-babies-makeup',
+    packageName: 'With Fur Babies (With Makeup)',
     bookingDate: new Date(Date.now() + 172800000).toISOString().split('T')[0], // 2 days from now
-    bookingTime: '10:30 AM - 11:15 AM',
+    bookingTime: '11:00 AM - 01:00 PM',
     note: 'Bringing our golden retriever. He is friendly!',
     staffNotes: '',
     depositAmount: 500,
-    price: 2000,
+    price: 2500,
     bookingStatus: 'Pending Payment',
     paymentStatus: 'Unpaid',
     createdAt: new Date().toISOString(),
@@ -162,14 +173,16 @@ const initialMockBookings: Booking[] = [
     customerName: 'Alden Richards',
     customerEmail: 'alden@gmail.com',
     customerPhone: '+63 921 567 8901',
-    packageId: 'solo',
-    packageName: 'Solo Session',
+    customerFbLink: 'https://facebook.com/alden.richards',
+    customerFbName: 'Alden Richards',
+    packageId: 'solo-makeup',
+    packageName: 'Solo Session (With Makeup)',
     bookingDate: new Date(Date.now() - 86400000).toISOString().split('T')[0], // Yesterday
-    bookingTime: '04:00 PM - 04:45 PM',
+    bookingTime: '03:00 PM - 05:00 PM',
     note: 'Need files quickly.',
     staffNotes: 'Completed. Prints delivered.',
     depositAmount: 500,
-    price: 1200,
+    price: 1700,
     transactionRef: 'GC-99008811',
     bookingStatus: 'Completed',
     paymentStatus: 'Paid Full',
@@ -186,7 +199,7 @@ const initialMockBookings: Booking[] = [
       },
       {
         id: 'PAY-0092',
-        amount: 700,
+        amount: 1200,
         method: 'Cash',
         type: 'Balance Payment',
         date: new Date(Date.now() - 86400000).toISOString()
@@ -490,6 +503,8 @@ function mapDbBookingToModel(b: any): Booking {
     customerName: b.customer_name,
     customerEmail: b.customer_email,
     customerPhone: b.customer_phone,
+    customerFbLink: b.customer_fb_link || '',
+    customerFbName: b.customer_fb_name || '',
     packageId: b.package_id,
     packageName: b.package_name,
     bookingDate: b.booking_date,
@@ -504,16 +519,20 @@ function mapDbBookingToModel(b: any): Booking {
     rejectionReason: b.rejection_reason,
     createdAt: b.created_at,
     receiptUrl: b.receipt_url,
-    paymentHistory: b.payment_history ? JSON.parse(b.payment_history) : []
+    paymentHistory: b.payment_history ? JSON.parse(b.payment_history) : [],
+    driveLink: b.drive_link
   }
 }
 
+// Map model object to Supabase database shape
 function mapModelBookingToDb(b: Booking): any {
   return {
     id: b.id,
     customer_name: b.customerName,
     customer_email: b.customerEmail,
     customer_phone: b.customerPhone,
+    customer_fb_link: b.customerFbLink,
+    customer_fb_name: b.customerFbName,
     package_id: b.packageId,
     package_name: b.packageName,
     booking_date: b.bookingDate,
@@ -528,6 +547,7 @@ function mapModelBookingToDb(b: Booking): any {
     rejection_reason: b.rejectionReason,
     created_at: b.createdAt,
     receipt_url: b.receiptUrl,
-    payment_history: JSON.stringify(b.paymentHistory || [])
+    payment_history: JSON.stringify(b.paymentHistory || []),
+    drive_link: b.driveLink
   }
 }

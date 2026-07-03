@@ -1,9 +1,11 @@
 import Navbar from '@/components/navbar'
 import Hero from '@/components/hero'
 import Gallery from '@/components/gallery'
+import Reels from '@/components/reels'
 import Experience from '@/components/experience'
 import About from '@/components/about'
 import Testimonials from '@/components/testimonials'
+import Pricing from '@/components/pricing'
 import Booking from '@/components/booking'
 import FAQ from '@/components/faq'
 import Contact from '@/components/contact'
@@ -15,9 +17,11 @@ export default function Home() {
       <Navbar />
       <Hero />
       <Gallery />
+      <Reels />
       <Experience />
       <About />
       <Testimonials />
+      <Pricing />
       <Booking />
       <FAQ />
       <Contact />
