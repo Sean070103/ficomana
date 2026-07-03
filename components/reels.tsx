@@ -6,11 +6,13 @@ import { useEffect, useRef } from 'react'
 const REEL_VIDEO = '/Breanna%202%20(1).mp4'
 
 export default function Reels() {
+  const sectionRef = useRef<HTMLElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video) return
+    const section = sectionRef.current
+    if (!video || !section) return
 
     video.loop = true
     video.muted = false
@@ -30,10 +32,14 @@ export default function Reels() {
           video.currentTime = 0
         }
       },
-      { threshold: 0.3 },
+      {
+        threshold: 0,
+        // Start playback before the section fully scrolls into view
+        rootMargin: '0px 0px 45% 0px',
+      },
     )
 
-    observer.observe(video)
+    observer.observe(section)
     return () => {
       observer.disconnect()
       video.pause()
@@ -42,6 +48,7 @@ export default function Reels() {
 
   return (
     <section
+      ref={sectionRef}
       id="reels"
       className="relative overflow-hidden py-12 sm:py-16 md:py-20 lg:py-28 px-4 sm:px-6 md:px-8 lg:px-12"
       style={{
