@@ -49,31 +49,30 @@ export default function Hero() {
         >
           <motion.h1
             variants={itemVariants}
-            className="font-serif text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-[4.5rem] font-light tracking-[0.12em] sm:tracking-[0.18em] uppercase text-white mb-3 sm:mb-4 md:mb-5"
+            className="font-serif text-[2.5rem] leading-none xs:text-5xl sm:text-5xl md:text-6xl lg:text-[4.5rem] font-light tracking-[0.12em] sm:tracking-[0.18em] uppercase text-white mb-3 sm:mb-4 md:mb-5"
           >
             FICO MANA
           </motion.h1>
 
           <motion.p
             variants={itemVariants}
-            className="w-full text-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold tracking-[0.28em] sm:tracking-[0.32em] uppercase mb-4 sm:mb-5 md:mb-6"
+            className="text-[11px] xs:text-xs sm:text-[10px] md:text-[11px] font-semibold tracking-[0.28em] sm:tracking-[0.32em] uppercase mb-4 sm:mb-5 md:mb-6"
             style={{ fontFamily: 'var(--font-neue)' }}
           >
             <span className="text-[#D1D5DB]">The Portrait </span>
             <span className="text-[#4169E1]">of Success</span>
           </motion.p>
 
-          <motion.div variants={itemVariants} className="flex flex-col items-start gap-1.5 sm:gap-2">
+          <motion.div variants={itemVariants} className="flex flex-col items-start gap-2 sm:gap-2.5">
             <motion.p
-              className="text-sm xs:text-base sm:text-xl md:text-[1.75rem] lg:text-3xl font-normal italic text-white leading-snug md:whitespace-nowrap"
+              className="text-[13px] xs:text-sm sm:text-xl md:text-[1.75rem] lg:text-3xl font-normal italic text-white leading-snug whitespace-nowrap"
               style={{ fontFamily: "'Times New Roman', Times, serif" }}
             >
-              Creating Visuals That{' '}
-              <span className="whitespace-nowrap">Celebrate Every Story</span>
+              Creating Visuals That Celebrate Every Story
             </motion.p>
 
             <motion.p
-              className="text-[8px] sm:text-[9px] md:text-[10px] font-light tracking-[0.06em] sm:tracking-[0.08em] leading-relaxed text-left"
+              className="text-[10px] xs:text-[11px] sm:text-[9px] md:text-[10px] font-light tracking-[0.06em] sm:tracking-[0.08em] leading-relaxed text-left"
               style={{ fontFamily: 'var(--font-neue)' }}
             >
               <span className="text-[#D1D5DB]">Graduation Shoot / Creative Shoot / Photobooth / Self </span>
@@ -121,11 +120,11 @@ export default function Hero() {
               { value: '1', label: 'Private Studio' },
             ].map((stat) => (
               <div key={stat.label} className="min-w-0">
-                <div className="font-serif text-base sm:text-xl md:text-2xl font-light text-white truncate">
+                <div className="font-serif text-lg xs:text-xl sm:text-xl md:text-2xl font-light text-white truncate">
                   {stat.value}
                 </div>
                 <div
-                  className="text-white/55 text-[6px] sm:text-[7px] md:text-[8px] tracking-[0.12em] sm:tracking-[0.18em] uppercase mt-1 sm:mt-1.5 leading-tight"
+                  className="text-white/55 text-[7px] xs:text-[8px] sm:text-[7px] md:text-[8px] tracking-[0.12em] sm:tracking-[0.18em] uppercase mt-1 sm:mt-1.5 leading-tight"
                   style={{ fontFamily: 'var(--font-sans)' }}
                 >
                   {stat.label}
