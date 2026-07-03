@@ -7,12 +7,14 @@ const REEL_VIDEO = '/Breanna%202%20(1).mp4'
 
 export default function Reels() {
   const sectionRef = useRef<HTMLElement>(null)
+  const topTriggerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     const video = videoRef.current
     const section = sectionRef.current
-    if (!video || !section) return
+    const topTrigger = topTriggerRef.current
+    if (!video || !section || !topTrigger) return
 
     video.loop = true
     video.muted = false
@@ -23,25 +25,36 @@ export default function Reels() {
       })
     }
 
-    const observer = new IntersectionObserver(
+    const pauseVideo = () => {
+      video.pause()
+      video.currentTime = 0
+    }
+
+    // Fire as soon as the top edge of reels approaches the viewport
+    const playObserver = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          playVideo()
-        } else {
-          video.pause()
-          video.currentTime = 0
-        }
+        if (entry.isIntersecting) playVideo()
       },
       {
         threshold: 0,
-        // Start playback before the section fully scrolls into view
-        rootMargin: '0px 0px 45% 0px',
+        rootMargin: '0px 0px 100% 0px',
       },
     )
 
-    observer.observe(section)
+    // Pause only after the whole reels section has scrolled away
+    const pauseObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) pauseVideo()
+      },
+      { threshold: 0 },
+    )
+
+    playObserver.observe(topTrigger)
+    pauseObserver.observe(section)
+
     return () => {
-      observer.disconnect()
+      playObserver.disconnect()
+      pauseObserver.disconnect()
       video.pause()
     }
   }, [])
@@ -55,6 +68,11 @@ export default function Reels() {
         background: 'linear-gradient(180deg, #eef3ff 0%, #4a6fd4 45%, #1034a6 100%)',
       }}
     >
+      <div
+        ref={topTriggerRef}
+        className="absolute top-0 left-0 w-full h-px pointer-events-none"
+        aria-hidden
+      />
       <div className="max-w-7xl mx-auto flex flex-col items-center">
         <motion.div
           initial={{ opacity: 0, y: 32 }}
