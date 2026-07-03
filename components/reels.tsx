@@ -3,58 +3,89 @@
 import { motion } from 'framer-motion'
 import { useEffect, useRef } from 'react'
 
-const REEL_VIDEO = '/Breanna%202%20(1).mp4'
+const REEL_VIDEO = '/Breanna 2 (1).mp4'
 
 export default function Reels() {
   const sectionRef = useRef<HTMLElement>(null)
-  const topTriggerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     const video = videoRef.current
     const section = sectionRef.current
-    const topTrigger = topTriggerRef.current
-    if (!video || !section || !topTrigger) return
+    if (!video || !section) return
 
     video.loop = true
-    video.muted = false
+    video.playsInline = true
+    video.preload = 'auto'
+
+    let active = false
 
     const playVideo = () => {
-      void video.play().catch(() => {
-        // Browsers may block autoplay with sound until user interacts with the page
+      if (active) return
+      active = true
+
+      const tryPlay = (muted: boolean) => {
+        video.muted = muted
+        return video.play()
+      }
+
+      tryPlay(false).catch(() => {
+        tryPlay(true)
+          .then(() => {
+            const unmute = () => {
+              video.muted = false
+            }
+            window.addEventListener('scroll', unmute, { once: true, passive: true })
+            window.addEventListener('click', unmute, { once: true })
+          })
+          .catch(() => {
+            active = false
+          })
       })
     }
 
     const pauseVideo = () => {
+      if (!active) return
       video.pause()
       video.currentTime = 0
+      active = false
     }
 
-    // Fire as soon as the top edge of reels approaches the viewport
-    const playObserver = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) playVideo()
-      },
-      {
-        threshold: 0,
-        rootMargin: '0px 0px 100% 0px',
-      },
-    )
+    const updatePlayback = () => {
+      const { top, bottom } = section.getBoundingClientRect()
+      const vh = window.innerHeight
 
-    // Pause only after the whole reels section has scrolled away
-    const pauseObserver = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) pauseVideo()
-      },
-      { threshold: 0 },
-    )
+      // Play once the top edge of reels crosses into view (with a small lead-in)
+      const topReached = top <= vh + 80
+      const stillVisible = bottom > 0
 
-    playObserver.observe(topTrigger)
-    pauseObserver.observe(section)
+      if (topReached && stillVisible) {
+        playVideo()
+      } else if (bottom <= 0 || top > vh + 80) {
+        pauseVideo()
+      }
+    }
+
+    updatePlayback()
+    requestAnimationFrame(updatePlayback)
+
+    const retryTimers = [100, 300, 600].map((ms) => window.setTimeout(updatePlayback, ms))
+
+    window.addEventListener('scroll', updatePlayback, { passive: true })
+    window.addEventListener('resize', updatePlayback)
+    window.addEventListener('hashchange', updatePlayback)
+
+    const observer = new IntersectionObserver(() => updatePlayback(), {
+      threshold: [0, 0.01, 0.1],
+    })
+    observer.observe(section)
 
     return () => {
-      playObserver.disconnect()
-      pauseObserver.disconnect()
+      retryTimers.forEach((id) => window.clearTimeout(id))
+      window.removeEventListener('scroll', updatePlayback)
+      window.removeEventListener('resize', updatePlayback)
+      window.removeEventListener('hashchange', updatePlayback)
+      observer.disconnect()
       video.pause()
     }
   }, [])
@@ -68,11 +99,6 @@ export default function Reels() {
         background: 'linear-gradient(180deg, #eef3ff 0%, #4a6fd4 45%, #1034a6 100%)',
       }}
     >
-      <div
-        ref={topTriggerRef}
-        className="absolute top-0 left-0 w-full h-px pointer-events-none"
-        aria-hidden
-      />
       <div className="max-w-7xl mx-auto flex flex-col items-center">
         <motion.div
           initial={{ opacity: 0, y: 32 }}
@@ -90,7 +116,6 @@ export default function Reels() {
                 src={REEL_VIDEO}
                 className="absolute inset-0 h-full w-full object-cover"
                 playsInline
-                autoPlay
                 loop
                 preload="auto"
               />
