@@ -19,6 +19,7 @@ export default function Reels() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const shouldPlayRef = useRef(false)
   const unmutedRef = useRef(false)
+  const hasInteractedRef = useRef(false)
 
   useEffect(() => {
     const video = videoRef.current
@@ -32,29 +33,58 @@ export default function Reels() {
     video.playsInline = true
     video.setAttribute('playsinline', '')
     video.setAttribute('webkit-playsinline', '')
+    video.preload = 'auto'
     video.muted = true
     video.defaultMuted = true
-    video.preload = 'auto'
 
     const tryUnmute = () => {
       if (unmutedRef.current || video.paused) return
-      unmutedRef.current = true
+
       video.muted = false
+      unmutedRef.current = true
+
       void video.play().catch(() => {
         video.muted = true
         unmutedRef.current = false
       })
     }
 
+    const enableSound = () => {
+      if (ios) {
+        tryUnmute()
+        return
+      }
+
+      // Chrome, Brave, Firefox, Edge allow unmuting after muted playback starts
+      if (!video.paused) {
+        video.muted = false
+        unmutedRef.current = true
+      }
+    }
+
     const playVideo = () => {
       if (!shouldPlayRef.current) return
 
-      video.muted = unmutedRef.current ? false : true
+      video.muted = true
 
-      void video.play().catch(() => {
-        video.muted = true
-        void video.play().catch(() => {})
-      })
+      void video
+        .play()
+        .then(() => {
+          if (!ios) {
+            enableSound()
+          } else if (hasInteractedRef.current) {
+            tryUnmute()
+          }
+        })
+        .catch(() => {})
+    }
+
+    const markInteracted = () => {
+      hasInteractedRef.current = true
+      if (shouldPlayRef.current) {
+        if (video.paused) playVideo()
+        else if (video.muted) enableSound()
+      }
     }
 
     const pauseVideo = () => {
@@ -88,13 +118,6 @@ export default function Reels() {
       if (shouldPlayRef.current) playVideo()
     }
 
-    const onUserInteract = () => {
-      if (shouldPlayRef.current) {
-        playVideo()
-        tryUnmute()
-      }
-    }
-
     syncPlayback()
 
     video.addEventListener('canplay', onCanPlay)
@@ -102,7 +125,9 @@ export default function Reels() {
 
     window.addEventListener('scroll', syncPlayback, { passive: true })
     window.addEventListener('resize', syncPlayback)
-    window.addEventListener('touchstart', onUserInteract, { passive: true })
+    window.addEventListener('pointerdown', markInteracted, { passive: true })
+    window.addEventListener('keydown', markInteracted)
+    window.addEventListener('touchstart', markInteracted, { passive: true })
 
     // Top-edge sentinel — fires as soon as the tip of reels hits the screen
     const tipObserver = new IntersectionObserver(
@@ -146,7 +171,9 @@ export default function Reels() {
       video.removeEventListener('loadeddata', onCanPlay)
       window.removeEventListener('scroll', syncPlayback)
       window.removeEventListener('resize', syncPlayback)
-      window.removeEventListener('touchstart', onUserInteract)
+      window.removeEventListener('pointerdown', markInteracted)
+      window.removeEventListener('keydown', markInteracted)
+      window.removeEventListener('touchstart', markInteracted)
       tipObserver.disconnect()
       sectionObserver.disconnect()
       video.pause()
@@ -185,9 +212,7 @@ export default function Reels() {
                 src={REEL_VIDEO}
                 className="absolute inset-0 h-full w-full object-cover"
                 playsInline
-                muted
                 loop
-                autoPlay
                 preload="auto"
               />
             </div>
