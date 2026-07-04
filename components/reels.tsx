@@ -4,7 +4,10 @@ import { motion } from 'framer-motion'
 import { useEffect, useRef } from 'react'
 
 const REEL_VIDEO = '/breanna-reel.mp4'
-const PLAY_LEAD_VH = 0.85
+const PLAY_LEAD_VH = 1.75
+const PRELOAD_LEAD_VH = 2.5
+// Keep playing until user scrolls well away — avoids pause/resume when bouncing scroll
+const PAUSE_ABOVE_VH = 1.2
 
 function isIOSDevice() {
   if (typeof navigator === 'undefined') return false
@@ -16,17 +19,16 @@ function isIOSDevice() {
 
 export default function Reels() {
   const sectionRef = useRef<HTMLElement>(null)
-  const topTriggerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const shouldPlayRef = useRef(false)
   const hasLoadedRef = useRef(false)
+  const preloadStartedRef = useRef(false)
   const userEngagedRef = useRef(false)
 
   useEffect(() => {
     const video = videoRef.current
     const section = sectionRef.current
-    const topTrigger = topTriggerRef.current
-    if (!video || !section || !topTrigger) return
+    if (!video || !section) return
 
     const ios = isIOSDevice()
 
@@ -53,18 +55,14 @@ export default function Reels() {
       }
     }
 
-    const playVideo = () => {
+    const unmuteAndPlay = () => {
       if (!shouldPlayRef.current) return
+
       video.muted = false
 
-      void video.play().catch(() => {
-        showPreviewFrame()
-        if (userEngagedRef.current) {
-          window.setTimeout(() => {
-            void video.play().catch(showPreviewFrame)
-          }, 100)
-        }
-      })
+      if (!video.paused) return
+
+      void video.play().catch(showPreviewFrame)
     }
 
     const pauseVideo = () => {
@@ -72,38 +70,49 @@ export default function Reels() {
       video.pause()
     }
 
-    const syncPlayback = () => {
-      markEngaged()
+    const syncPlayback = (fromUserGesture = false) => {
+      if (fromUserGesture) markEngaged()
 
       const { top, bottom } = section.getBoundingClientRect()
       const vh = window.innerHeight
       const playThreshold = vh * (1 + PLAY_LEAD_VH)
+      const preloadThreshold = vh * (1 + PRELOAD_LEAD_VH)
+      const pauseAboveThreshold = vh * PAUSE_ABOVE_VH
 
-      const tipReached = top <= playThreshold
-      const stillVisible = bottom > 0
+      if (top <= preloadThreshold && !preloadStartedRef.current) {
+        preloadStartedRef.current = true
+        video.load()
+      }
 
-      shouldPlayRef.current = tipReached && stillVisible
+      const wantsPlay = top <= playThreshold && bottom > 0
+      const forcePause = bottom <= 0 || top > pauseAboveThreshold
+
+      if (wantsPlay) {
+        shouldPlayRef.current = true
+      } else if (forcePause) {
+        shouldPlayRef.current = false
+      }
 
       if (shouldPlayRef.current) {
-        playVideo()
-      } else if (bottom <= 0 || top > playThreshold + vh * 0.25) {
+        unmuteAndPlay()
+      } else if (forcePause) {
         pauseVideo()
       }
     }
 
     const onVideoReady = () => {
       showPreviewFrame()
-      if (shouldPlayRef.current) playVideo()
+      if (shouldPlayRef.current) unmuteAndPlay()
     }
 
     const onVideoError = () => {
-      if (!hasLoadedRef.current) return
       video.load()
     }
 
     const onUserGesture = () => {
       markEngaged()
-      if (shouldPlayRef.current) playVideo()
+      syncPlayback(true)
+      unmuteAndPlay()
     }
 
     syncPlayback()
@@ -113,8 +122,19 @@ export default function Reels() {
     video.addEventListener('canplaythrough', onVideoReady)
     video.addEventListener('error', onVideoError)
 
-    window.addEventListener('scroll', syncPlayback, { passive: true })
-    window.addEventListener('resize', syncPlayback)
+    let scrollRaf = 0
+    const onScroll = () => {
+      if (scrollRaf) return
+      scrollRaf = window.requestAnimationFrame(() => {
+        scrollRaf = 0
+        syncPlayback(true)
+      })
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+
+    const onResize = () => syncPlayback()
+    window.addEventListener('resize', onResize)
     window.addEventListener('wheel', onUserGesture, { passive: true })
     window.addEventListener('pointerdown', markEngaged, { passive: true })
     window.addEventListener('touchstart', onUserGesture, { passive: true })
@@ -123,40 +143,19 @@ export default function Reels() {
     window.addEventListener('click', onUserGesture)
     window.addEventListener('keydown', markEngaged)
 
-    const tipObserver = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          shouldPlayRef.current = true
-          playVideo()
-        } else {
-          const { top, bottom } = section.getBoundingClientRect()
-          const vh = window.innerHeight
-          const playThreshold = vh * (1 + PLAY_LEAD_VH)
-          if (bottom <= 0 || top > playThreshold + vh * 0.25) {
-            shouldPlayRef.current = false
-            pauseVideo()
-          }
-        }
-      },
-      {
-        threshold: 0,
-        rootMargin: `0px 0px ${Math.round(PLAY_LEAD_VH * 100)}% 0px`,
-      },
-    )
-    tipObserver.observe(topTrigger)
-
-    const retryTimers = (ios ? [0, 150, 400, 800, 1500, 2500] : [0, 150, 400, 800, 1500]).map(
-      (ms) => window.setTimeout(syncPlayback, ms),
+    const retryTimers = (ios ? [0, 50, 150, 300] : [0, 50, 150]).map((ms) =>
+      window.setTimeout(() => syncPlayback(), ms),
     )
 
     return () => {
+      if (scrollRaf) window.cancelAnimationFrame(scrollRaf)
       retryTimers.forEach((id) => window.clearTimeout(id))
       video.removeEventListener('loadeddata', onVideoReady)
       video.removeEventListener('canplay', onVideoReady)
       video.removeEventListener('canplaythrough', onVideoReady)
       video.removeEventListener('error', onVideoError)
-      window.removeEventListener('scroll', syncPlayback)
-      window.removeEventListener('resize', syncPlayback)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onResize)
       window.removeEventListener('wheel', onUserGesture)
       window.removeEventListener('pointerdown', markEngaged)
       window.removeEventListener('touchstart', onUserGesture)
@@ -164,7 +163,6 @@ export default function Reels() {
       window.removeEventListener('touchend', onUserGesture)
       window.removeEventListener('click', onUserGesture)
       window.removeEventListener('keydown', markEngaged)
-      tipObserver.disconnect()
       video.pause()
     }
   }, [])
@@ -178,12 +176,6 @@ export default function Reels() {
         background: 'linear-gradient(180deg, #eef3ff 0%, #4a6fd4 45%, #1034a6 100%)',
       }}
     >
-      <div
-        ref={topTriggerRef}
-        className="absolute top-0 left-0 w-full h-px pointer-events-none"
-        aria-hidden
-      />
-
       <div className="max-w-7xl mx-auto flex flex-col items-center">
         <motion.div
           initial={{ opacity: 0, y: 32 }}
