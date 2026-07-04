@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { useEffect, useRef } from 'react'
 
-const REEL_VIDEO = '/Breanna%202%20(1).mp4'
+const REEL_VIDEO = '/breanna-reel.mp4'
 const PLAY_LEAD_VH = 0.85
 
 function isIOSDevice() {
@@ -20,6 +20,7 @@ export default function Reels() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const shouldPlayRef = useRef(false)
   const hasLoadedRef = useRef(false)
+  const userEngagedRef = useRef(false)
 
   useEffect(() => {
     const video = videoRef.current
@@ -42,6 +43,10 @@ export default function Reels() {
       video.load()
     }
 
+    const markEngaged = () => {
+      userEngagedRef.current = true
+    }
+
     const showPreviewFrame = () => {
       if (video.paused && video.readyState >= 2 && video.currentTime === 0) {
         video.currentTime = 0.01
@@ -51,7 +56,15 @@ export default function Reels() {
     const playVideo = () => {
       if (!shouldPlayRef.current) return
       video.muted = false
-      void video.play().catch(showPreviewFrame)
+
+      void video.play().catch(() => {
+        showPreviewFrame()
+        if (userEngagedRef.current) {
+          window.setTimeout(() => {
+            void video.play().catch(showPreviewFrame)
+          }, 100)
+        }
+      })
     }
 
     const pauseVideo = () => {
@@ -60,6 +73,8 @@ export default function Reels() {
     }
 
     const syncPlayback = () => {
+      markEngaged()
+
       const { top, bottom } = section.getBoundingClientRect()
       const vh = window.innerHeight
       const playThreshold = vh * (1 + PLAY_LEAD_VH)
@@ -81,7 +96,13 @@ export default function Reels() {
       if (shouldPlayRef.current) playVideo()
     }
 
+    const onVideoError = () => {
+      if (!hasLoadedRef.current) return
+      video.load()
+    }
+
     const onUserGesture = () => {
+      markEngaged()
       if (shouldPlayRef.current) playVideo()
     }
 
@@ -89,14 +110,18 @@ export default function Reels() {
 
     video.addEventListener('loadeddata', onVideoReady)
     video.addEventListener('canplay', onVideoReady)
+    video.addEventListener('canplaythrough', onVideoReady)
+    video.addEventListener('error', onVideoError)
 
     window.addEventListener('scroll', syncPlayback, { passive: true })
     window.addEventListener('resize', syncPlayback)
     window.addEventListener('wheel', onUserGesture, { passive: true })
+    window.addEventListener('pointerdown', markEngaged, { passive: true })
     window.addEventListener('touchstart', onUserGesture, { passive: true })
     window.addEventListener('touchmove', onUserGesture, { passive: true })
     window.addEventListener('touchend', onUserGesture, { passive: true })
     window.addEventListener('click', onUserGesture)
+    window.addEventListener('keydown', markEngaged)
 
     const tipObserver = new IntersectionObserver(
       ([entry]) => {
@@ -120,7 +145,7 @@ export default function Reels() {
     )
     tipObserver.observe(topTrigger)
 
-    const retryTimers = (ios ? [0, 150, 400, 800, 1500] : [0, 150, 400, 800]).map(
+    const retryTimers = (ios ? [0, 150, 400, 800, 1500, 2500] : [0, 150, 400, 800, 1500]).map(
       (ms) => window.setTimeout(syncPlayback, ms),
     )
 
@@ -128,13 +153,17 @@ export default function Reels() {
       retryTimers.forEach((id) => window.clearTimeout(id))
       video.removeEventListener('loadeddata', onVideoReady)
       video.removeEventListener('canplay', onVideoReady)
+      video.removeEventListener('canplaythrough', onVideoReady)
+      video.removeEventListener('error', onVideoError)
       window.removeEventListener('scroll', syncPlayback)
       window.removeEventListener('resize', syncPlayback)
       window.removeEventListener('wheel', onUserGesture)
+      window.removeEventListener('pointerdown', markEngaged)
       window.removeEventListener('touchstart', onUserGesture)
       window.removeEventListener('touchmove', onUserGesture)
       window.removeEventListener('touchend', onUserGesture)
       window.removeEventListener('click', onUserGesture)
+      window.removeEventListener('keydown', markEngaged)
       tipObserver.disconnect()
       video.pause()
     }
@@ -169,12 +198,13 @@ export default function Reels() {
             <div className="relative aspect-[9/19] bg-black">
               <video
                 ref={videoRef}
-                src={REEL_VIDEO}
                 className="absolute inset-0 h-full w-full object-cover"
                 playsInline
                 loop
                 preload="auto"
-              />
+              >
+                <source src={REEL_VIDEO} type="video/mp4" />
+              </video>
             </div>
           </div>
         </motion.div>

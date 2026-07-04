@@ -49,6 +49,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`light ${geistSans.variable} ${geistMono.variable} ${cormorant.variable} bg-background`}>
+      <head>
+        <link rel="preload" href="/breanna-reel.mp4" as="video" type="video/mp4" />
+      </head>
       <body className="font-sans antialiased">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
