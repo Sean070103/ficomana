@@ -4,12 +4,22 @@ import { motion } from 'framer-motion'
 import { useEffect, useRef } from 'react'
 
 const REEL_VIDEO = '/Breanna%202%20(1).mp4'
+const PLAY_LEAD_VH = 0.85
+
+function isIOSDevice() {
+  if (typeof navigator === 'undefined') return false
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  )
+}
 
 export default function Reels() {
   const sectionRef = useRef<HTMLElement>(null)
   const topTriggerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const shouldPlayRef = useRef(false)
+  const hasLoadedRef = useRef(false)
 
   useEffect(() => {
     const video = videoRef.current
@@ -17,28 +27,31 @@ export default function Reels() {
     const topTrigger = topTriggerRef.current
     if (!video || !section || !topTrigger) return
 
+    const ios = isIOSDevice()
+
     video.loop = true
     video.playsInline = true
     video.setAttribute('playsinline', '')
     video.setAttribute('webkit-playsinline', '')
-    video.preload = 'auto'
     video.muted = false
+    video.defaultMuted = false
+    video.preload = 'auto'
+
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true
+      video.load()
+    }
+
+    const showPreviewFrame = () => {
+      if (video.paused && video.readyState >= 2 && video.currentTime === 0) {
+        video.currentTime = 0.01
+      }
+    }
 
     const playVideo = () => {
       if (!shouldPlayRef.current) return
-
       video.muted = false
-
-      void video.play().catch(() => {
-        // Browser blocked sound — start muted, then turn sound on immediately
-        video.muted = true
-        void video
-          .play()
-          .then(() => {
-            video.muted = false
-          })
-          .catch(() => {})
-      })
+      void video.play().catch(showPreviewFrame)
     }
 
     const pauseVideo = () => {
@@ -49,88 +62,80 @@ export default function Reels() {
     const syncPlayback = () => {
       const { top, bottom } = section.getBoundingClientRect()
       const vh = window.innerHeight
+      const playThreshold = vh * (1 + PLAY_LEAD_VH)
 
-      if (top <= vh * 1.5 && video.readyState < 2) {
-        video.load()
-      }
-
-      const tipReached = top <= vh
+      const tipReached = top <= playThreshold
       const stillVisible = bottom > 0
 
       shouldPlayRef.current = tipReached && stillVisible
 
       if (shouldPlayRef.current) {
         playVideo()
-      } else if (bottom <= 0 || top > vh) {
+      } else if (bottom <= 0 || top > playThreshold + vh * 0.25) {
         pauseVideo()
       }
     }
 
-    const onCanPlay = () => {
+    const onVideoReady = () => {
+      showPreviewFrame()
       if (shouldPlayRef.current) playVideo()
     }
 
-    const onInteract = () => {
-      if (shouldPlayRef.current) {
-        video.muted = false
-        playVideo()
-      }
+    const onUserGesture = () => {
+      if (shouldPlayRef.current) playVideo()
     }
 
     syncPlayback()
 
-    video.addEventListener('canplay', onCanPlay)
-    video.addEventListener('loadeddata', onCanPlay)
+    video.addEventListener('loadeddata', onVideoReady)
+    video.addEventListener('canplay', onVideoReady)
 
     window.addEventListener('scroll', syncPlayback, { passive: true })
     window.addEventListener('resize', syncPlayback)
-    window.addEventListener('pointerdown', onInteract, { passive: true })
-    window.addEventListener('touchstart', onInteract, { passive: true })
+    window.addEventListener('wheel', onUserGesture, { passive: true })
+    window.addEventListener('touchstart', onUserGesture, { passive: true })
+    window.addEventListener('touchmove', onUserGesture, { passive: true })
+    window.addEventListener('touchend', onUserGesture, { passive: true })
+    window.addEventListener('click', onUserGesture)
 
     const tipObserver = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           shouldPlayRef.current = true
-          if (video.readyState < 2) video.load()
           playVideo()
         } else {
           const { top, bottom } = section.getBoundingClientRect()
           const vh = window.innerHeight
-          if (bottom <= 0 || top > vh) {
+          const playThreshold = vh * (1 + PLAY_LEAD_VH)
+          if (bottom <= 0 || top > playThreshold + vh * 0.25) {
             shouldPlayRef.current = false
             pauseVideo()
           }
         }
       },
-      { threshold: 0 },
+      {
+        threshold: 0,
+        rootMargin: `0px 0px ${Math.round(PLAY_LEAD_VH * 100)}% 0px`,
+      },
     )
     tipObserver.observe(topTrigger)
 
-    const sectionObserver = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          shouldPlayRef.current = true
-          playVideo()
-        }
-      },
-      { threshold: 0 },
-    )
-    sectionObserver.observe(section)
-
-    const retryTimers = [0, 100, 300, 600, 1200].map((ms) =>
-      window.setTimeout(syncPlayback, ms),
+    const retryTimers = (ios ? [0, 150, 400, 800, 1500] : [0, 150, 400, 800]).map(
+      (ms) => window.setTimeout(syncPlayback, ms),
     )
 
     return () => {
       retryTimers.forEach((id) => window.clearTimeout(id))
-      video.removeEventListener('canplay', onCanPlay)
-      video.removeEventListener('loadeddata', onCanPlay)
+      video.removeEventListener('loadeddata', onVideoReady)
+      video.removeEventListener('canplay', onVideoReady)
       window.removeEventListener('scroll', syncPlayback)
       window.removeEventListener('resize', syncPlayback)
-      window.removeEventListener('pointerdown', onInteract)
-      window.removeEventListener('touchstart', onInteract)
+      window.removeEventListener('wheel', onUserGesture)
+      window.removeEventListener('touchstart', onUserGesture)
+      window.removeEventListener('touchmove', onUserGesture)
+      window.removeEventListener('touchend', onUserGesture)
+      window.removeEventListener('click', onUserGesture)
       tipObserver.disconnect()
-      sectionObserver.disconnect()
       video.pause()
     }
   }, [])
