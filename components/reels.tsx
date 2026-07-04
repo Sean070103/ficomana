@@ -3,89 +3,152 @@
 import { motion } from 'framer-motion'
 import { useEffect, useRef } from 'react'
 
-const REEL_VIDEO = '/Breanna 2 (1).mp4'
+const REEL_VIDEO = '/Breanna%202%20(1).mp4'
+
+function isIOSDevice() {
+  if (typeof navigator === 'undefined') return false
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  )
+}
 
 export default function Reels() {
   const sectionRef = useRef<HTMLElement>(null)
+  const topTriggerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const shouldPlayRef = useRef(false)
+  const unmutedRef = useRef(false)
 
   useEffect(() => {
     const video = videoRef.current
     const section = sectionRef.current
-    if (!video || !section) return
+    const topTrigger = topTriggerRef.current
+    if (!video || !section || !topTrigger) return
+
+    const ios = isIOSDevice()
 
     video.loop = true
     video.playsInline = true
+    video.setAttribute('playsinline', '')
+    video.setAttribute('webkit-playsinline', '')
+    video.muted = true
+    video.defaultMuted = true
     video.preload = 'auto'
 
-    let active = false
+    const tryUnmute = () => {
+      if (unmutedRef.current || video.paused) return
+      unmutedRef.current = true
+      video.muted = false
+      void video.play().catch(() => {
+        video.muted = true
+        unmutedRef.current = false
+      })
+    }
 
     const playVideo = () => {
-      if (active) return
-      active = true
+      if (!shouldPlayRef.current) return
 
-      const tryPlay = (muted: boolean) => {
-        video.muted = muted
-        return video.play()
-      }
+      video.muted = unmutedRef.current ? false : true
 
-      tryPlay(false).catch(() => {
-        tryPlay(true)
-          .then(() => {
-            const unmute = () => {
-              video.muted = false
-            }
-            window.addEventListener('scroll', unmute, { once: true, passive: true })
-            window.addEventListener('click', unmute, { once: true })
-          })
-          .catch(() => {
-            active = false
-          })
+      void video.play().catch(() => {
+        video.muted = true
+        void video.play().catch(() => {})
       })
     }
 
     const pauseVideo = () => {
-      if (!active) return
+      if (video.paused) return
       video.pause()
-      video.currentTime = 0
-      active = false
     }
 
-    const updatePlayback = () => {
+    const syncPlayback = () => {
       const { top, bottom } = section.getBoundingClientRect()
       const vh = window.innerHeight
 
-      // Play once the top edge of reels crosses into view (with a small lead-in)
-      const topReached = top <= vh + 80
+      // Preload while user is scrolling toward reels
+      if (top <= vh * 1.5 && video.readyState < 2) {
+        video.load()
+      }
+
+      // Play the moment the top edge of reels enters the viewport
+      const tipReached = top <= vh
       const stillVisible = bottom > 0
 
-      if (topReached && stillVisible) {
+      shouldPlayRef.current = tipReached && stillVisible
+
+      if (shouldPlayRef.current) {
         playVideo()
-      } else if (bottom <= 0 || top > vh + 80) {
+      } else if (bottom <= 0 || top > vh) {
         pauseVideo()
       }
     }
 
-    updatePlayback()
-    requestAnimationFrame(updatePlayback)
+    const onCanPlay = () => {
+      if (shouldPlayRef.current) playVideo()
+    }
 
-    const retryTimers = [100, 300, 600].map((ms) => window.setTimeout(updatePlayback, ms))
+    const onUserInteract = () => {
+      if (shouldPlayRef.current) {
+        playVideo()
+        tryUnmute()
+      }
+    }
 
-    window.addEventListener('scroll', updatePlayback, { passive: true })
-    window.addEventListener('resize', updatePlayback)
-    window.addEventListener('hashchange', updatePlayback)
+    syncPlayback()
 
-    const observer = new IntersectionObserver(() => updatePlayback(), {
-      threshold: [0, 0.01, 0.1],
-    })
-    observer.observe(section)
+    video.addEventListener('canplay', onCanPlay)
+    video.addEventListener('loadeddata', onCanPlay)
+
+    window.addEventListener('scroll', syncPlayback, { passive: true })
+    window.addEventListener('resize', syncPlayback)
+    window.addEventListener('touchstart', onUserInteract, { passive: true })
+
+    // Top-edge sentinel — fires as soon as the tip of reels hits the screen
+    const tipObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          shouldPlayRef.current = true
+          if (video.readyState < 2) video.load()
+          playVideo()
+        } else {
+          const { top, bottom } = section.getBoundingClientRect()
+          const vh = window.innerHeight
+          if (bottom <= 0 || top > vh) {
+            shouldPlayRef.current = false
+            pauseVideo()
+          }
+        }
+      },
+      { threshold: 0 },
+    )
+    tipObserver.observe(topTrigger)
+
+    // Backup observer on full section for iOS momentum scroll
+    const sectionObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          shouldPlayRef.current = true
+          playVideo()
+        }
+      },
+      { threshold: 0 },
+    )
+    sectionObserver.observe(section)
+
+    const retryTimers = (ios ? [0, 100, 300, 600, 1200] : [0, 100, 300, 600]).map((ms) =>
+      window.setTimeout(syncPlayback, ms),
+    )
 
     return () => {
       retryTimers.forEach((id) => window.clearTimeout(id))
-      window.removeEventListener('scroll', updatePlayback)
-      window.removeEventListener('resize', updatePlayback)
-      window.removeEventListener('hashchange', updatePlayback)
-      observer.disconnect()
+      video.removeEventListener('canplay', onCanPlay)
+      video.removeEventListener('loadeddata', onCanPlay)
+      window.removeEventListener('scroll', syncPlayback)
+      window.removeEventListener('resize', syncPlayback)
+      window.removeEventListener('touchstart', onUserInteract)
+      tipObserver.disconnect()
+      sectionObserver.disconnect()
       video.pause()
     }
   }, [])
@@ -99,6 +162,12 @@ export default function Reels() {
         background: 'linear-gradient(180deg, #eef3ff 0%, #4a6fd4 45%, #1034a6 100%)',
       }}
     >
+      <div
+        ref={topTriggerRef}
+        className="absolute top-0 left-0 w-full h-px pointer-events-none"
+        aria-hidden
+      />
+
       <div className="max-w-7xl mx-auto flex flex-col items-center">
         <motion.div
           initial={{ opacity: 0, y: 32 }}
@@ -116,7 +185,9 @@ export default function Reels() {
                 src={REEL_VIDEO}
                 className="absolute inset-0 h-full w-full object-cover"
                 playsInline
+                muted
                 loop
+                autoPlay
                 preload="auto"
               />
             </div>
@@ -130,7 +201,10 @@ export default function Reels() {
           viewport={{ once: true }}
           className="mt-8 sm:mt-10 md:mt-12 lg:mt-14 text-center px-4"
         >
-          <h2 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-[0.05em] sm:tracking-[0.08em] uppercase text-white" style={{ fontFamily: 'var(--font-aileron)' }}>
+          <h2
+            className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-[0.05em] sm:tracking-[0.08em] uppercase text-white"
+            style={{ fontFamily: 'var(--font-aileron)' }}
+          >
             Graduation Shoot Reels
           </h2>
           <p className="mt-1.5 sm:mt-2 text-xs xs:text-sm md:text-base lg:text-lg font-light tracking-[0.25em] sm:tracking-[0.35em] uppercase text-white/80">
