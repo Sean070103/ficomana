@@ -93,27 +93,18 @@ export default function Reels() {
     video.addEventListener('canplay', onVideoReady)
     video.addEventListener('canplaythrough', onVideoReady)
 
-    let scrollRaf = 0
-    const onScroll = () => {
-      if (scrollRaf) return
-      scrollRaf = window.requestAnimationFrame(() => {
-        scrollRaf = 0
-        syncPlayback()
-      })
-    }
-
-    window.addEventListener('scroll', onScroll, { passive: true })
+    // Must run synchronously inside scroll/wheel/touchmove so play() keeps user-gesture access
+    window.addEventListener('scroll', syncPlayback, { passive: true })
+    window.addEventListener('wheel', syncPlayback, { passive: true })
+    window.addEventListener('touchmove', syncPlayback, { passive: true })
 
     const onResize = () => syncPlayback()
     window.addEventListener('resize', onResize)
 
-    const observer = new IntersectionObserver(
-      () => syncPlayback(),
-      {
-        threshold: 0,
-        rootMargin: `0px 0px ${Math.round(PLAY_LEAD_VH * 100)}% 0px`,
-      },
-    )
+    const observer = new IntersectionObserver(() => syncPlayback(), {
+      threshold: 0,
+      rootMargin: `0px 0px ${Math.round(PLAY_LEAD_VH * 100)}% 0px`,
+    })
     observer.observe(section)
 
     const retryTimers = [0, 50, 150, 300, 600].map((ms) =>
@@ -121,12 +112,13 @@ export default function Reels() {
     )
 
     return () => {
-      if (scrollRaf) window.cancelAnimationFrame(scrollRaf)
       retryTimers.forEach((id) => window.clearTimeout(id))
       video.removeEventListener('loadeddata', onVideoReady)
       video.removeEventListener('canplay', onVideoReady)
       video.removeEventListener('canplaythrough', onVideoReady)
-      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('scroll', syncPlayback)
+      window.removeEventListener('wheel', syncPlayback)
+      window.removeEventListener('touchmove', syncPlayback)
       window.removeEventListener('resize', onResize)
       observer.disconnect()
       video.pause()
