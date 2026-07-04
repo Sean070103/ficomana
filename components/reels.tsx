@@ -8,22 +8,32 @@ const PLAY_LEAD_VH = 1.75
 const PRELOAD_LEAD_VH = 2.5
 const PAUSE_ABOVE_VH = 1.2
 
+function isAndroidDevice() {
+  if (typeof navigator === 'undefined') return false
+  return /Android/i.test(navigator.userAgent)
+}
+
 export default function Reels() {
   const sectionRef = useRef<HTMLElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const shouldPlayRef = useRef(false)
   const hasLoadedRef = useRef(false)
   const preloadStartedRef = useRef(false)
+  const needsUnmuteRef = useRef(false)
 
   useEffect(() => {
     const video = videoRef.current
     const section = sectionRef.current
     if (!video || !section) return
 
+    const android = isAndroidDevice()
+
     video.loop = true
     video.playsInline = true
     video.setAttribute('playsinline', '')
     video.setAttribute('webkit-playsinline', '')
+    video.setAttribute('x5-playsinline', 'true')
+    video.setAttribute('x5-video-player-type', 'h5')
     video.muted = false
     video.defaultMuted = false
     video.preload = 'auto'
@@ -42,16 +52,34 @@ export default function Reels() {
     const playVideo = () => {
       if (!shouldPlayRef.current) return
 
-      video.muted = false
+      if (needsUnmuteRef.current) {
+        needsUnmuteRef.current = false
+        video.muted = false
+      } else {
+        video.muted = false
+      }
 
-      if (!video.paused) return
+      if (!video.paused && !video.muted) return
 
-      void video.play().catch(showPreviewFrame)
+      void video.play().catch(() => {
+        if (android && video.paused) {
+          video.muted = true
+          void video
+            .play()
+            .then(() => {
+              needsUnmuteRef.current = true
+            })
+            .catch(showPreviewFrame)
+        } else {
+          showPreviewFrame()
+        }
+      })
     }
 
     const pauseVideo = () => {
       if (video.paused) return
       video.pause()
+      needsUnmuteRef.current = false
     }
 
     const syncPlayback = () => {
@@ -93,10 +121,13 @@ export default function Reels() {
     video.addEventListener('canplay', onVideoReady)
     video.addEventListener('canplaythrough', onVideoReady)
 
-    // Must run synchronously inside scroll/wheel/touchmove so play() keeps user-gesture access
+    const touchOpts = { passive: true, capture: true } as const
+
+    // Android Chrome often ignores scroll for play(); touchstart/touchmove carry the gesture
+    window.addEventListener('touchstart', syncPlayback, touchOpts)
+    window.addEventListener('touchmove', syncPlayback, touchOpts)
     window.addEventListener('scroll', syncPlayback, { passive: true })
     window.addEventListener('wheel', syncPlayback, { passive: true })
-    window.addEventListener('touchmove', syncPlayback, { passive: true })
 
     const onResize = () => syncPlayback()
     window.addEventListener('resize', onResize)
@@ -116,9 +147,10 @@ export default function Reels() {
       video.removeEventListener('loadeddata', onVideoReady)
       video.removeEventListener('canplay', onVideoReady)
       video.removeEventListener('canplaythrough', onVideoReady)
+      window.removeEventListener('touchstart', syncPlayback, touchOpts)
+      window.removeEventListener('touchmove', syncPlayback, touchOpts)
       window.removeEventListener('scroll', syncPlayback)
       window.removeEventListener('wheel', syncPlayback)
-      window.removeEventListener('touchmove', syncPlayback)
       window.removeEventListener('resize', onResize)
       observer.disconnect()
       video.pause()
