@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { enrichBookingDisplay } from '@/lib/booking-display'
 import ReceiptPreview from '@/components/receipt-preview'
+import { adminPage, adminTitle, adminSubtitle, adminSpinnerWrap, adminSpinner } from '@/lib/admin-ui'
 
 export default function PaymentVerificationQueue() {
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -148,6 +149,9 @@ export default function PaymentVerificationQueue() {
     }
   }
 
+  const receiptModalBooking =
+    showReceiptModal && selectedBooking ? enrichBookingDisplay(selectedBooking) : null
+
   if (loading) {
     return (
       <div className={adminSpinnerWrap}>
@@ -249,18 +253,16 @@ export default function PaymentVerificationQueue() {
       )}
 
       {/* 1. RECEIPT VIEWER MODAL */}
-      {showReceiptModal && selectedBooking && (() => {
-        const display = enrichBookingDisplay(selectedBooking)
-        return (
+      {receiptModalBooking && selectedBooking && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="border border-white/10 bg-[#0A0A0F] shadow-2xl max-w-4xl w-full flex flex-col md:flex-row overflow-hidden max-h-[90vh]">
             <div className="md:w-1/2 bg-white/[0.05] border-r border-white/10 relative min-h-[300px] flex items-center justify-center">
-              {display.receiptUrl && display.receiptUrl.endsWith('.pdf') ? (
+              {receiptModalBooking.receiptUrl && receiptModalBooking.receiptUrl.endsWith('.pdf') ? (
                 <div className="p-12 text-center text-white/50 space-y-4">
                   <FileText className="w-20 h-20 text-primary/50 mx-auto" />
                   <p className="text-sm font-semibold uppercase tracking-wider">PDF Receipt Attachment</p>
                   <a 
-                    href={display.receiptUrl} 
+                    href={receiptModalBooking.receiptUrl} 
                     target="_blank" 
                     rel="noopener noreferrer" 
                     className="inline-flex items-center gap-1.5 text-xs text-primary font-bold hover:underline"
@@ -269,7 +271,7 @@ export default function PaymentVerificationQueue() {
                   </a>
                 </div>
               ) : (
-                <ReceiptPreview receiptUrl={display.receiptUrl} fill className="min-h-[300px]" />
+                <ReceiptPreview receiptUrl={receiptModalBooking.receiptUrl} fill className="min-h-[300px]" />
               )}
             </div>
 
@@ -331,7 +333,7 @@ export default function PaymentVerificationQueue() {
                   </div>
                   <div>
                     <p className="text-white/40 font-medium text-[8px] uppercase tracking-wider">GCash Transaction Ref</p>
-                    <p className="font-mono font-bold text-white/90 bg-black/40 border border-white/10 px-2 py-0.5 inline-block">{display.transactionRef || 'Not provided'}</p>
+                    <p className="font-mono font-bold text-white/90 bg-black/40 border border-white/10 px-2 py-0.5 inline-block">{receiptModalBooking.transactionRef || 'Not provided'}</p>
                   </div>
                   <div>
                     <p className="text-white/40 font-medium text-[8px] uppercase tracking-wider">Total Package Price</p>
@@ -376,9 +378,9 @@ export default function PaymentVerificationQueue() {
                 </div>
 
                 <div className="flex justify-between items-center text-xs">
-                  {display.receiptUrl && (
+                  {receiptModalBooking.receiptUrl && (
                     <a
-                      href={display.receiptUrl}
+                      href={receiptModalBooking.receiptUrl}
                       download={`receipt-${selectedBooking.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -398,8 +400,7 @@ export default function PaymentVerificationQueue() {
             </div>
           </div>
         </div>
-        )
-      })()}
+      )}
 
       {/* 2. REJECT PAYMENT MODAL */}
       {showRejectModal && selectedBooking && (
