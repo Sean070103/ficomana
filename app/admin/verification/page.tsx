@@ -14,8 +14,8 @@ import {
   RefreshCw,
   AlertCircle
 } from 'lucide-react'
-import Image from 'next/image'
-import { adminPage, adminTitle, adminSubtitle, adminSpinnerWrap, adminSpinner, adminOverlay, adminModal, adminInput, adminLabel } from '@/lib/admin-ui'
+import { enrichBookingDisplay } from '@/lib/booking-display'
+import ReceiptPreview from '@/components/receipt-preview'
 
 export default function PaymentVerificationQueue() {
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -33,7 +33,9 @@ export default function PaymentVerificationQueue() {
     try {
       const data = await getBookings()
       // Filter only bookings that are pending payment verification
-      const queue = data.filter(b => b.bookingStatus === 'Pending Verification')
+      const queue = data
+        .filter((b) => b.bookingStatus === 'Pending Verification')
+        .map(enrichBookingDisplay)
       setBookings(queue)
     } catch (err) {
       console.error(err)
@@ -171,36 +173,20 @@ export default function PaymentVerificationQueue() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {bookings.map((booking) => (
+          {bookings.map((booking) => {
+            const display = enrichBookingDisplay(booking)
+            return (
             <div key={booking.id} className="border border-white/10 bg-white/[0.02] flex flex-col justify-between overflow-hidden">
               {/* Receipt Preview Thumbnail */}
               <div 
                 className="h-48 bg-white/[0.05] relative overflow-hidden group cursor-pointer border-b border-white/10"
                 onClick={() => {
-                  setSelectedBooking(booking)
+                  setSelectedBooking(display)
                   setShowReceiptModal(true)
                 }}
               >
-                {booking.receiptUrl ? (
-                  booking.receiptUrl.endsWith('.pdf') ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-white/50 gap-2">
-                      <FileText className="w-12 h-12 text-[#0500D0]/60" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider">PDF Receipt Document</span>
-                    </div>
-                  ) : (
-                    <Image
-                      src={booking.receiptUrl}
-                      alt="Receipt preview"
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  )
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/40">
-                    No receipt image
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold uppercase tracking-widest">
+                <ReceiptPreview receiptUrl={display.receiptUrl} fill className="h-48" />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold uppercase tracking-widest pointer-events-none">
                   View Large Receipt
                 </div>
               </div>
@@ -225,7 +211,7 @@ export default function PaymentVerificationQueue() {
                   </div>
                   <div>
                     <p className="text-white/40 font-medium text-[9px] uppercase tracking-wider">GCash Transaction Ref</p>
-                    <p className="font-mono font-bold text-white/90">{booking.transactionRef || 'N/A'}</p>
+                    <p className="font-mono font-bold text-white/90">{display.transactionRef || 'Not provided'}</p>
                   </div>
                   <div className="col-span-2 border-t border-white/10 pt-3">
                     <div className="flex justify-between items-center text-[11px]">
@@ -239,7 +225,7 @@ export default function PaymentVerificationQueue() {
               {/* Action Buttons */}
               <div className="bg-white/[0.03] px-5 py-3 border-t border-white/10 flex gap-2">
                 <button
-                  onClick={() => handleApprove(booking)}
+                  onClick={() => handleApprove(display)}
                   disabled={actionLoading}
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold uppercase tracking-wider py-2 flex items-center justify-center gap-1 transition-colors"
                 >
@@ -247,7 +233,7 @@ export default function PaymentVerificationQueue() {
                 </button>
                 <button
                   onClick={() => {
-                    setSelectedBooking(booking)
+                    setSelectedBooking(display)
                     setShowRejectModal(true)
                   }}
                   disabled={actionLoading}
@@ -257,42 +243,33 @@ export default function PaymentVerificationQueue() {
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
       {/* 1. RECEIPT VIEWER MODAL */}
-      {showReceiptModal && selectedBooking && (
+      {showReceiptModal && selectedBooking && (() => {
+        const display = enrichBookingDisplay(selectedBooking)
+        return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="border border-white/10 bg-[#0A0A0F] shadow-2xl max-w-4xl w-full flex flex-col md:flex-row overflow-hidden max-h-[90vh]">
-            {/* Receipt Preview Panel */}
             <div className="md:w-1/2 bg-white/[0.05] border-r border-white/10 relative min-h-[300px] flex items-center justify-center">
-              {selectedBooking.receiptUrl ? (
-                selectedBooking.receiptUrl.endsWith('.pdf') ? (
-                  <div className="p-12 text-center text-white/50 space-y-4">
-                    <FileText className="w-20 h-20 text-[#0500D0]/50 mx-auto" />
-                    <p className="text-sm font-semibold uppercase tracking-wider">PDF Receipt Attachment</p>
-                    <a 
-                      href={selectedBooking.receiptUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="inline-flex items-center gap-1.5 text-xs text-[#0500D0] font-bold hover:underline"
-                    >
-                      Open PDF in new tab <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                ) : (
-                  <div className="w-full h-full relative aspect-square md:aspect-auto">
-                    <Image
-                      src={selectedBooking.receiptUrl}
-                      alt="GCash Receipt Large"
-                      fill
-                      className="object-contain"
-                    />
-                  </div>
-                )
+              {display.receiptUrl && display.receiptUrl.endsWith('.pdf') ? (
+                <div className="p-12 text-center text-white/50 space-y-4">
+                  <FileText className="w-20 h-20 text-primary/50 mx-auto" />
+                  <p className="text-sm font-semibold uppercase tracking-wider">PDF Receipt Attachment</p>
+                  <a 
+                    href={display.receiptUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="inline-flex items-center gap-1.5 text-xs text-primary font-bold hover:underline"
+                  >
+                    Open PDF in new tab <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
               ) : (
-                <div className="text-white/40">No receipt file uploaded</div>
+                <ReceiptPreview receiptUrl={display.receiptUrl} fill className="min-h-[300px]" />
               )}
             </div>
 
@@ -354,7 +331,7 @@ export default function PaymentVerificationQueue() {
                   </div>
                   <div>
                     <p className="text-white/40 font-medium text-[8px] uppercase tracking-wider">GCash Transaction Ref</p>
-                    <p className="font-mono font-bold text-white/90 bg-black/40 border border-white/10 px-2 py-0.5 inline-block">{selectedBooking.transactionRef || 'N/A'}</p>
+                    <p className="font-mono font-bold text-white/90 bg-black/40 border border-white/10 px-2 py-0.5 inline-block">{display.transactionRef || 'Not provided'}</p>
                   </div>
                   <div>
                     <p className="text-white/40 font-medium text-[8px] uppercase tracking-wider">Total Package Price</p>
@@ -399,9 +376,9 @@ export default function PaymentVerificationQueue() {
                 </div>
 
                 <div className="flex justify-between items-center text-xs">
-                  {selectedBooking.receiptUrl && (
+                  {display.receiptUrl && (
                     <a
-                      href={selectedBooking.receiptUrl}
+                      href={display.receiptUrl}
                       download={`receipt-${selectedBooking.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -421,7 +398,8 @@ export default function PaymentVerificationQueue() {
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* 2. REJECT PAYMENT MODAL */}
       {showRejectModal && selectedBooking && (

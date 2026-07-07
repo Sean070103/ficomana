@@ -3,6 +3,44 @@ import type { Booking } from '@/lib/data-store'
 export type DbBookingRow = Record<string, unknown>
 
 export function mapDbBookingToModel(b: DbBookingRow): Booking {
+  const note = b.note ? String(b.note) : undefined
+  let receiptUrl = b.receipt_url ? String(b.receipt_url) : undefined
+  let transactionRef =
+    b.transaction_ref && String(b.transaction_ref).trim()
+      ? String(b.transaction_ref).trim()
+      : undefined
+
+  if (note) {
+    if (!receiptUrl) {
+      const fromNote = note
+        .split(' · ')
+        .find((p) => p.startsWith('Receipt: '))
+        ?.slice('Receipt: '.length)
+        .trim()
+      if (fromNote && fromNote !== '(receipt on file)') receiptUrl = fromNote
+    }
+    if (!transactionRef) {
+      const fromNote = note
+        .split(' · ')
+        .find((p) => p.startsWith('TxnRef: '))
+        ?.slice('TxnRef: '.length)
+        .trim()
+      if (fromNote) transactionRef = fromNote
+    }
+  }
+
+  const paymentHistory =
+    typeof b.payment_history === 'string'
+      ? JSON.parse(b.payment_history)
+      : Array.isArray(b.payment_history)
+        ? (b.payment_history as Booking['paymentHistory'])
+        : (b.payment_history as Booking['paymentHistory']) || []
+
+  if (!transactionRef && paymentHistory.length) {
+    const deposit = paymentHistory.find((p: { type?: string }) => p.type === 'Deposit')
+    if (deposit?.transactionRef?.trim()) transactionRef = deposit.transactionRef.trim()
+  }
+
   return {
     id: String(b.id),
     customerName: String(b.customer_name),
@@ -18,7 +56,7 @@ export function mapDbBookingToModel(b: DbBookingRow): Booking {
     arrivalTime: b.arrival_time ? String(b.arrival_time) : undefined,
     shootTime: b.shoot_time ? String(b.shoot_time) : undefined,
     isWalkIn: Boolean(b.is_walk_in),
-    note: b.note ? String(b.note) : undefined,
+    note,
     staffNotes: b.staff_notes ? String(b.staff_notes) : undefined,
     schoolName: b.school_name ? String(b.school_name) : undefined,
     course: b.course ? String(b.course) : undefined,
@@ -28,18 +66,13 @@ export function mapDbBookingToModel(b: DbBookingRow): Booking {
     backgroundColor: b.background_color ? String(b.background_color) : undefined,
     depositAmount: Number(b.deposit_amount),
     price: Number(b.price),
-    transactionRef: b.transaction_ref ? String(b.transaction_ref) : undefined,
+    transactionRef,
     bookingStatus: b.booking_status as Booking['bookingStatus'],
     paymentStatus: b.payment_status as Booking['paymentStatus'],
     rejectionReason: b.rejection_reason ? String(b.rejection_reason) : undefined,
     createdAt: String(b.created_at),
-    receiptUrl: b.receipt_url ? String(b.receipt_url) : undefined,
-    paymentHistory:
-      typeof b.payment_history === 'string'
-        ? JSON.parse(b.payment_history)
-        : Array.isArray(b.payment_history)
-          ? (b.payment_history as Booking['paymentHistory'])
-          : (b.payment_history as Booking['paymentHistory']) || [],
+    receiptUrl,
+    paymentHistory,
     driveLink: b.drive_link ? String(b.drive_link) : undefined,
   }
 }
@@ -55,6 +88,7 @@ export function mapModelBookingToDbCore(b: Booking): Record<string, unknown> {
   if (b.togaColor) extras.push(`Toga: ${b.togaColor}`)
   if (b.tasselColor) extras.push(`Tassel: ${b.tasselColor}`)
   if (b.backgroundColor) extras.push(`Background: ${b.backgroundColor}`)
+  if (b.transactionRef?.trim()) extras.push(`TxnRef: ${b.transactionRef.trim()}`)
   if (b.receiptUrl) {
     const receiptNote = b.receiptUrl.startsWith('data:') ? '(receipt on file)' : b.receiptUrl
     extras.push(`Receipt: ${receiptNote}`)
@@ -77,7 +111,7 @@ export function mapModelBookingToDbCore(b: Booking): Record<string, unknown> {
     staff_notes: b.staffNotes ?? null,
     deposit_amount: b.depositAmount,
     price: b.price,
-    transaction_ref: b.transactionRef ?? null,
+    transaction_ref: b.transactionRef?.trim() || null,
     booking_status: b.bookingStatus,
     payment_status: b.paymentStatus,
     rejection_reason: b.rejectionReason ?? null,
@@ -112,7 +146,7 @@ export function mapModelBookingToDb(b: Booking): Record<string, unknown> {
     background_color: b.backgroundColor ?? null,
     deposit_amount: b.depositAmount,
     price: b.price,
-    transaction_ref: b.transactionRef ?? null,
+    transaction_ref: b.transactionRef?.trim() || null,
     booking_status: b.bookingStatus,
     payment_status: b.paymentStatus,
     rejection_reason: b.rejectionReason ?? null,

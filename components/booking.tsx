@@ -130,6 +130,13 @@ function BookingForm() {
   const [transactionRef, setTransactionRef] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [bookingId, setBookingId] = useState('')
+  const [submittedSummary, setSubmittedSummary] = useState<{
+    paymentMethod: 'GCash' | 'BPI'
+    transactionRef: string
+    depositAmount: number
+    packageName: string
+    bookingDate: string
+  } | null>(null)
   const [allBookings, setAllBookings] = useState<any[]>([])
   const [packages, setPackages] = useState<BookingPackage[]>([])
   const [copiedText, setCopiedText] = useState(false)
@@ -283,6 +290,13 @@ function BookingForm() {
         ],
       }
       const saved = await saveBooking(booking)
+      setSubmittedSummary({
+        paymentMethod,
+        transactionRef: transactionRef.trim(),
+        depositAmount: 500,
+        packageName: selectedSession.title,
+        bookingDate: dk,
+      })
       await dispatchEmail({ action: 'booking_created', booking: saved })
       await dispatchEmail({ action: 'payment_received', booking: saved })
       setBookingId(id)
@@ -314,6 +328,7 @@ function BookingForm() {
     setBackgroundColor('Gray')
     setReceiptFile(null)
     setTransactionRef('')
+    setSubmittedSummary(null)
   }
 
   return (
@@ -676,7 +691,9 @@ function BookingForm() {
         {step === 5 && (
           <form onSubmit={submitBooking} className="w-full max-w-lg mx-auto space-y-5 sm:space-y-6 px-1 sm:px-0">
             <h3 className="text-lg font-semibold text-center text-white">Deposit — PHP 500</h3>
-            <p className="text-sm text-center text-muted-foreground">Upload your GCash or BPI payment receipt to complete your booking.</p>
+            <p className="text-sm text-center text-muted-foreground">
+              Upload a clear screenshot of your {paymentMethod} payment receipt (not a studio photo).
+            </p>
             <div className="flex gap-2 justify-center">
               {(['GCash', 'BPI'] as const).map((m) => (
                 <button
@@ -691,7 +708,16 @@ function BookingForm() {
                 </button>
               ))}
             </div>
-            <input value={transactionRef} onChange={(e) => setTransactionRef(e.target.value)} placeholder="Transaction reference (optional)" className={inputClass} />
+            <div>
+              <label className={labelClass}>GCash / BPI Transaction Reference *</label>
+              <input
+                required
+                value={transactionRef}
+                onChange={(e) => setTransactionRef(e.target.value)}
+                placeholder="e.g. 1234567890"
+                className={inputClass + ' mt-1.5 font-mono'}
+              />
+            </div>
             <div
               onClick={() => fileInputRef.current?.click()}
               className="border-2 border-dashed border-white/20 p-6 sm:p-10 text-center cursor-pointer hover:border-primary/40 hover:bg-white/[0.03] transition-colors"
@@ -704,7 +730,7 @@ function BookingForm() {
               <button type="button" onClick={() => setStep(4)} className={btnBackClass}>
                 Back
               </button>
-              <button type="submit" disabled={!receiptFile || isSubmitting} className={btnPrimaryClass}>
+              <button type="submit" disabled={!receiptFile || !transactionRef.trim() || isSubmitting} className={btnPrimaryClass}>
                 {isSubmitting ? 'Submitting...' : 'Submit Booking'}
               </button>
             </div>
@@ -719,12 +745,37 @@ function BookingForm() {
             </div>
             <h3 className="text-xl font-semibold text-white">Booking Submitted</h3>
             <p className="text-sm text-muted-foreground">Your deposit is pending verification. You will receive a confirmation email once approved.</p>
-            <div className="border border-primary/30 bg-primary/10 p-6">
-              <p className="text-[9px] uppercase tracking-wider text-white/40">Tracking No.</p>
-              <p className="text-2xl font-bold text-primary font-mono mt-1">{bookingId}</p>
-              <button type="button" onClick={() => { navigator.clipboard.writeText(bookingId); setCopiedText(true) }} className="text-[10px] text-primary mt-3 inline-flex items-center gap-1">
-                <Copy className="w-3 h-3" /> {copiedText ? 'Copied!' : 'Copy'}
-              </button>
+            <div className="border border-primary/30 bg-primary/10 p-6 space-y-4 text-left">
+              <div>
+                <p className="text-[9px] uppercase tracking-wider text-white/40">Tracking No.</p>
+                <p className="text-2xl font-bold text-primary font-mono mt-1">{bookingId}</p>
+                <button type="button" onClick={() => { navigator.clipboard.writeText(bookingId); setCopiedText(true) }} className="text-[10px] text-primary mt-3 inline-flex items-center gap-1">
+                  <Copy className="w-3 h-3" /> {copiedText ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              {submittedSummary && (
+                <div className="border-t border-primary/20 pt-4 space-y-2 text-sm">
+                  <p className="text-[9px] uppercase tracking-wider text-white/40">Payment Submitted</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <p className="text-white/40">Method</p>
+                      <p className="font-semibold text-white">{submittedSummary.paymentMethod}</p>
+                    </div>
+                    <div>
+                      <p className="text-white/40">Deposit</p>
+                      <p className="font-semibold text-primary">₱{submittedSummary.depositAmount.toFixed(2)}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-white/40">Transaction Reference</p>
+                      <p className="font-mono font-bold text-white">{submittedSummary.transactionRef}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-white/40">Package · Date</p>
+                      <p className="text-white/80">{submittedSummary.packageName} · {submittedSummary.bookingDate}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <button type="button" onClick={resetBooking} className={btnBackClass + ' inline-flex items-center gap-2'}>
               <RefreshCw className="w-3.5 h-3.5" /> New Booking

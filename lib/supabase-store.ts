@@ -71,6 +71,7 @@ export async function saveBookingToDb(client: SupabaseClient, booking: Booking):
     backgroundColor: booking.backgroundColor ?? fromDb.backgroundColor,
     slotId: booking.slotId ?? fromDb.slotId,
     receiptUrl: booking.receiptUrl ?? fromDb.receiptUrl,
+    transactionRef: booking.transactionRef?.trim() || fromDb.transactionRef,
     paymentHistory: booking.paymentHistory?.length ? booking.paymentHistory : fromDb.paymentHistory,
   }
 }
