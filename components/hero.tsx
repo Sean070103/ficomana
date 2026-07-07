@@ -101,7 +101,7 @@ export default function Hero() {
             </Button>
             <Button
               nativeButton={false}
-              render={<Link href="#gallery" />}
+              render={<Link href="/#gallery" />}
               variant="outline"
               className={cn(
                 buttonVariants({ variant: 'outline', size: 'lg' }),

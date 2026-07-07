@@ -1,8 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getBookings, saveBooking, Booking, PaymentRecord } from '@/lib/data-store'
-import { sendBookingCancelledEmail, sendPaymentApprovedEmail, sendFinalOfficialReceiptEmail, sendBookingRescheduledEmail, sendGalleryLinkEmail } from '@/lib/email'
+import { getBookings, saveBooking, getBookingPackages, Booking, PaymentRecord } from '@/lib/data-store'
+import { dispatchEmail } from '@/lib/email-dispatch'
+import { GraduationSessionDetails } from '@/components/graduation-session-details'
+import { usesMakeupSlots } from '@/lib/booking-packages'
+import {
+  ALL_MANA_SLOTS,
+  FICO_ARRIVAL_LABEL,
+  FICO_BOOKING_TIME_LABEL,
+  formatSlotBookingTime,
+  getSlotById,
+} from '@/lib/booking-slots'
+import { generateBookingId } from '@/lib/booking-id'
 import { 
   Search, 
   Filter, 
@@ -20,6 +30,23 @@ import {
   FileText
 } from 'lucide-react'
 import Image from 'next/image'
+import {
+  adminPage,
+  adminTitle,
+  adminSubtitle,
+  adminInput,
+  adminLabel,
+  adminBtnPrimary,
+  adminTableWrap,
+  adminTableHead,
+  adminTableRow,
+  adminSpinnerWrap,
+  adminSpinner,
+  adminOverlay,
+  adminDrawer,
+  bookingStatusBadge,
+  paymentStatusBadge,
+} from '@/lib/admin-ui'
 
 export default function BookingsManagement() {
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -48,6 +75,15 @@ export default function BookingsManagement() {
   const [studioPayAmount, setStudioPayAmount] = useState<number>(0)
   const [studioPayRef, setStudioPayRef] = useState('')
 
+  const [showWalkIn, setShowWalkIn] = useState(false)
+  const [walkInName, setWalkInName] = useState('')
+  const [walkInPhone, setWalkInPhone] = useState('')
+  const [walkInDate, setWalkInDate] = useState('')
+  const [walkInPackage, setWalkInPackage] = useState<'fico-package' | 'mana-makeup'>('fico-package')
+  const [walkInSlotId, setWalkInSlotId] = useState('')
+  const [walkInSaving, setWalkInSaving] = useState(false)
+  const [packageOptions, setPackageOptions] = useState<Array<{ id: string; title: string }>>([])
+
   const fetchBookings = async () => {
     try {
       const data = await getBookings()
@@ -62,7 +98,59 @@ export default function BookingsManagement() {
 
   useEffect(() => {
     fetchBookings()
+    getBookingPackages().then((pkgs) => setPackageOptions(pkgs.map((p) => ({ id: p.id, title: p.title }))))
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const ref = new URLSearchParams(window.location.search).get('ref')
+    if (ref) setSearchTerm(ref)
+  }, [])
+
+  const handleWalkInSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!walkInName || !walkInPhone || !walkInDate) return
+    if (walkInPackage === 'mana-makeup' && !walkInSlotId) return
+
+    setWalkInSaving(true)
+    try {
+      const slot = walkInSlotId ? getSlotById(walkInSlotId) : undefined
+      const id = generateBookingId(bookings.map((b) => b.id))
+      await saveBooking({
+        id,
+        customerName: walkInName,
+        customerEmail: 'walkin@ficomana.local',
+        customerPhone: walkInPhone,
+        customerFbLink: '',
+        customerFbName: walkInName,
+        packageId: walkInPackage,
+        packageName: walkInPackage === 'fico-package' ? 'FICO PACKAGE' : 'MANA PACKAGE',
+        bookingDate: walkInDate,
+        bookingTime: slot ? formatSlotBookingTime(slot) : FICO_BOOKING_TIME_LABEL,
+        slotId: slot?.id,
+        arrivalTime: slot?.arrivalTime ?? FICO_ARRIVAL_LABEL,
+        shootTime: slot?.shootTime ?? 'Flexible (before 4:00 PM)',
+        isWalkIn: true,
+        depositAmount: 500,
+        price: walkInPackage === 'fico-package' ? 3000 : 6000,
+        bookingStatus: 'Confirmed',
+        paymentStatus: 'Paid Deposit',
+        createdAt: new Date().toISOString(),
+        paymentHistory: [],
+      })
+      setWalkInName('')
+      setWalkInPhone('')
+      setWalkInDate('')
+      setWalkInSlotId('')
+      setShowWalkIn(false)
+      await fetchBookings()
+    } catch (err) {
+      console.error(err)
+      alert('Failed to save walk-in booking.')
+    } finally {
+      setWalkInSaving(false)
+    }
+  }
 
   // Apply filters in real time
   useEffect(() => {
@@ -159,11 +247,13 @@ export default function BookingsManagement() {
       setSelectedBooking(updatedBooking)
       fetchBookings()
 
+      await dispatchEmail({ action: 'transaction_both', booking: updatedBooking, payment: newRecord })
+
       if (isFullyPaid) {
-        await sendFinalOfficialReceiptEmail(updatedBooking)
-        alert('Outstanding balance fully paid! Final Official Receipt emailed to customer.')
+        await dispatchEmail({ action: 'final_receipt', booking: updatedBooking })
+        alert('Payment recorded. Confirmation, receipt, and final summary emailed to customer.')
       } else {
-        alert(`Payment of ₱${studioPayAmount.toFixed(2)} recorded. Outstanding balance: ₱${(selectedBooking.price - totalPaid).toFixed(2)}`)
+        alert(`Payment of ₱${studioPayAmount.toFixed(2)} recorded. Confirmation and receipt emailed. Balance: ₱${(selectedBooking.price - totalPaid).toFixed(2)}`)
       }
     } catch (err) {
       console.error(err)
@@ -199,11 +289,11 @@ export default function BookingsManagement() {
 
       // Send emails
       if (dateChanged) {
-        await sendBookingRescheduledEmail(updatedBooking, addedFee)
+        await dispatchEmail({ action: 'booking_rescheduled', booking: updatedBooking, rebookingFee: addedFee })
       }
 
       if (driveLinkChanged && editDriveLink) {
-        await sendGalleryLinkEmail(updatedBooking, editDriveLink)
+        await dispatchEmail({ action: 'gallery_link', booking: updatedBooking, driveLink: editDriveLink })
         alert('Booking details updated. Drive link saved and emails dispatched.')
       } else {
         alert('Booking details updated successfully.')
@@ -242,7 +332,7 @@ export default function BookingsManagement() {
 
       // If Cancelled, email customer
       if (status === 'Cancelled') {
-        await sendBookingCancelledEmail(updatedBooking)
+        await dispatchEmail({ action: 'booking_cancelled', booking: updatedBooking })
       }
 
       fetchBookings()
@@ -253,89 +343,107 @@ export default function BookingsManagement() {
     }
   }
 
-  const getStatusBadgeClass = (status: Booking['bookingStatus']) => {
-    switch (status) {
-      case 'Confirmed':
-        return 'bg-green-100 text-green-800 border border-green-200'
-      case 'Pending Verification':
-        return 'bg-yellow-100 text-yellow-800 border border-yellow-250'
-      case 'Pending Payment':
-        return 'bg-orange-100 text-orange-850 border border-orange-200'
-      case 'Completed':
-        return 'bg-blue-100 text-blue-800 border border-blue-200'
-      case 'Cancelled':
-        return 'bg-red-100 text-red-800 border border-red-200'
-      case 'No Show':
-        return 'bg-gray-100 text-gray-800 border border-gray-200'
-      default:
-        return 'bg-slate-100 text-slate-800 border border-slate-200'
-    }
-  }
-
-  const getPaymentBadgeClass = (status: Booking['paymentStatus']) => {
-    switch (status) {
-      case 'Paid Full':
-        return 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-      case 'Paid Deposit':
-        return 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-      case 'Pending Verification':
-        return 'bg-yellow-100 text-yellow-850 border border-yellow-200'
-      case 'Unpaid':
-        return 'bg-red-50 text-red-800 border border-red-100'
-      default:
-        return 'bg-slate-100 text-slate-800 border border-slate-200'
-    }
-  }
+  const getStatusBadgeClass = bookingStatusBadge
+  const getPaymentBadgeClass = paymentStatusBadge
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-6 h-6 border-2 border-[#0500D0] border-t-transparent animate-spin rounded-full" />
+      <div className={adminSpinnerWrap}>
+        <div className={adminSpinner} />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 font-sans">
-      <div>
-        <h1 className="text-xl font-bold uppercase tracking-wider text-slate-800">Booking Management</h1>
-        <p className="text-xs text-slate-500">Search, filter, edit, reschedule, or cancel client portrait appointments.</p>
+    <div className={adminPage}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className={adminTitle}>Booking Management</h1>
+          <p className={adminSubtitle}>Search, filter, edit, reschedule, or cancel client portrait appointments.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowWalkIn((v) => !v)}
+          className="bg-primary text-white px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider hover:bg-[#03008F]"
+        >
+          {showWalkIn ? 'Close Walk-in' : '+ Walk-in Booking'}
+        </button>
       </div>
 
+      {showWalkIn && (
+        <div className="border border-white/10 bg-[#0A0A0F] p-5 shadow-sm">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-white/70 mb-4">In-Studio Walk-in</h2>
+          <form onSubmit={handleWalkInSubmit} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <input required value={walkInName} onChange={(e) => setWalkInName(e.target.value)} placeholder="Client name" className="border border-white/10 p-3 text-xs" />
+            <input required value={walkInPhone} onChange={(e) => setWalkInPhone(e.target.value)} placeholder="Phone" className="border border-white/10 p-3 text-xs" />
+            <input required type="date" value={walkInDate} onChange={(e) => setWalkInDate(e.target.value)} className="border border-white/10 p-3 text-xs" />
+            <select
+              value={walkInPackage}
+              onChange={(e) => {
+                setWalkInPackage(e.target.value as 'fico-package' | 'mana-makeup')
+                setWalkInSlotId('')
+              }}
+              className="border border-white/10 p-3 text-xs"
+            >
+              <option value="fico-package">FICO (No Makeup — no time slot)</option>
+              <option value="mana-makeup">MANA (Makeup — pick session slot)</option>
+            </select>
+            {walkInPackage === 'mana-makeup' && (
+              <select
+                required
+                value={walkInSlotId}
+                onChange={(e) => setWalkInSlotId(e.target.value)}
+                className="border border-white/10 p-3 text-xs sm:col-span-2"
+              >
+                <option value="">Select MANA slot</option>
+                {ALL_MANA_SLOTS.map((slot) => (
+                  <option key={slot.id} value={slot.id}>
+                    {slot.blockLabel} · {slot.slotLabel}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button type="submit" disabled={walkInSaving} className="bg-primary text-white p-3 text-[10px] font-bold uppercase tracking-wider sm:col-span-2 lg:col-span-1">
+              {walkInSaving ? 'Saving...' : 'Save Walk-in'}
+            </button>
+          </form>
+        </div>
+      )}
+
       {/* FILTER BAR */}
-      <div className="bg-white border border-slate-200 p-5 shadow-sm space-y-4">
+      <div className="border border-white/10 bg-[#0A0A0F] p-5 shadow-sm space-y-4">
         {/* Search & Date */}
         <div className="grid md:grid-cols-12 gap-4">
           <div className="md:col-span-8 relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by client name, reference code, phone number, email address..."
-              className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none p-3 pl-11 text-xs font-semibold"
+              className="w-full bg-black/40 border border-white/10 focus:border-primary focus:outline-none p-3 pl-11 text-xs font-semibold"
             />
           </div>
           <div className="md:col-span-4 relative">
-            <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
             <input
               type="date"
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none p-3 pl-11 text-xs font-semibold"
+              className="w-full bg-black/40 border border-white/10 focus:border-primary focus:outline-none p-3 pl-11 text-xs font-semibold"
             />
           </div>
         </div>
 
         {/* Dropdowns */}
-        <div className="grid sm:grid-cols-3 gap-4 border-t border-slate-100 pt-4 flex-wrap">
+        <div className="grid sm:grid-cols-3 gap-4 border-t border-white/10 pt-4 flex-wrap">
           {/* Status */}
           <div className="space-y-1.5">
-            <span className="text-[9px] font-bold tracking-widest text-slate-400 uppercase">Booking Status</span>
+            <span className="text-[9px] font-bold tracking-widest text-white/40 uppercase">Booking Status</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 p-3.5 text-xs font-semibold"
+              className="w-full bg-black/40 border border-white/10 p-3.5 text-xs font-semibold"
             >
               <option value="All">All Statuses</option>
               <option value="Confirmed">Confirmed</option>
@@ -349,11 +457,11 @@ export default function BookingsManagement() {
 
           {/* Payment */}
           <div className="space-y-1.5">
-            <span className="text-[9px] font-bold tracking-widest text-slate-400 uppercase">Payment Status</span>
+            <span className="text-[9px] font-bold tracking-widest text-white/40 uppercase">Payment Status</span>
             <select
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 p-3.5 text-xs font-semibold"
+              className="w-full bg-black/40 border border-white/10 p-3.5 text-xs font-semibold"
             >
               <option value="All">All Payments</option>
               <option value="Unpaid">Unpaid</option>
@@ -366,27 +474,26 @@ export default function BookingsManagement() {
 
           {/* Package */}
           <div className="space-y-1.5">
-            <span className="text-[9px] font-bold tracking-widest text-slate-400 uppercase">Package Type</span>
+            <span className="text-[9px] font-bold tracking-widest text-white/40 uppercase">Package Type</span>
             <select
               value={packageFilter}
               onChange={(e) => setPackageFilter(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 p-3.5 text-xs font-semibold"
+              className="w-full bg-black/40 border border-white/10 p-3.5 text-xs font-semibold"
             >
               <option value="All">All Packages</option>
-              <option value="solo">Solo Session</option>
-              <option value="couple">Couple Session</option>
-              <option value="family">Family Session</option>
-              <option value="fur-babies">With Fur Babies</option>
+              {packageOptions.map((p) => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
             </select>
           </div>
         </div>
       </div>
 
       {/* TABLE */}
-      <div className="bg-white border border-slate-200 shadow-sm overflow-x-auto">
+      <div className="border border-white/10 bg-white/[0.02] overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[1000px]">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+            <tr className="bg-white/[0.03] border-b border-white/10 text-[10px] font-bold tracking-widest text-white/40 uppercase">
               <th className="p-4 pl-6">Reference</th>
               <th className="p-4">Customer</th>
               <th className="p-4">Package</th>
@@ -398,28 +505,28 @@ export default function BookingsManagement() {
               <th className="p-4 pr-6 text-center">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-xs">
+          <tbody className="divide-y divide-white/5 text-xs">
             {filteredBookings.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-12 text-center text-slate-450 font-semibold">
+                <td colSpan={9} className="p-12 text-center text-white/45 font-semibold">
                   No bookings matching current search criteria.
                 </td>
               </tr>
             ) : (
               filteredBookings.map((b) => (
-                <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
+                <tr key={b.id} className="hover:bg-white/[0.03]/50 transition-colors">
                   <td className="p-4 pl-6 font-mono font-bold text-primary">{b.id}</td>
                   <td className="p-4">
-                    <div className="font-semibold text-slate-800">{b.customerName}</div>
-                    <div className="text-[10px] text-slate-450 mt-0.5">{b.customerEmail}</div>
+                    <div className="font-semibold text-white">{b.customerName}</div>
+                    <div className="text-[10px] text-white/45 mt-0.5">{b.customerEmail}</div>
                   </td>
-                  <td className="p-4 font-semibold text-slate-700">{b.packageName}</td>
+                  <td className="p-4 font-semibold text-white/90">{b.packageName}</td>
                   <td className="p-4">
                     <div>{b.bookingDate}</div>
-                    <div className="text-[10px] text-slate-450 font-mono mt-0.5">{b.bookingTime.split(' - ')[0]}</div>
+                    <div className="text-[10px] text-white/45 font-mono mt-0.5">{b.bookingTime.split(' - ')[0]}</div>
                   </td>
                   <td className="p-4 text-right font-bold">₱{b.price.toFixed(2)}</td>
-                  <td className="p-4 text-right text-slate-500">₱{b.depositAmount.toFixed(2)}</td>
+                  <td className="p-4 text-right text-white/50">₱{b.depositAmount.toFixed(2)}</td>
                   <td className="p-4">
                     <span className={`px-2 py-0.5 text-[9px] font-bold uppercase rounded ${getPaymentBadgeClass(b.paymentStatus)}`}>
                       {b.paymentStatus}
@@ -433,7 +540,7 @@ export default function BookingsManagement() {
                   <td className="p-4 pr-6 text-center">
                     <button
                       onClick={() => handleOpenDetails(b)}
-                      className="p-1.5 hover:bg-primary/5 rounded-full text-slate-500 hover:text-primary transition-colors inline-flex"
+                      className="p-1.5 hover:bg-primary/5 rounded-full text-white/50 hover:text-primary transition-colors inline-flex"
                       title="View details & Manage"
                     >
                       <Eye className="w-4 h-4" />
@@ -448,18 +555,18 @@ export default function BookingsManagement() {
 
       {/* 3. CUSTOMER DETAILS DRAWER / MODAL */}
       {selectedBooking && (
-        <div className="fixed inset-0 bg-slate-900/60 flex justify-end z-50 animate-fade-in">
-          <div className="bg-white border-l border-slate-200 w-full max-w-lg h-full flex flex-col justify-between shadow-2xl animate-slide-left">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-end z-50 animate-fade-in">
+          <div className="bg-[#0A0A0F] border-l border-white/10 w-full max-w-lg h-full flex flex-col justify-between shadow-2xl animate-slide-left">
             {/* Header */}
-            <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50">
+            <div className="p-6 border-b border-white/10 flex justify-between items-start bg-white/[0.03]">
               <div>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Customer Details</span>
-                <h3 className="text-base font-bold text-slate-800 mt-1">{selectedBooking.customerName}</h3>
-                <p className="text-[10px] font-mono text-slate-400 mt-0.5">Ref: {selectedBooking.id}</p>
+                <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Customer Details</span>
+                <h3 className="text-base font-bold text-white mt-1">{selectedBooking.customerName}</h3>
+                <p className="text-[10px] font-mono text-white/40 mt-0.5">Ref: {selectedBooking.id}</p>
               </div>
               <button
                 onClick={() => setSelectedBooking(null)}
-                className="p-1.5 hover:bg-slate-200 rounded text-slate-400 transition-colors"
+                className="p-1.5 hover:bg-white/10 rounded text-white/40 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -468,25 +575,25 @@ export default function BookingsManagement() {
             {/* Content Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Contact Info Card */}
-              <div className="border border-slate-200 p-4 space-y-2">
-                <h4 className="text-[10px] font-bold tracking-widest text-slate-400 uppercase border-b border-slate-100 pb-1.5">
+              <div className="border border-white/10 p-4 space-y-2">
+                <h4 className="text-[10px] font-bold tracking-widest text-white/40 uppercase border-b border-white/10 pb-1.5">
                   Contact Information
                 </h4>
                 <div className="grid grid-cols-2 gap-y-2 text-xs">
                   <div>
-                     <p className="text-slate-400 font-medium">Email Address</p>
+                     <p className="text-white/40 font-medium">Email Address</p>
                      <p className="font-semibold mt-0.5">{selectedBooking.customerEmail}</p>
                   </div>
                   <div>
-                     <p className="text-slate-400 font-medium">Phone Number</p>
+                     <p className="text-white/40 font-medium">Phone Number</p>
                      <p className="font-semibold mt-0.5">{selectedBooking.customerPhone}</p>
                   </div>
                   <div>
-                    <p className="text-slate-400 font-medium">Facebook Name</p>
+                    <p className="text-white/40 font-medium">Facebook Name</p>
                     <p className="font-semibold mt-0.5">{selectedBooking.customerFbName || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-slate-400 font-medium">Facebook Profile</p>
+                    <p className="text-white/40 font-medium">Facebook Profile</p>
                     {selectedBooking.customerFbLink ? (
                       <a 
                         href={selectedBooking.customerFbLink} 
@@ -497,16 +604,16 @@ export default function BookingsManagement() {
                         View Profile <ArrowUpRight className="w-3.5 h-3.5" />
                       </a>
                     ) : (
-                      <p className="text-slate-500 italic mt-0.5">No link provided</p>
+                      <p className="text-white/50 italic mt-0.5">No link provided</p>
                     )}
                   </div>
                 </div>
               </div>
 
               {/* Booking Info Card */}
-              <form onSubmit={handleSaveDetails} className="border border-slate-200 p-4 space-y-4">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
-                  <h4 className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+              <form onSubmit={handleSaveDetails} className="border border-white/10 p-4 space-y-4">
+                <div className="flex justify-between items-center border-b border-white/10 pb-1.5">
+                  <h4 className="text-[10px] font-bold tracking-widest text-white/40 uppercase">
                     Session & Schedule Details
                   </h4>
                   {!isEditing ? (
@@ -530,91 +637,85 @@ export default function BookingsManagement() {
 
                 <div className="grid grid-cols-2 gap-y-4 text-xs">
                   <div>
-                    <p className="text-slate-400 font-medium">Package</p>
+                    <p className="text-white/40 font-medium">Package</p>
                     <p className="font-semibold text-primary mt-0.5">{selectedBooking.packageName}</p>
                   </div>
                   <div>
-                    <p className="text-slate-400 font-medium">Price / Balance</p>
+                    <p className="text-white/40 font-medium">Price / Balance</p>
                     <p className="font-semibold mt-0.5">
-                      ₱{selectedBooking.price.toFixed(2)} / <span className="text-slate-400">Bal: ₱{(selectedBooking.price - selectedBooking.depositAmount).toFixed(2)}</span>
+                      ₱{selectedBooking.price.toFixed(2)} / <span className="text-white/40">Bal: ₱{(selectedBooking.price - selectedBooking.depositAmount).toFixed(2)}</span>
                     </p>
                   </div>
                   
                   {isEditing ? (
                     <>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-450 uppercase">Date</label>
+                        <label className="text-[10px] font-bold text-white/45 uppercase">Date</label>
                         <input
                           type="date"
                           required
                           value={editDate}
                           onChange={(e) => setEditDate(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
+                          className="w-full bg-black/40 border border-white/10 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-450 uppercase">Time Slot</label>
+                        <label className="text-[10px] font-bold text-white/45 uppercase">Time Slot</label>
                         <select
                           value={editTime}
                           onChange={(e) => setEditTime(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
+                          className="w-full bg-black/40 border border-white/10 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
                         >
-                          {(selectedBooking.packageId.endsWith('-makeup') 
-                            ? ['09:00 AM - 11:00 AM', '11:00 AM - 01:00 PM', '01:00 PM - 03:00 PM', '03:00 PM - 05:00 PM', '05:00 PM - 07:00 PM'] 
-                            : [
-                                '09:00 AM - 09:30 AM', '09:30 AM - 10:00 AM', '10:00 AM - 10:30 AM', '10:30 AM - 11:00 AM',
-                                '11:00 AM - 11:30 AM', '11:30 AM - 12:00 PM', '12:00 PM - 12:30 PM', '12:30 PM - 01:00 PM',
-                                '01:00 PM - 01:30 PM', '01:30 PM - 02:00 PM', '02:00 PM - 02:30 PM', '02:30 PM - 03:00 PM',
-                                '03:00 PM - 03:30 PM', '03:30 PM - 04:00 PM', '04:00 PM - 04:30 PM', '04:30 PM - 05:00 PM',
-                                '05:00 PM - 05:30 PM', '05:30 PM - 06:00 PM', '06:00 PM - 06:30 PM', '06:30 PM - 07:00 PM'
-                              ]
-                          ).map(slot => (
+                          {(usesMakeupSlots(selectedBooking.packageId)
+                            ? ALL_MANA_SLOTS.map((slot) => formatSlotBookingTime(slot))
+                            : [FICO_BOOKING_TIME_LABEL]
+                          ).map((slot) => (
                             <option key={slot} value={slot}>{slot}</option>
                           ))}
                         </select>
                       </div>
                       
-                      <div className="col-span-2 flex items-center gap-2 bg-amber-50 border border-amber-100 p-2.5">
+                      <div className="col-span-2 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 p-2.5">
                         <input
                           id="chargeFee"
                           type="checkbox"
                           checked={chargeRebookingFee}
                           onChange={(e) => setChargeRebookingFee(e.target.checked)}
-                          className="w-3.5 h-3.5 text-primary border-slate-300 focus:ring-primary"
+                          className="w-3.5 h-3.5 text-primary border-white/20 focus:ring-primary"
                         />
-                        <label htmlFor="chargeFee" className="text-[10px] font-semibold text-amber-800 uppercase tracking-wide cursor-pointer select-none">
+                        <label htmlFor="chargeFee" className="text-[10px] font-semibold text-amber-300 uppercase tracking-wide cursor-pointer select-none">
                           Apply ₱500.00 Rebooking Fee (Reschedule charges)
                         </label>
                       </div>
 
                       <div className="col-span-2 space-y-1.5">
-                        <label htmlFor="editDrive" className="text-[10px] font-bold text-slate-450 uppercase">Google Drive Gallery Link</label>
+                        <label htmlFor="editDrive" className="text-[10px] font-bold text-white/45 uppercase">Google Drive Gallery Link</label>
                         <input
                           id="editDrive"
                           type="url"
                           value={editDriveLink}
                           onChange={(e) => setEditDriveLink(e.target.value)}
                           placeholder="https://drive.google.com/drive/folders/..."
-                          className="w-full bg-slate-50 border border-slate-200 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
+                          className="w-full bg-black/40 border border-white/10 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
                         />
                       </div>
                     </>
                   ) : (
                     <>
                       <div className="col-span-2">
-                        <p className="text-slate-400 font-medium">Appointment Time</p>
-                        <p className="font-semibold text-slate-700 mt-0.5">
+                        <p className="text-white/40 font-medium">Appointment Time</p>
+                        <p className="font-semibold text-white/90 mt-0.5">
                           {selectedBooking.bookingDate} at {selectedBooking.bookingTime}
                         </p>
                       </div>
                       {selectedBooking.driveLink && (
-                        <div className="col-span-2 border-t border-slate-100 pt-2 mt-1">
-                          <p className="text-slate-400 font-medium">Google Drive Gallery Link</p>
+                        <div className="col-span-2 border-t border-white/10 pt-2 mt-1">
+                          <p className="text-white/40 font-medium">Google Drive Gallery Link</p>
                           <a 
                             href={selectedBooking.driveLink} 
                             target="_blank" 
                             rel="noopener noreferrer" 
-                            className="text-green-600 font-semibold hover:underline mt-0.5 flex items-center gap-1 text-[11px]"
+                            className="text-green-400 font-semibold hover:underline mt-0.5 flex items-center gap-1 text-[11px]"
                           >
                             Open Drive Gallery <ArrowUpRight className="w-3.5 h-3.5" />
                           </a>
@@ -623,10 +724,12 @@ export default function BookingsManagement() {
                     </>
                   )}
 
+                  <GraduationSessionDetails booking={selectedBooking} />
+
                   {selectedBooking.note && (
                     <div className="col-span-2">
-                      <p className="text-slate-400 font-medium mb-1">Pre-Shoot Request Note</p>
-                      <p className="bg-slate-50 p-2 border border-slate-100 rounded leading-relaxed text-[11px] italic">
+                      <p className="text-white/40 font-medium mb-1">Pre-Shoot Request Note</p>
+                      <p className="bg-white/[0.03] p-2 border border-white/10 rounded leading-relaxed text-[11px] italic">
                         "{selectedBooking.note}"
                       </p>
                     </div>
@@ -634,7 +737,7 @@ export default function BookingsManagement() {
 
                   {/* Staff Notes input */}
                   <div className="col-span-2 space-y-1.5">
-                    <label htmlFor="staffNotes" className="text-[10px] font-bold text-slate-450 uppercase">
+                    <label htmlFor="staffNotes" className="text-[10px] font-bold text-white/45 uppercase">
                       Internal Staff Notes
                     </label>
                     <textarea
@@ -644,7 +747,7 @@ export default function BookingsManagement() {
                       value={editStaffNotes}
                       onChange={(e) => setEditStaffNotes(e.target.value)}
                       placeholder="Add private staff notes, backdrop choices, or check-in records here..."
-                      className="w-full bg-slate-50 border border-slate-200 p-2.5 text-xs font-semibold focus:border-primary focus:outline-none resize-none leading-relaxed disabled:opacity-80"
+                      className="w-full bg-black/40 border border-white/10 p-2.5 text-xs font-semibold focus:border-primary focus:outline-none resize-none leading-relaxed disabled:opacity-80"
                     />
                   </div>
 
@@ -663,29 +766,29 @@ export default function BookingsManagement() {
             </form>
 
             {/* Payment History Ledger */}
-            <div className="border border-slate-200 p-4 space-y-3">
-              <h4 className="text-[10px] font-bold tracking-widest text-slate-400 uppercase border-b border-slate-100 pb-1.5">
+            <div className="border border-white/10 p-4 space-y-3">
+              <h4 className="text-[10px] font-bold tracking-widest text-white/40 uppercase border-b border-white/10 pb-1.5">
                 Payment History Ledger
               </h4>
               {(selectedBooking.paymentHistory || []).length === 0 ? (
-                <p className="text-xs text-slate-400">No transactions recorded.</p>
+                <p className="text-xs text-white/40">No transactions recorded.</p>
               ) : (
                 <div className="space-y-2 text-xs">
                   {(selectedBooking.paymentHistory || []).map((pay, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-slate-50 p-2.5 border border-slate-100">
+                    <div key={idx} className="flex justify-between items-center bg-white/[0.03] p-2.5 border border-white/10">
                       <div>
-                        <p className="font-semibold text-slate-700">{pay.type}</p>
-                        <p className="text-[9px] text-slate-400 font-mono mt-0.5">{new Date(pay.date).toLocaleDateString()} via {pay.method}</p>
+                        <p className="font-semibold text-white/90">{pay.type}</p>
+                        <p className="text-[9px] text-white/40 font-mono mt-0.5">{new Date(pay.date).toLocaleDateString()} via {pay.method}</p>
                         {pay.transactionRef && (
-                          <p className="text-[9px] text-slate-400 font-mono mt-0.5">Ref: {pay.transactionRef}</p>
+                          <p className="text-[9px] text-white/40 font-mono mt-0.5">Ref: {pay.transactionRef}</p>
                         )}
                       </div>
-                      <span className="font-bold text-slate-800">₱{pay.amount.toFixed(2)}</span>
+                      <span className="font-bold text-white">₱{pay.amount.toFixed(2)}</span>
                     </div>
                   ))}
-                  <div className="border-t border-slate-100 pt-2 flex justify-between items-center font-bold text-xs">
+                  <div className="border-t border-white/10 pt-2 flex justify-between items-center font-bold text-xs">
                     <span>Total Paid:</span>
-                    <span className="text-green-600">₱{(selectedBooking.paymentHistory || []).reduce((acc, p) => acc + p.amount, 0).toFixed(2)}</span>
+                    <span className="text-green-400">₱{(selectedBooking.paymentHistory || []).reduce((acc, p) => acc + p.amount, 0).toFixed(2)}</span>
                   </div>
                 </div>
               )}
@@ -699,22 +802,22 @@ export default function BookingsManagement() {
               if (outstanding <= 0 || selectedBooking.bookingStatus === 'Cancelled') return null
               
               return (
-                <form onSubmit={handleRecordStudioPayment} className="border border-slate-200 p-4 space-y-4">
-                  <h4 className="text-[10px] font-bold tracking-widest text-slate-400 uppercase border-b border-slate-100 pb-1.5">
+                <form onSubmit={handleRecordStudioPayment} className="border border-white/10 p-4 space-y-4">
+                  <h4 className="text-[10px] font-bold tracking-widest text-white/40 uppercase border-b border-white/10 pb-1.5">
                     Record Studio Payment
                   </h4>
                   
-                  <div className="bg-amber-50 border border-amber-100 p-3 text-[11px] text-amber-800">
-                    Outstanding Balance: <strong className="text-sm font-bold text-amber-700">₱{outstanding.toFixed(2)}</strong>
+                  <div className="bg-amber-500/10 border border-amber-500/30 p-3 text-[11px] text-amber-300">
+                    Outstanding Balance: <strong className="text-sm font-bold text-amber-400">₱{outstanding.toFixed(2)}</strong>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-450 uppercase">Payment Method</label>
+                      <label className="text-[10px] font-bold text-white/45 uppercase">Payment Method</label>
                       <select
                         value={studioPayMethod}
                         onChange={(e) => setStudioPayMethod(e.target.value as any)}
-                        className="w-full bg-slate-50 border border-slate-200 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
+                        className="w-full bg-black/40 border border-white/10 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
                       >
                         <option value="Cash">Cash</option>
                         <option value="GCash">GCash</option>
@@ -725,7 +828,7 @@ export default function BookingsManagement() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-450 uppercase">Amount Received</label>
+                      <label className="text-[10px] font-bold text-white/45 uppercase">Amount Received</label>
                       <input
                         type="number"
                         required
@@ -733,19 +836,19 @@ export default function BookingsManagement() {
                         max={outstanding}
                         value={studioPayAmount}
                         onChange={(e) => setStudioPayAmount(parseFloat(e.target.value) || 0)}
-                        className="w-full bg-slate-50 border border-slate-200 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
+                        className="w-full bg-black/40 border border-white/10 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5 text-xs">
-                    <label className="text-[10px] font-bold text-slate-450 uppercase">Transaction Reference (Optional)</label>
+                    <label className="text-[10px] font-bold text-white/45 uppercase">Transaction Reference (Optional)</label>
                     <input
                       type="text"
                       value={studioPayRef}
                       onChange={(e) => setStudioPayRef(e.target.value)}
                       placeholder="e.g. GCash Ref / Card Slip Code"
-                      className="w-full bg-slate-50 border border-slate-200 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
+                      className="w-full bg-black/40 border border-white/10 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
                     />
                   </div>
 
@@ -762,14 +865,14 @@ export default function BookingsManagement() {
 
             {/* Receipt Preview if exists */}
               {selectedBooking.receiptUrl && (
-                <div className="border border-slate-200 p-4 space-y-3">
-                  <h4 className="text-[10px] font-bold tracking-widest text-slate-400 uppercase border-b border-slate-100 pb-1.5">
+                <div className="border border-white/10 p-4 space-y-3">
+                  <h4 className="text-[10px] font-bold tracking-widest text-white/40 uppercase border-b border-white/10 pb-1.5">
                     Uploaded GCash Receipt
                   </h4>
                   <div className="flex gap-4 items-center">
-                    <div className="w-20 h-20 bg-slate-100 border border-slate-150 relative overflow-hidden flex-shrink-0">
+                    <div className="w-20 h-20 bg-white/[0.05] border border-white/10 relative overflow-hidden flex-shrink-0">
                       {selectedBooking.receiptUrl.endsWith('.pdf') ? (
-                        <div className="w-full h-full flex items-center justify-center text-slate-500">
+                        <div className="w-full h-full flex items-center justify-center text-white/50">
                           <FileText className="w-8 h-8" />
                         </div>
                       ) : (
@@ -782,8 +885,8 @@ export default function BookingsManagement() {
                       )}
                     </div>
                     <div className="space-y-1 text-xs">
-                      <p className="font-semibold text-slate-700">GCash Deposit Verification</p>
-                      <p className="font-mono text-[10px] text-slate-450">Ref: {selectedBooking.transactionRef || 'N/A'}</p>
+                      <p className="font-semibold text-white/90">GCash Deposit Verification</p>
+                      <p className="font-mono text-[10px] text-white/45">Ref: {selectedBooking.transactionRef || 'N/A'}</p>
                       <a
                         href={selectedBooking.receiptUrl}
                         target="_blank"
@@ -799,8 +902,8 @@ export default function BookingsManagement() {
             </div>
 
             {/* Quick Actions Panel */}
-            <div className="p-6 bg-slate-50 border-t border-slate-100 space-y-3">
-              <h4 className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+            <div className="p-6 bg-white/[0.03] border-t border-white/10 space-y-3">
+              <h4 className="text-[10px] font-bold tracking-widest text-white/40 uppercase">
                 Quick Actions
               </h4>
               <div className="grid grid-cols-2 gap-2 text-xs">

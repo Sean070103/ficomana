@@ -5,31 +5,76 @@ import { useState } from 'react'
 import { Plus, Minus } from 'lucide-react'
 import SectionHeader from '@/components/section-header'
 
-const faqs = [
+type FaqItem = {
+  question: string
+  content: React.ReactNode
+}
+
+const faqs: FaqItem[] = [
   {
-    question: 'How long is a typical self-portrait session?',
-    answer:
-      'Sessions range from 30 to 45 minutes. This includes 15–30 minutes of private shooting in the studio and 15 minutes for print selection immediately after.',
+    question: 'How long is a typical graduation session?',
+    content: (
+      <>
+        <p>
+          The graduation photoshoot itself takes approximately <strong>10–15 minutes</strong>.
+        </p>
+        <p className="mt-3">
+          If you avail of our <strong>MANA Package</strong>, the Hair and Makeup session takes around{' '}
+          <strong>1 hour and 30 minutes</strong>, making the total session time approximately{' '}
+          <strong>2 hours per person</strong>.
+        </p>
+      </>
+    ),
   },
   {
-    question: 'What should I wear to my session?',
-    answer:
-      'Wear whatever makes you feel confident and authentic. We recommend solid colors or simple patterns, and you are welcome to bring multiple outfit options to vary your look.',
+    question: 'Do you provide different toga colors?',
+    content: (
+      <>
+        <p>Yes! We provide the following toga options:</p>
+        <ul className="mt-2 list-disc pl-5 space-y-1">
+          <li>Plain Green Toga</li>
+          <li>Plain Black Toga</li>
+        </ul>
+        <p className="mt-4">
+          We also have hoods available in different colors depending on your course, including:
+        </p>
+        <ul className="mt-2 list-disc pl-5 space-y-1 columns-1 sm:columns-2">
+          <li>White</li>
+          <li>Orange</li>
+          <li>Violet</li>
+          <li>Green</li>
+          <li>Yellow and Green</li>
+          <li>Red</li>
+          <li>Black</li>
+          <li>Pink</li>
+          <li>Red and White</li>
+          <li>Dark Blue</li>
+          <li>Light Blue</li>
+          <li>Gray and Green</li>
+        </ul>
+        <p className="mt-4">
+          If you&apos;re unsure which hood color matches your course, feel free to ask our team.
+        </p>
+      </>
+    ),
   },
   {
-    question: 'How many photos will I receive?',
-    answer:
-      'You will receive all digital raw files captured during the session. You will also get 1 to 4 high-resolution prints and 1 to 4 professional digital edits, depending on your chosen package (Solo, Couple, Family, or With Fur Babies).',
+    question: 'Are contact lenses included in the package?',
+    content: (
+      <p>
+        No. Contact lenses are <strong>not included</strong> in any of our packages. If you prefer to
+        wear contact lenses during your session, please bring your own.
+      </p>
+    ),
   },
   {
-    question: 'Can I reschedule my session?',
-    answer:
-      'Yes, we offer flexible rescheduling. Please notify us at least 48 hours in advance through our contact options to adjust your booking.',
-  },
-  {
-    question: 'Do you offer digital and printed copies?',
-    answer:
-      'Yes! Every package includes all raw digital files sent via a secure download link, plus high-quality physical prints processed right after your shoot.',
+    question: 'Do you provide eyelashes?',
+    content: (
+      <p>
+        Yes, eyelashes are included <strong>exclusively in our MANA Package</strong>. They are not
+        included in our other packages unless stated otherwise.
+      </p>
+    ),
   },
 ]
 
@@ -106,9 +151,9 @@ export default function FAQ() {
                   className="overflow-hidden"
                 >
                   <div className="px-6 pb-5 border-t border-border/50">
-                    <p className="pt-4 text-sm text-muted-foreground leading-relaxed">
-                      {faq.answer}
-                    </p>
+                    <div className="pt-4 text-sm text-muted-foreground leading-relaxed">
+                      {faq.content}
+                    </div>
                   </div>
                 </motion.div>
               </motion.div>

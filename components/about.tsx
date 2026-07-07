@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import SectionHeader from '@/components/section-header'
+import SectionShell from '@/components/section-shell'
 
 const storyParagraphs = [
   'FICO MANA Studio began as a self-portrait studio in February 2023, built from the shared dream of a couple who refused to let challenges define their future. Despite limited resources, uncertainties, and the struggles of starting from the ground up, they continued to pursue their passion with determination and faith. Every obstacle became a reason to work harder, turning a simple dream into a studio dedicated to celebrating life\'s most meaningful moments through photography.',
@@ -13,9 +14,8 @@ const storyParagraphs = [
 
 export default function About() {
   return (
-    <section id="about" className="py-24 md:py-32 px-6 md:px-12 bg-background">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+    <SectionShell id="about" variant="gradient">
+      <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -51,7 +51,7 @@ export default function About() {
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.08 }}
                   viewport={{ once: true, margin: '-40px' }}
-                  className="text-sm md:text-base text-black leading-relaxed"
+                  className="text-sm md:text-base text-muted-foreground leading-relaxed"
                 >
                   {paragraph}
                 </motion.p>
@@ -59,7 +59,6 @@ export default function About() {
             </div>
           </div>
         </div>
-      </div>
-    </section>
+    </SectionShell>
   )
 }

@@ -13,33 +13,21 @@ interface SchoolContract {
 
 const schoolContracts: SchoolContract[] = [
   {
-    name: "Laguna State Polytechnic University",
-    location: "Cabuyao Campus",
-    contractYear: "2024 - 2026",
-    description: "Exclusive graduation and yearbook portrait provider for all graduating classes across faculties.",
-    tag: "Official Partner"
+    name: 'Philippine Law School – Lacson College',
+    location: 'Cabuyao, Laguna',
+    contractYear: 'Official Photographer',
+    description:
+      'Official photography partner for graduation portraits and milestone sessions, delivering excellence, professionalism, and artistry.',
+    tag: 'Official Photographer',
   },
   {
-    name: "University of the Philippines Los Baños",
-    location: "Los Baños, Laguna",
-    contractYear: "2023 - 2025",
-    description: "Preferred partner for student organization portfolios, leadership awards, and thesis milestone shoots.",
-    tag: "Preferred Studio"
+    name: 'Our Lady of Fatima University – Laguna Campus',
+    location: 'Laguna Campus',
+    contractYear: 'Official Photographer',
+    description:
+      'Proudly chosen as the official photography partner, capturing student milestones with the same standards of quality and care.',
+    tag: 'Official Photographer',
   },
-  {
-    name: "Pamantasan ng Cabuyao",
-    location: "Cabuyao, Laguna",
-    contractYear: "2024 - 2025",
-    description: "Official contractor for executive leadership board headshots, faculty profiles, and departmental yearbooks.",
-    tag: "Official Partner"
-  },
-  {
-    name: "Malayan Colleges Laguna",
-    location: "Cabuyao, Laguna",
-    contractYear: "2023 - 2026",
-    description: "Partnership offering customized solo graduation portrait slots and corporate headshot portfolios.",
-    tag: "Contract Partner"
-  }
 ]
 
 export default function SchoolPortfolio() {
@@ -69,14 +57,14 @@ export default function SchoolPortfolio() {
           <div className="flex items-center gap-3">
             <span className="h-px w-8 bg-primary" />
             <span className="text-primary text-[10px] font-bold tracking-[0.25em] uppercase">
-              Academic Partnerships
+              Institutional Partners
             </span>
           </div>
           <h2 className="text-3xl md:text-4xl font-serif text-slate-800 font-light tracking-wide leading-tight">
             Official School Portfolios & Contracts
           </h2>
           <p className="text-sm text-slate-500 font-light leading-relaxed">
-            Fico Mana is proud to be the official graduation and organizational portrait partner for leading educational institutions across Laguna and the region.
+            Proudly chosen as the official photography partner of respected institutions, capturing milestones with excellence, professionalism, and artistry.
           </p>
         </div>
 
@@ -135,11 +123,8 @@ export default function SchoolPortfolio() {
             Trusted by Graduating Classes & Student Bodies
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 opacity-40 hover:opacity-60 transition-opacity duration-300">
-            <div className="font-serif font-semibold text-lg text-slate-700 tracking-wider">LSPU</div>
-            <div className="font-serif font-semibold text-lg text-slate-700 tracking-wider">UPLB</div>
-            <div className="font-serif font-semibold text-lg text-slate-700 tracking-wider">PnC</div>
-            <div className="font-serif font-semibold text-lg text-slate-700 tracking-wider">MCL</div>
-            <div className="font-serif font-semibold text-lg text-slate-700 tracking-wider">DLSU-L</div>
+            <div className="font-serif font-semibold text-lg text-slate-700 tracking-wider">PLS</div>
+            <div className="font-serif font-semibold text-lg text-slate-700 tracking-wider">OLFU</div>
           </div>
         </div>
 

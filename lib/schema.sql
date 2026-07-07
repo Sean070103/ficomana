@@ -20,6 +20,18 @@ CREATE TABLE bookings (
   booking_time VARCHAR(50) NOT NULL,
   note TEXT,
   staff_notes TEXT,
+  slot_id VARCHAR(50),
+  arrival_time VARCHAR(50),
+  shoot_time VARCHAR(100),
+  is_walk_in BOOLEAN DEFAULT FALSE,
+  receipt_url TEXT,
+  payment_history JSONB DEFAULT '[]'::jsonb,
+  school_name VARCHAR(200),
+  course VARCHAR(200),
+  hood_color VARCHAR(100),
+  toga_color VARCHAR(100),
+  tassel_color VARCHAR(100),
+  background_color VARCHAR(100),
   deposit_amount DECIMAL(10, 2) DEFAULT 500.00,
   price DECIMAL(10, 2) NOT NULL,
   transaction_ref VARCHAR(100),
@@ -70,5 +82,47 @@ CREATE TABLE payments (
   method VARCHAR(50) NOT NULL, -- e.g. 'Cash', 'GCash', 'Card', 'Maya', 'Bank Transfer'
   payment_type VARCHAR(50) NOT NULL, -- e.g. 'Deposit', 'Balance Payment'
   transaction_ref VARCHAR(100),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Packages catalog (synced with lib/packages-seed.ts)
+CREATE TABLE packages (
+  id VARCHAR(50) PRIMARY KEY,
+  category VARCHAR(50) NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  price_display VARCHAR(50) NOT NULL,
+  price_amount DECIMAL(10, 2) NOT NULL,
+  duration VARCHAR(100),
+  description TEXT,
+  features JSONB NOT NULL DEFAULT '[]'::jsonb,
+  slot_type VARCHAR(20) NOT NULL DEFAULT 'standard',
+  secondary_price_display VARCHAR(50),
+  secondary_price_amount DECIMAL(10, 2),
+  secondary_price_label TEXT,
+  book_variants JSONB,
+  note TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Packages catalog (synced with lib/packages-seed.ts)
+CREATE TABLE packages (
+  id VARCHAR(50) PRIMARY KEY,
+  category VARCHAR(50) NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  price_display VARCHAR(50) NOT NULL,
+  price_amount DECIMAL(10, 2) NOT NULL,
+  duration VARCHAR(100),
+  description TEXT,
+  features JSONB NOT NULL DEFAULT '[]'::jsonb,
+  slot_type VARCHAR(20) NOT NULL DEFAULT 'standard',
+  secondary_price_display VARCHAR(50),
+  secondary_price_amount DECIMAL(10, 2),
+  secondary_price_label TEXT,
+  book_variants JSONB,
+  note TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  sort_order INT DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

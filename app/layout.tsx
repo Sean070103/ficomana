@@ -38,8 +38,8 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'light',
-  themeColor: '#0500D0',
+  colorScheme: 'dark',
+  themeColor: '#000000',
 }
 
 export default function RootLayout({
@@ -48,7 +48,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`light ${geistSans.variable} ${geistMono.variable} ${cormorant.variable} bg-background`}>
+    <html lang="en" className={`dark ${geistSans.variable} ${geistMono.variable} ${cormorant.variable} bg-background`}>
       <head>
         <link rel="preload" href="/breanna-reel.mp4" as="video" type="video/mp4" />
       </head>

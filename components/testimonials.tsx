@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Star } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import SectionHeader from '@/components/section-header'
+import SectionShell from '@/components/section-shell'
 
 const testimonials = [
   {
@@ -45,7 +46,7 @@ export default function Testimonials() {
   const current = testimonials[currentIndex]
 
   return (
-    <section className="py-24 md:py-32 px-6 md:px-12 bg-secondary">
+    <SectionShell id="stories" variant="blue-glow">
       <div className="max-w-4xl mx-auto">
         <SectionHeader
           eyebrow="Testimonials"
@@ -99,6 +100,6 @@ export default function Testimonials() {
           ))}
         </div>
       </div>
-    </section>
+    </SectionShell>
   )
 }

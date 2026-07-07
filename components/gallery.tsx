@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { useState } from 'react'
 import SectionHeader from '@/components/section-header'
+import SectionShell from '@/components/section-shell'
 
 const IMAGE_WIDTH = 2040
 const IMAGE_HEIGHT = 2560
@@ -63,22 +64,23 @@ function GalleryImage({
       variants={variants}
       className={`relative overflow-hidden rounded-2xl md:rounded-3xl group cursor-pointer ${className}`}
     >
-      <Image
-        src={item.image}
-        alt={item.category}
-        width={IMAGE_WIDTH}
-        height={IMAGE_HEIGHT}
-        sizes="(max-width: 768px) 50vw, 25vw"
-        className="w-full h-auto block transition-transform duration-700 group-hover:scale-[1.02]"
-      />
+      <div className="overflow-hidden">
+        <Image
+          src={item.image}
+          alt={item.category}
+          width={IMAGE_WIDTH}
+          height={IMAGE_HEIGHT}
+          sizes="(max-width: 768px) 50vw, 25vw"
+          className="w-full h-auto block transition-transform duration-700 ease-out will-change-transform group-hover:scale-110"
+        />
+      </div>
       {item.label && (
-        <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 z-10">
-          <p className="text-[9px] md:text-xs font-bold tracking-[0.2em] uppercase text-white drop-shadow-lg">
+        <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 z-10 pointer-events-none">
+          <p className="text-[9px] md:text-xs font-bold tracking-[0.2em] uppercase text-white drop-shadow-lg transition-transform duration-700 ease-out group-hover:translate-y-[-2px]">
             {item.label}
           </p>
         </div>
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-primary/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
     </motion.div>
   )
 }
@@ -91,9 +93,8 @@ export default function Gallery() {
   const [grad4, grad5, grad2, grad6, grad7, grad9] = bottomRowItems
 
   return (
-    <section id="gallery" className="py-24 md:py-32 px-6 md:px-12 bg-background">
-      <div className="max-w-7xl mx-auto">
-        <SectionHeader
+    <SectionShell id="gallery" variant="elevated">
+      <SectionHeader
           eyebrow="Portfolio"
           title="Graduation Gallery"
           description="Celebrate your achievement with professionally captured graduation portraits — elegant, timeless, and uniquely yours."
@@ -101,38 +102,38 @@ export default function Gallery() {
 
         {showGallery && (
           <div className="space-y-2 md:space-y-3">
-            {/* Top row */}
+            {/* Desktop top row */}
             <motion.div
               variants={containerVariants}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: '-80px' }}
-              className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3"
+              className="hidden md:grid grid-cols-3 gap-3"
             >
               {topRowItems.map((item) => (
                 <GalleryImage key={item.id} item={item} variants={itemVariants} />
               ))}
             </motion.div>
 
-            {/* Bottom — mobile: 2-col grid */}
+            {/* Mobile — horizontal scroll */}
             <motion.div
               variants={containerVariants}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: '-80px' }}
-              className="grid grid-cols-2 gap-2 md:hidden"
+              className="flex md:hidden gap-3 overflow-x-auto pb-4 snap-x snap-mandatory -mx-2 px-2"
             >
-              {bottomRowItems.map((item) => (
+              {[...topRowItems, ...bottomRowItems].map((item) => (
                 <GalleryImage
                   key={item.id}
                   item={item}
                   variants={itemVariants}
-                  className={item.id === 4 ? 'col-span-2' : ''}
+                  className="min-w-[75vw] snap-center shrink-0"
                 />
               ))}
             </motion.div>
 
-            {/* Bottom — desktop: reference masonry with natural image sizing */}
+            {/* Desktop bottom masonry */}
             <motion.div
               variants={containerVariants}
               initial="hidden"
@@ -167,14 +168,13 @@ export default function Gallery() {
               className={`px-5 py-2.5 text-[11px] font-medium tracking-[0.15em] uppercase transition-all duration-300 ${
                 activeCategory === cat
                   ? 'bg-primary text-primary-foreground'
-                  : 'border border-primary/20 text-muted-foreground hover:border-primary/50 hover:text-primary'
+                  : 'border border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
               }`}
             >
               {cat}
             </button>
           ))}
         </motion.div>
-      </div>
-    </section>
+    </SectionShell>
   )
 }

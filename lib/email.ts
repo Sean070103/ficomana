@@ -1,7 +1,140 @@
 import { Resend } from 'resend'
-import { addEmailLog } from './data-store'
+import { persistEmailLog } from './server-email-log'
+import { getServerEmailTemplate, renderTemplate } from './email-templates'
+import { LATE_FEE_POLICY } from './booking-slots'
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder')
+
+function templateVars(booking: Record<string, unknown>) {
+  return {
+    customerName: String(booking.customerName ?? ''),
+    bookingId: String(booking.id ?? ''),
+    packageName: String(booking.packageName ?? ''),
+    bookingDate: String(booking.bookingDate ?? ''),
+    arrivalTime: String(booking.arrivalTime ?? booking.bookingTime ?? ''),
+    shootTime: String(booking.shootTime ?? booking.bookingTime ?? ''),
+    depositAmount: Number(booking.depositAmount ?? 0),
+    lateFeePolicy: LATE_FEE_POLICY,
+  }
+}
+
+import type { PaymentRecord } from './data-store'
+
+function brandedEmail(title: string, inner: string) {
+  return `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 2px solid #0500D0; background: #ffffff;">
+      <h2 style="color: #0500D0; text-align: center; margin: 0 0 4px;">FICO MANA</h2>
+      <p style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.2em; color: #5A5A8A; text-align: center; margin: 0 0 20px;">Self Portrait Studio</p>
+      <hr style="border: 0; border-top: 1px dashed #D4D8F0; margin: 0 0 20px;" />
+      <h3 style="color: #0500D0; margin: 0 0 16px;">${title}</h3>
+      ${inner}
+      <p style="font-size: 11px; color: #5A5A8A; text-align: center; margin-top: 32px; border-top: 1px solid #EEF0FF; padding-top: 16px;">
+        Cabuyao Retail Plaza, 4025 Cabuyao, Laguna · +63 49 576 5176
+      </p>
+    </div>
+  `
+}
+
+function formatMoney(amount: number) {
+  return `₱${amount.toFixed(2)}`
+}
+
+function receiptNumber(bookingId: string, paymentId: string) {
+  return `FM-RCP-${bookingId.replace('FM-', '')}-${paymentId.replace('PAY-', '')}`
+}
+
+function paymentDetailsTable(booking: Record<string, unknown>, payment: PaymentRecord) {
+  const totalPaid = ((booking.paymentHistory as PaymentRecord[]) || []).reduce((s, p) => s + p.amount, 0)
+  const price = Number(booking.price ?? 0)
+  const remaining = Math.max(0, price - totalPaid)
+
+  return `
+    <table style="width: 100%; font-size: 13px; margin: 16px 0; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Booking Reference</td>
+        <td style="padding: 8px 0; font-weight: bold; color: #0500D0; border-bottom: 1px solid #EEF0FF;">${booking.id}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Receipt No.</td>
+        <td style="padding: 8px 0; font-weight: bold; font-family: monospace; border-bottom: 1px solid #EEF0FF;">${receiptNumber(String(booking.id), payment.id)}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Transaction ID</td>
+        <td style="padding: 8px 0; font-weight: bold; font-family: monospace; border-bottom: 1px solid #EEF0FF;">${payment.id}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Payment Type</td>
+        <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #EEF0FF;">${payment.type}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Payment Method</td>
+        <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #EEF0FF;">${payment.method}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Transaction Ref</td>
+        <td style="padding: 8px 0; font-weight: bold; font-family: monospace; border-bottom: 1px solid #EEF0FF;">${payment.transactionRef || 'N/A'}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Date</td>
+        <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #EEF0FF;">${new Date(payment.date).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A;">Amount Paid (this transaction)</td>
+        <td style="padding: 8px 0; font-weight: bold; color: #0500D0; font-size: 16px;">${formatMoney(payment.amount)}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A;">Package Total</td>
+        <td style="padding: 8px 0; font-weight: bold;">${formatMoney(price)}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A;">Remaining Balance</td>
+        <td style="padding: 8px 0; font-weight: bold; color: ${remaining > 0 ? '#DC2626' : '#16A34A'};">${formatMoney(remaining)}</td>
+      </tr>
+    </table>
+  `
+}
+
+/** Payment confirmation — sent for every verified/recorded transaction. */
+export async function sendTransactionConfirmationEmail(booking: Record<string, unknown>, payment: PaymentRecord) {
+  const subject = `Payment Confirmed — ${formatMoney(payment.amount)} · ${booking.id}`
+  const html = brandedEmail(
+    'Payment Confirmation',
+    `
+      <p>Hello <strong>${booking.customerName}</strong>,</p>
+      <p>We have confirmed receipt of your <strong>${payment.type}</strong> payment. This email serves as your payment confirmation.</p>
+      ${paymentDetailsTable(booking, payment)}
+      <div style="background-color: #EEF0FF; padding: 14px; border-left: 3px solid #0500D0; margin-top: 16px;">
+        <p style="margin: 0; font-size: 12px; color: #5A5A8A;">A separate <strong>Official Receipt</strong> for this transaction will follow in another email. Please keep both for your records.</p>
+      </div>
+    `,
+  )
+  return sendEmail({ bookingId: String(booking.id), to: String(booking.customerEmail), subject, html })
+}
+
+/** Official receipt — sent per transaction after verification or in-studio payment. */
+export async function sendTransactionReceiptEmail(booking: Record<string, unknown>, payment: PaymentRecord) {
+  const rcpNo = receiptNumber(String(booking.id), payment.id)
+  const subject = `Official Receipt ${rcpNo} — ${booking.id}`
+  const html = brandedEmail(
+    'Official Payment Receipt',
+    `
+      <p>Hello <strong>${booking.customerName}</strong>,</p>
+      <p>Below is your official receipt for this transaction. Please present this at the studio if requested.</p>
+      <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 16px; margin: 16px 0; text-align: center;">
+        <p style="margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: #5A5A8A;">Official Receipt No.</p>
+        <p style="margin: 8px 0 0; font-size: 20px; font-weight: bold; font-family: monospace; color: #0500D0;">${rcpNo}</p>
+      </div>
+      ${paymentDetailsTable(booking, payment)}
+      <table style="width: 100%; font-size: 12px; margin-top: 8px; border-collapse: collapse;">
+        <tr><td style="padding: 4px 0; color: #5A5A8A;">Client</td><td style="padding: 4px 0; font-weight: bold;">${booking.customerName}</td></tr>
+        <tr><td style="padding: 4px 0; color: #5A5A8A;">Package</td><td style="padding: 4px 0; font-weight: bold;">${booking.packageName}</td></tr>
+        <tr><td style="padding: 4px 0; color: #5A5A8A;">Session Date</td><td style="padding: 4px 0; font-weight: bold;">${booking.bookingDate}</td></tr>
+      </table>
+      <p style="font-size: 11px; color: #5A5A8A; margin-top: 20px; font-style: italic;">This is an official receipt issued by FICO MANA Studio for the transaction listed above.</p>
+    `,
+  )
+  return sendEmail({ bookingId: String(booking.id), to: String(booking.customerEmail), subject, html })
+}
 
 export async function sendEmail({
   bookingId,
@@ -42,7 +175,7 @@ export async function sendEmail({
   }
 
   // Always log inside local database/store for tracking
-  addEmailLog({
+  await persistEmailLog({
     bookingId,
     recipientEmail: to,
     subject,
@@ -152,6 +285,14 @@ export async function sendPaymentApprovedEmail(booking: any) {
           <tr>
             <td style="padding: 6px 0; color: #5A5A8A;">Session Time:</td>
             <td style="padding: 6px 0; font-weight: bold; color: #0500D0;">${booking.bookingTime}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">Arrival Time:</td>
+            <td style="padding: 6px 0; font-weight: bold;">${booking.arrivalTime || booking.bookingTime}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">Shoot Time:</td>
+            <td style="padding: 6px 0; font-weight: bold;">${booking.shootTime || booking.bookingTime}</td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #5A5A8A;">Total Package Price:</td>
@@ -390,4 +531,15 @@ export async function sendGalleryLinkEmail(booking: any, driveLink: string) {
   `
   await sendEmail({ bookingId: booking.id, to: booking.customerEmail, subject, html })
   await sendEmail({ bookingId: booking.id, to: 'supplier@ficomana.studio', subject: `[Supplier Copy] Gallery Link Ready - ${booking.id}`, html })
+}
+
+export async function sendBookingReminderEmail(booking: Record<string, unknown>) {
+  const template = getServerEmailTemplate('booking_reminder')
+  const { subject, body } = renderTemplate(template, templateVars(booking))
+  return sendEmail({
+    bookingId: String(booking.id),
+    to: String(booking.customerEmail),
+    subject,
+    html: body,
+  })
 }

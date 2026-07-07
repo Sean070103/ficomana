@@ -2,6 +2,10 @@
 
 import { motion } from 'framer-motion'
 import Image from 'next/image'
+import Link from 'next/link'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { getBookingUrl } from '@/lib/booking-packages'
 
 const packageIncludes = [
   'Free use of Toga & Cap',
@@ -19,13 +23,13 @@ const packageIncludes = [
 
 const packages = [
   {
-    id: 'fico',
+    id: 'fico-package',
     name: 'FICO PACKAGE',
     subtitle: 'Without Hair and Makeup',
     price: 'Php 3,000',
   },
   {
-    id: 'mana',
+    id: 'mana-makeup',
     name: 'MANA PACKAGE',
     subtitle: 'With Hair and Makeup',
     price: 'Php 6,000',
@@ -104,9 +108,46 @@ export default function Pricing() {
                   </li>
                 ))}
               </ul>
+
+              <div className="mt-6 pt-6 border-t border-white/10">
+                <Button
+                  nativeButton={false}
+                  render={<Link href={getBookingUrl(pkg.id)} />}
+                  className={cn(
+                    buttonVariants({ size: 'lg' }),
+                    'w-full rounded-none bg-[#0500D0] hover:bg-[#03008F] text-white text-[9px] md:text-[10px] font-bold tracking-[0.16em] uppercase h-10',
+                  )}
+                  style={{ fontFamily: 'var(--font-aileron)' }}
+                >
+                  Book This Package
+                </Button>
+              </div>
             </motion.div>
           ))}
         </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          viewport={{ once: true }}
+          className="mt-12 md:mt-14 text-center"
+        >
+          <p className="text-[10px] md:text-[11px] font-light text-white/45 tracking-[0.08em] mb-5">
+            Looking for solo, duo, family, or barkada sessions?
+          </p>
+          <Button
+            nativeButton={false}
+            render={<Link href="/packages" />}
+            className={cn(
+              buttonVariants({ size: 'lg' }),
+              'rounded-none border border-white/30 bg-transparent hover:bg-white/10 text-white text-[10px] md:text-[11px] font-bold tracking-[0.18em] uppercase h-11 md:h-12 px-8',
+            )}
+            style={{ fontFamily: 'var(--font-aileron)' }}
+          >
+            View More Packages
+          </Button>
+        </motion.div>
       </div>
     </section>
   )

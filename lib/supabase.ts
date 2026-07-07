@@ -1,15 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
+import { getSupabaseUrl, getSupabaseKey, isSupabaseConfigured } from './supabase/env'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+export { isSupabaseConfigured, getSupabaseUrl, getSupabaseKey }
 
-// Export a supabase client instance.
-// Note: It will print a warning if url/key are missing, but will not fail imports.
+const supabaseUrl = getSupabaseUrl()
+const supabaseKey = getSupabaseKey()
+
+// Legacy singleton for client-side storage uploads and fallbacks.
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder-url.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key'
+  supabaseKey || 'placeholder-key',
 )
-
-export const isSupabaseConfigured = () => {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-}
