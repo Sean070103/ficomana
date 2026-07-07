@@ -2,6 +2,7 @@ import { Resend } from 'resend'
 import { persistEmailLog } from './server-email-log'
 import { getServerEmailTemplate, renderTemplate } from './email-templates'
 import { LATE_FEE_POLICY } from './booking-slots'
+import { resubmitBookingUrl } from './site-url'
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder')
 
@@ -421,10 +422,12 @@ export async function sendPaymentRejectedEmail(booking: any, reason: string) {
       <p>Your booking status has been set back to <strong>Pending Payment</strong>. To secure your slot, please verify the deposit payment and upload a valid, clear receipt.</p>
       
       <div style="text-align: center; margin: 30px 0;">
-        <a href="#booking" style="background-color: #0500D0; color: white; padding: 12px 25px; text-decoration: none; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em;">
+        <a href="${resubmitBookingUrl(booking.id)}" style="background-color: #0500D0; color: white; padding: 12px 25px; text-decoration: none; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em;">
           Upload New Receipt
         </a>
       </div>
+
+      <p style="font-size: 11px; color: #5A5A8A; text-align: center;">Or visit ficomana.studio and scroll to <strong>Resubmit Your Receipt</strong>. Use reference <strong>${booking.id}</strong> and the email you booked with.</p>
 
       <p style="font-size: 12px; color: #5A5A8A;">If you believe this was an error, please contact us at +63 49 576 5176 or message us on our Facebook page.</p>
     </div>

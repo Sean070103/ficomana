@@ -55,7 +55,10 @@ export function mapModelBookingToDbCore(b: Booking): Record<string, unknown> {
   if (b.togaColor) extras.push(`Toga: ${b.togaColor}`)
   if (b.tasselColor) extras.push(`Tassel: ${b.tasselColor}`)
   if (b.backgroundColor) extras.push(`Background: ${b.backgroundColor}`)
-  if (b.receiptUrl) extras.push(`Receipt: ${b.receiptUrl}`)
+  if (b.receiptUrl) {
+    const receiptNote = b.receiptUrl.startsWith('data:') ? '(receipt on file)' : b.receiptUrl
+    extras.push(`Receipt: ${receiptNote}`)
+  }
 
   const note = [b.note, ...extras].filter(Boolean).join(' · ')
 
@@ -114,7 +117,7 @@ export function mapModelBookingToDb(b: Booking): Record<string, unknown> {
     payment_status: b.paymentStatus,
     rejection_reason: b.rejectionReason ?? null,
     created_at: b.createdAt,
-    receipt_url: b.receiptUrl ?? null,
+    receipt_url: b.receiptUrl?.startsWith('data:') ? null : (b.receiptUrl ?? null),
     payment_history: JSON.stringify(b.paymentHistory || []),
     drive_link: b.driveLink ?? null,
   }

@@ -48,7 +48,7 @@ export interface Booking {
 export interface Notification {
   id: string
   bookingId: string
-  type: 'NEW_BOOKING' | 'RECEIPT_UPLOAD' | 'CANCELLED' | 'RESUBMITTED'
+  type: 'NEW_BOOKING' | 'RECEIPT_UPLOAD' | 'CANCELLED' | 'RESUBMITTED' | 'PAYMENT_REJECTED'
   message: string
   isRead: boolean
   createdAt: string
@@ -171,6 +171,75 @@ export async function getBooking(id: string): Promise<Booking | null> {
   return getCachedBookings().find((b) => b.id === id) ?? null
 }
 
+export type PublicResubmitBooking = {
+  id: string
+  customerName: string
+  packageName: string
+  bookingDate: string
+  bookingTime: string
+  depositAmount: number
+  bookingStatus: Booking['bookingStatus']
+  rejectionReason?: string
+}
+
+export async function lookupBookingForResubmit(
+  id: string,
+  email: string,
+): Promise<PublicResubmitBooking> {
+  const res = await fetch('/api/bookings/lookup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, email }),
+  })
+  const data = (await res.json().catch(() => ({}))) as PublicResubmitBooking & { error?: string }
+  if (!res.ok) throw new Error(data.error || 'Booking not found.')
+  return data
+}
+
+export async function uploadReceiptForResubmit(
+  bookingId: string,
+  email: string,
+  file: File,
+): Promise<string> {
+  const form = new FormData()
+  form.append('bookingId', bookingId)
+  form.append('email', email)
+  form.append('file', file)
+
+  const res = await fetch('/api/receipts/upload', { method: 'POST', body: form })
+  const data = (await res.json().catch(() => ({}))) as { receiptUrl?: string; error?: string }
+  if (res.ok && data.receiptUrl) return data.receiptUrl
+
+  // Fallback to client-side upload when service role storage is unavailable
+  if (res.status === 503) {
+    return uploadReceipt(bookingId, file)
+  }
+
+  throw new Error(data.error || 'Failed to upload receipt.')
+}
+
+export async function resubmitReceipt(payload: {
+  id: string
+  email: string
+  receiptUrl: string
+  transactionRef?: string
+  paymentMethod?: 'GCash' | 'BPI'
+}): Promise<{ message: string }> {
+  const res = await fetch(`/api/bookings/${encodeURIComponent(payload.id)}/resubmit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: payload.email,
+      receiptUrl: payload.receiptUrl,
+      transactionRef: payload.transactionRef,
+      paymentMethod: payload.paymentMethod,
+    }),
+  })
+  const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string }
+  if (!res.ok) throw new Error(data.error || 'Failed to resubmit receipt.')
+  return { message: data.message || 'Receipt submitted.' }
+}
+
 export async function saveBooking(booking: Booking): Promise<Booking> {
   const res = await fetch('/api/bookings', {
     method: 'POST',
@@ -250,7 +319,24 @@ export async function getEmailLogs(): Promise<EmailLog[]> {
   return []
 }
 
-export async function uploadReceipt(bookingId: string, file: File): Promise<string> {
+export async function uploadReceipt(bookingId: string, file: File, email?: string): Promise<string> {
+  if (email) {
+    try {
+      const form = new FormData()
+      form.append('bookingId', bookingId)
+      form.append('email', email)
+      form.append('file', file)
+      const res = await fetch('/api/receipts/upload', { method: 'POST', body: form })
+      const data = (await res.json().catch(() => ({}))) as { receiptUrl?: string; error?: string }
+      if (res.ok && data.receiptUrl) return data.receiptUrl
+      if (res.status !== 503) {
+        console.warn('Server receipt upload failed:', data.error)
+      }
+    } catch (error) {
+      console.warn('Server receipt upload unavailable:', error)
+    }
+  }
+
   const { supabase, isSupabaseConfigured } = await import('./supabase')
   const fileName = `${bookingId}-${Date.now()}-${file.name.replace(/\s+/g, '-')}`
 

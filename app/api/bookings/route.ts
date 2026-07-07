@@ -59,17 +59,21 @@ async function notifyNewBooking(booking: Booking) {
   const receiptMsg = `${booking.customerName} submitted a receipt for booking ${booking.id}.`
   const admin = getSupabaseAdmin()
 
-  if (isSupabaseConfigured() && admin) {
-    await addNotificationToDb(admin, booking.id, 'NEW_BOOKING', newBookingMsg)
-    if (booking.receiptUrl) {
-      await addNotificationToDb(admin, booking.id, 'RECEIPT_UPLOAD', receiptMsg)
+  try {
+    if (isSupabaseConfigured() && admin) {
+      await addNotificationToDb(admin, booking.id, 'NEW_BOOKING', newBookingMsg)
+      if (booking.receiptUrl) {
+        await addNotificationToDb(admin, booking.id, 'RECEIPT_UPLOAD', receiptMsg)
+      }
+      return
     }
-    return
-  }
 
-  await addServerNotification(booking.id, 'NEW_BOOKING', newBookingMsg)
-  if (booking.receiptUrl) {
-    await addServerNotification(booking.id, 'RECEIPT_UPLOAD', receiptMsg)
+    await addServerNotification(booking.id, 'NEW_BOOKING', newBookingMsg)
+    if (booking.receiptUrl) {
+      await addServerNotification(booking.id, 'RECEIPT_UPLOAD', receiptMsg)
+    }
+  } catch (error) {
+    console.warn('notifyNewBooking skipped:', error)
   }
 }
 
@@ -130,18 +134,35 @@ export async function POST(request: Request) {
     }
 
     const db = await pickDbClient(isExisting)
-    const supabaseResult = await saveBookingToDb(await db, booking)
+    const supabaseResult = await saveBookingToDb(db, booking)
 
-    const fileSaved = await upsertBooking(supabaseResult ?? booking)
+    // File store is best-effort (read-only on Vercel)
+    try {
+      await upsertBooking(supabaseResult ?? booking)
+    } catch (fileError) {
+      console.warn('File store upsert skipped:', fileError)
+    }
 
     if (!isExisting) {
       await notifyNewBooking(supabaseResult ?? booking)
     }
 
-    const result = supabaseResult ?? fileSaved
+    const result = supabaseResult ?? booking
+
+    if (!supabaseResult && isSupabaseConfigured()) {
+      return NextResponse.json(
+        {
+          error:
+            'Could not save booking to database. Ensure migrations 002–004 are applied and SUPABASE_SERVICE_ROLE_KEY is set on Vercel.',
+        },
+        { status: 503 },
+      )
+    }
+
     return NextResponse.json(result, { status: isExisting ? 200 : 201 })
   } catch (error) {
     console.error('POST /api/bookings', error)
-    return NextResponse.json({ error: 'Failed to save booking' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Failed to save booking'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

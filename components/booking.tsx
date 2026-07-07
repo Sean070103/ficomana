@@ -228,7 +228,7 @@ function BookingForm() {
       }
       const id = generateBookingId(latest.map((b) => b.id))
       const slot = isMakeupPackage ? getSlotById(selectedSlotId) : undefined
-      const receiptUrl = await uploadReceipt(id, receiptFile)
+      const receiptUrl = await uploadReceipt(id, receiptFile, email)
       const graduationNote = isGraduationPackage
         ? [
             note,
@@ -283,9 +283,8 @@ function BookingForm() {
         ],
       }
       const saved = await saveBooking(booking)
-      if (!(await getBooking(saved.id))) throw new Error('not saved')
-      await dispatchEmail({ action: 'booking_created', booking })
-      await dispatchEmail({ action: 'payment_received', booking })
+      await dispatchEmail({ action: 'booking_created', booking: saved })
+      await dispatchEmail({ action: 'payment_received', booking: saved })
       setBookingId(id)
       setStep(6)
     } catch (err) {

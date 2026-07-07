@@ -125,7 +125,7 @@ export default function PaymentVerificationQueue() {
       // 2. Add notification log
       await addNotification(
         selectedBooking.id,
-        'CANCELLED',
+        'PAYMENT_REJECTED',
         `Payment receipt for Booking ${selectedBooking.id} was rejected. Reason: ${finalReason}`
       )
 

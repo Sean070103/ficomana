@@ -28,9 +28,16 @@ async function readStore(): Promise<StoreData> {
   }
 }
 
-async function writeStore(data: StoreData): Promise<void> {
-  await fs.mkdir(path.dirname(STORE_PATH), { recursive: true })
-  await fs.writeFile(STORE_PATH, JSON.stringify(data, null, 2), 'utf-8')
+async function writeStore(data: StoreData): Promise<boolean> {
+  try {
+    await fs.mkdir(path.dirname(STORE_PATH), { recursive: true })
+    await fs.writeFile(STORE_PATH, JSON.stringify(data, null, 2), 'utf-8')
+    return true
+  } catch (error) {
+    // Vercel/serverless filesystem is read-only — Supabase is the production source of truth.
+    console.warn('File store write skipped:', error instanceof Error ? error.message : error)
+    return false
+  }
 }
 
 export async function listBookings(): Promise<Booking[]> {
