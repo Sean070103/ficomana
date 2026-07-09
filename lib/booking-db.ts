@@ -151,8 +151,13 @@ export function mapModelBookingToDb(b: Booking): Record<string, unknown> {
     payment_status: b.paymentStatus,
     rejection_reason: b.rejectionReason ?? null,
     created_at: b.createdAt,
-    receipt_url: b.receiptUrl?.startsWith('data:') ? null : (b.receiptUrl ?? null),
-    payment_history: JSON.stringify(b.paymentHistory || []),
+    receipt_url:
+      Object.prototype.hasOwnProperty.call(b, 'receiptUrl') && !b.receiptUrl
+        ? null
+        : b.receiptUrl?.startsWith('data:')
+          ? null
+          : (b.receiptUrl ?? null),
+    payment_history: JSON.stringify(b.paymentHistory ?? []),
     drive_link: b.driveLink ?? null,
   }
 }

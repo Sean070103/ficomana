@@ -10,7 +10,6 @@ import BookingSlotPicker from '@/components/booking-slot-picker'
 import BookingGraduationPreview from '@/components/booking-graduation-preview'
 import BookingSummarySidebar from '@/components/booking-summary'
 import { saveBooking, uploadReceipt, getBookingsForAvailability, getBooking, getBookingPackages } from '@/lib/data-store'
-import { dispatchEmail } from '@/lib/email-dispatch'
 import { getBookingPackage, usesMakeupSlots, parsePackagePrice, type BookingPackage, type BookingPackageCategory } from '@/lib/booking-packages'
 import {
   GRADUATION_TOGA_NOTE,
@@ -139,12 +138,18 @@ function BookingForm() {
   } | null>(null)
   const [allBookings, setAllBookings] = useState<any[]>([])
   const [packages, setPackages] = useState<BookingPackage[]>([])
+  const [packagesLoading, setPackagesLoading] = useState(true)
+  const [formError, setFormError] = useState('')
   const [copiedText, setCopiedText] = useState(false)
+  const [copiedRef, setCopiedRef] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     getBookingsForAvailability().then(setAllBookings).catch(console.error)
-    getBookingPackages().then(setPackages).catch(console.error)
+    getBookingPackages()
+      .then(setPackages)
+      .catch(console.error)
+      .finally(() => setPackagesLoading(false))
   }, [])
 
   useEffect(() => {
@@ -196,21 +201,23 @@ function BookingForm() {
 
   const validateGraduationStep = () => {
     if (!schoolName || !course) {
-      alert('Please enter your school name and course.')
+      setFormError('Please enter your school name and course.')
       return false
     }
     if (!hoodColor || !togaColor || !tasselColor || !backgroundColor) {
-      alert('Please select hood, toga, tassel, and background.')
+      setFormError('Please select hood, toga, tassel, and background.')
       return false
     }
+    setFormError('')
     return true
   }
 
   const validateContactStep = () => {
     if (!name || !email || !phone || !fbName || !fbLink) {
-      alert('Please fill in all required contact fields.')
+      setFormError('Please fill in all required contact fields.')
       return false
     }
+    setFormError('')
     return true
   }
 
@@ -222,18 +229,27 @@ function BookingForm() {
     e.preventDefault()
     if (!selectedSession || !selectedDate || !receiptFile || (isMakeupPackage && !selectedSlotId)) return
     setIsSubmitting(true)
+    setFormError('')
     try {
       const latest = await getBookingsForAvailability()
       const dk = formatDateKey(selectedDate)
       if (!isMakeupPackage && isFicoDateFull(latest, dk)) {
-        alert('Date fully booked.')
+        setFormError('This date is fully booked. Please choose another date.')
         return
       }
       if (isMakeupPackage && selectedSlotId && checkSlotTaken(latest, dk, selectedSlotId)) {
-        alert('Slot taken.')
+        setFormError('This session slot was just taken. Please pick another slot.')
         return
       }
       const id = generateBookingId(latest.map((b) => b.id))
+      setBookingId(id)
+      setSubmittedSummary({
+        paymentMethod,
+        transactionRef: transactionRef.trim(),
+        depositAmount: 500,
+        packageName: selectedSession.title,
+        bookingDate: dk,
+      })
       const slot = isMakeupPackage ? getSlotById(selectedSlotId) : undefined
       const receiptUrl = await uploadReceipt(id, receiptFile, email)
       const graduationNote = isGraduationPackage
@@ -273,7 +289,7 @@ function BookingForm() {
         backgroundColor: isGraduationPackage ? backgroundColor : undefined,
         depositAmount: 500,
         price: parsePackagePrice(selectedSession.price),
-        transactionRef,
+        transactionRef: transactionRef.trim(),
         bookingStatus: 'Pending Verification' as const,
         paymentStatus: 'Pending Verification' as const,
         createdAt: new Date().toISOString(),
@@ -289,21 +305,11 @@ function BookingForm() {
           },
         ],
       }
-      const saved = await saveBooking(booking)
-      setSubmittedSummary({
-        paymentMethod,
-        transactionRef: transactionRef.trim(),
-        depositAmount: 500,
-        packageName: selectedSession.title,
-        bookingDate: dk,
-      })
-      await dispatchEmail({ action: 'booking_created', booking: saved })
-      await dispatchEmail({ action: 'payment_received', booking: saved })
-      setBookingId(id)
+      const { booking: saved } = await saveBooking(booking)
       setStep(6)
     } catch (err) {
       console.error(err)
-      alert(err instanceof Error ? err.message : 'Submit failed.')
+      setFormError(err instanceof Error ? err.message : 'Submit failed. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -343,6 +349,12 @@ function BookingForm() {
       <div className={`max-w-6xl mx-auto ${cardClass} p-4 sm:p-6 md:p-10`}>
         {step < 6 && <StepProgress step={step} isGraduation={!!isGraduationPackage} />}
 
+        {formError && (
+          <div className="mb-5 border border-red-500/35 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {formError}
+          </div>
+        )}
+
         {/* Step 1 — Package */}
         {step === 1 && (
           <div className="space-y-6">
@@ -352,7 +364,10 @@ function BookingForm() {
                 <button
                   key={c}
                   type="button"
-                  onClick={() => setActiveCategory(c)}
+                  onClick={() => {
+                    setActiveCategory(c)
+                    setFormError('')
+                  }}
                   className={`px-4 py-2 text-[10px] uppercase tracking-wider border rounded-sm ${
                     activeCategory === c ? 'border-primary bg-primary text-primary-foreground' : 'border-white/10 text-white/60 hover:border-white/30 hover:text-white'
                   }`}
@@ -361,6 +376,15 @@ function BookingForm() {
                 </button>
               ))}
             </div>
+            {packagesLoading ? (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {[0, 1].map((i) => (
+                  <div key={i} className="h-36 border border-white/10 bg-white/[0.03] animate-pulse" />
+                ))}
+              </div>
+            ) : filteredPackages.length === 0 ? (
+              <p className="text-center text-sm text-white/50 py-8">No packages available in this category yet.</p>
+            ) : (
             <div className="grid sm:grid-cols-2 gap-4">
               {filteredPackages.map((pkg) => {
                 const Icon = getPackageIcon(pkg)
@@ -381,11 +405,15 @@ function BookingForm() {
                 )
               })}
             </div>
+            )}
             <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
               <button
                 type="button"
                 disabled={!selectedSession}
-                onClick={() => setStep(2)}
+                onClick={() => {
+                  setFormError('')
+                  setStep(2)
+                }}
                 className={btnPrimaryClass}
               >
                 Next
@@ -747,35 +775,54 @@ function BookingForm() {
             <p className="text-sm text-muted-foreground">Your deposit is pending verification. You will receive a confirmation email once approved.</p>
             <div className="border border-primary/30 bg-primary/10 p-6 space-y-4 text-left">
               <div>
-                <p className="text-[9px] uppercase tracking-wider text-white/40">Tracking No.</p>
+                <p className="text-[9px] uppercase tracking-wider text-white/40">Booking Reference</p>
                 <p className="text-2xl font-bold text-primary font-mono mt-1">{bookingId}</p>
                 <button type="button" onClick={() => { navigator.clipboard.writeText(bookingId); setCopiedText(true) }} className="text-[10px] text-primary mt-3 inline-flex items-center gap-1">
-                  <Copy className="w-3 h-3" /> {copiedText ? 'Copied!' : 'Copy'}
+                  <Copy className="w-3 h-3" /> {copiedText ? 'Copied!' : 'Copy reference'}
                 </button>
               </div>
-              {submittedSummary && (
-                <div className="border-t border-primary/20 pt-4 space-y-2 text-sm">
-                  <p className="text-[9px] uppercase tracking-wider text-white/40">Payment Submitted</p>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <p className="text-white/40">Method</p>
-                      <p className="font-semibold text-white">{submittedSummary.paymentMethod}</p>
-                    </div>
-                    <div>
-                      <p className="text-white/40">Deposit</p>
-                      <p className="font-semibold text-primary">₱{submittedSummary.depositAmount.toFixed(2)}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-white/40">Transaction Reference</p>
-                      <p className="font-mono font-bold text-white">{submittedSummary.transactionRef}</p>
-                    </div>
+              <div className="border-t border-primary/20 pt-4 space-y-2 text-sm">
+                <p className="text-[9px] uppercase tracking-wider text-white/40">Payment Submitted</p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-white/40">Method</p>
+                    <p className="font-semibold text-white">{submittedSummary?.paymentMethod ?? paymentMethod}</p>
+                  </div>
+                  <div>
+                    <p className="text-white/40">Deposit</p>
+                    <p className="font-semibold text-primary">₱{(submittedSummary?.depositAmount ?? 500).toFixed(2)}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-white/40">GCash / BPI Transaction Reference</p>
+                    <p className="font-mono font-bold text-white text-base mt-0.5">
+                      {submittedSummary?.transactionRef || transactionRef.trim() || '—'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ref = submittedSummary?.transactionRef || transactionRef.trim()
+                        if (ref) {
+                          navigator.clipboard.writeText(ref)
+                          setCopiedRef(true)
+                        }
+                      }}
+                      className="text-[10px] text-primary mt-2 inline-flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" /> {copiedRef ? 'Copied!' : 'Copy transaction ref'}
+                    </button>
+                  </div>
+                  {(submittedSummary?.packageName || selectedSession) && (
                     <div className="col-span-2">
                       <p className="text-white/40">Package · Date</p>
-                      <p className="text-white/80">{submittedSummary.packageName} · {submittedSummary.bookingDate}</p>
+                      <p className="text-white/80">
+                        {submittedSummary?.packageName ?? selectedSession?.title}
+                        {' · '}
+                        {submittedSummary?.bookingDate ?? (selectedDate ? formatDateKey(selectedDate) : '—')}
+                      </p>
                     </div>
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
             <button type="button" onClick={resetBooking} className={btnBackClass + ' inline-flex items-center gap-2'}>
               <RefreshCw className="w-3.5 h-3.5" /> New Booking
@@ -789,7 +836,19 @@ function BookingForm() {
 
 export default function Booking() {
   return (
-    <Suspense fallback={<div className="py-20 text-center text-white">Loading...</div>}>
+    <Suspense
+      fallback={
+        <SectionShell id="booking" variant="elevated">
+          <div className="max-w-6xl mx-auto border border-white/10 bg-white/[0.02] p-6 sm:p-10">
+            <div className="h-8 w-48 mx-auto bg-white/10 animate-pulse mb-8" />
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="h-36 bg-white/[0.04] animate-pulse" />
+              <div className="h-36 bg-white/[0.04] animate-pulse" />
+            </div>
+          </div>
+        </SectionShell>
+      }
+    >
       <BookingForm />
     </Suspense>
   )

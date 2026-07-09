@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getBookings, saveBooking, addNotification, Booking } from '@/lib/data-store'
-import { dispatchEmail } from '@/lib/email-dispatch'
+import { getBookings, dismissBookingNotifications, addNotification, Booking } from '@/lib/data-store'
 import { GraduationSessionDetails } from '@/components/graduation-session-details'
+import { runAdminTransaction, formatEmailResult } from '@/lib/admin-actions'
+import { useAdminToast } from '@/components/admin-toast-provider'
+import AdminPageHeader from '@/components/admin-page-header'
+import { useOnAdminDbSync } from '@/components/admin-auto-sync'
 import { 
   Check, 
   X, 
@@ -12,58 +15,73 @@ import {
   FileText, 
   ExternalLink,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Search,
 } from 'lucide-react'
-import { enrichBookingDisplay } from '@/lib/booking-display'
+import { bookingMatchesSearch, enrichBookingDisplay, isLikelyInvalidReceipt } from '@/lib/booking-display'
 import ReceiptPreview from '@/components/receipt-preview'
-import { adminPage, adminTitle, adminSubtitle, adminSpinnerWrap, adminSpinner } from '@/lib/admin-ui'
+import { adminPage, adminSpinnerWrap, adminSpinner, adminCardHover, adminSelect, adminInput } from '@/lib/admin-ui'
+import {
+  REJECTION_REASONS,
+  resolveRejectionMessage,
+  isForgedRejection,
+  type RejectionReasonId,
+} from '@/lib/rejection-reasons'
 
 export default function PaymentVerificationQueue() {
+  const toast = useAdminToast()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [flashId, setFlashId] = useState<string | null>(null)
   
   // Modal states
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showReceiptModal, setShowReceiptModal] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
-  const [rejectionReason, setRejectionReason] = useState('Unable to verify payment')
+  const [rejectionReason, setRejectionReason] = useState<RejectionReasonId>('forged')
   const [customReason, setCustomReason] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
 
-  const fetchQueue = async () => {
+  const fetchQueue = async (silent = false) => {
+    if (!silent) setRefreshing(true)
     try {
       const data = await getBookings()
-      // Filter only bookings that are pending payment verification
       const queue = data
         .filter((b) => b.bookingStatus === 'Pending Verification')
         .map(enrichBookingDisplay)
       setBookings(queue)
     } catch (err) {
       console.error(err)
+      toast.error('Sync failed', 'Could not load bookings from database.')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
   useEffect(() => {
-    fetchQueue()
+    fetchQueue(true)
   }, [])
 
+  useOnAdminDbSync(() => fetchQueue(true))
+
   const handleApprove = async (booking: Booking) => {
-    const confirmApprove = window.confirm(`Are you sure you want to approve the payment for Booking ${booking.id}?`)
-    if (!confirmApprove) return
+    if (!window.confirm(`Approve payment for ${booking.id}?`)) return
 
     setActionLoading(true)
     try {
       const history = [...(booking.paymentHistory || [])]
-      if (history.length === 0) {
+      const existingDeposit = history.find((p) => p.type === 'Deposit')
+      if (!existingDeposit) {
         history.push({
           id: 'PAY-' + Math.floor(1000 + Math.random() * 9000),
           amount: booking.depositAmount,
           method: 'GCash',
           type: 'Deposit',
           transactionRef: booking.transactionRef,
-          date: new Date().toISOString()
+          date: new Date().toISOString(),
         })
       }
 
@@ -71,35 +89,98 @@ export default function PaymentVerificationQueue() {
         ...booking,
         bookingStatus: 'Confirmed',
         paymentStatus: 'Paid Deposit',
-        paymentHistory: history
+        paymentHistory: history,
       }
 
-      // 1. Save updated booking
-      await saveBooking(updatedBooking)
-      
-      // 2. Add notification log
-      await addNotification(
-        booking.id,
-        'NEW_BOOKING',
-        `Payment for Booking ${booking.id} has been approved.`
-      )
+      const { emailErrors } = await runAdminTransaction(updatedBooking)
 
-      // 3. Send booking confirmation + per-transaction confirmation & receipt
-      const depositPayment = history[history.length - 1]
-      await dispatchEmail({ action: 'payment_approved', booking: updatedBooking })
-      if (depositPayment) {
-        await dispatchEmail({ action: 'transaction_both', booking: updatedBooking, payment: depositPayment })
+      setBookings((prev) => prev.filter((b) => b.id !== booking.id))
+
+      try {
+        await dismissBookingNotifications(booking.id)
+      } catch (err) {
+        console.warn('dismissBookingNotifications failed:', err)
       }
 
-      alert(`Booking ${booking.id} confirmed! Confirmation and receipt emails sent.`)
+      setFlashId(booking.id)
+      window.setTimeout(() => setFlashId(null), 1200)
+
+      const emailMsg = formatEmailResult(emailErrors)
+      if (emailMsg) {
+        toast.warning(`${booking.id} confirmed in database`, emailMsg)
+      } else {
+        toast.success('Payment approved', `${booking.id} confirmed — 1 email sent to customer.`)
+      }
+
       setShowReceiptModal(false)
       setSelectedBooking(null)
-      fetchQueue()
+      fetchQueue(true)
     } catch (err) {
       console.error(err)
-      alert('Failed to approve payment.')
+      toast.error('Approval failed', err instanceof Error ? err.message : 'Could not save to database.')
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const submitRejection = async (booking: Booking, reasonId: RejectionReasonId, custom?: string) => {
+    const finalReason = resolveRejectionMessage(reasonId, custom)
+    const forged = isForgedRejection(reasonId, finalReason)
+
+    const updatedBooking: Booking = {
+      ...booking,
+      bookingStatus: 'Pending Payment',
+      paymentStatus: 'Unpaid',
+      rejectionReason: finalReason,
+      rejectionReasonId: reasonId,
+      ...(forged
+        ? {
+            receiptUrl: undefined,
+            transactionRef: undefined,
+            paymentHistory: [],
+          }
+        : {}),
+    }
+
+    const { emailErrors } = await runAdminTransaction(updatedBooking)
+
+    setBookings((prev) => prev.filter((b) => b.id !== booking.id))
+    setShowRejectModal(false)
+    setShowReceiptModal(false)
+    setSelectedBooking(null)
+    setCustomReason('')
+    setRejectionReason('forged')
+
+    try {
+      await dismissBookingNotifications(booking.id)
+    } catch (err) {
+      console.warn('dismissBookingNotifications failed:', err)
+    }
+
+    try {
+      await addNotification(
+        booking.id,
+        'PAYMENT_REJECTED',
+        forged
+          ? `Forged/fake receipt rejected for ${booking.id}. Customer must upload genuine GCash/BPI proof.`
+          : `Payment receipt for Booking ${booking.id} was rejected. Reason: ${finalReason}`,
+      )
+    } catch (err) {
+      console.warn('addNotification failed:', err)
+    }
+
+    await fetchQueue(true)
+
+    const emailMsg = formatEmailResult(emailErrors)
+    if (emailMsg) {
+      toast.warning(`${booking.id} set to Pending Payment`, emailMsg)
+    } else {
+      toast.success(
+        forged ? 'Forged receipt rejected' : 'Receipt rejected',
+        forged
+          ? 'Customer emailed — must upload a genuine GCash/BPI screenshot.'
+          : 'Customer notified to resubmit via email.',
+      )
     }
   }
 
@@ -107,43 +188,37 @@ export default function PaymentVerificationQueue() {
     e.preventDefault()
     if (!selectedBooking) return
 
-    const finalReason = rejectionReason === 'Other' ? customReason : rejectionReason
-    if (!finalReason) {
-      alert('Please enter a rejection reason.')
+    if (rejectionReason === 'other' && !customReason.trim()) {
+      toast.warning('Reason required', 'Enter a rejection reason for the customer.')
       return
     }
 
     setActionLoading(true)
     try {
-      const updatedBooking: Booking = {
-        ...selectedBooking,
-        bookingStatus: 'Pending Payment', // returns to pending payment
-        paymentStatus: 'Unpaid',
-        rejectionReason: finalReason
-      }
-
-      // 1. Save updated booking
-      await saveBooking(updatedBooking)
-
-      // 2. Add notification log
-      await addNotification(
-        selectedBooking.id,
-        'PAYMENT_REJECTED',
-        `Payment receipt for Booking ${selectedBooking.id} was rejected. Reason: ${finalReason}`
-      )
-
-      // 3. Send email to upload new receipt
-      await dispatchEmail({ action: 'payment_rejected', booking: updatedBooking, reason: finalReason })
-
-      alert(`Booking ${selectedBooking.id} payment rejected. Customer notified via email.`)
-      setShowRejectModal(false)
-      setShowReceiptModal(false)
-      setSelectedBooking(null)
-      setCustomReason('')
-      fetchQueue()
+      await submitRejection(selectedBooking, rejectionReason, customReason)
     } catch (err) {
       console.error(err)
-      alert('Failed to reject payment.')
+      toast.error('Rejection failed', err instanceof Error ? err.message : 'Could not update database.')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleRejectForged = async (booking: Booking) => {
+    if (
+      !window.confirm(
+        `Reject ${booking.id} as a forged/fake receipt? The customer will be emailed and must upload a genuine GCash/BPI screenshot.`,
+      )
+    ) {
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      await submitRejection(booking, 'forged')
+    } catch (err) {
+      console.error(err)
+      toast.error('Rejection failed', err instanceof Error ? err.message : 'Could not update database.')
     } finally {
       setActionLoading(false)
     }
@@ -151,6 +226,10 @@ export default function PaymentVerificationQueue() {
 
   const receiptModalBooking =
     showReceiptModal && selectedBooking ? enrichBookingDisplay(selectedBooking) : null
+
+  const visibleBookings = searchTerm.trim()
+    ? bookings.filter((booking) => bookingMatchesSearch(booking, searchTerm))
+    : bookings
 
   if (loading) {
     return (
@@ -162,10 +241,12 @@ export default function PaymentVerificationQueue() {
 
   return (
     <div className={adminPage}>
-      <div>
-        <h1 className={adminTitle}>Payment Verification</h1>
-        <p className={adminSubtitle}>Review uploaded GCash screenshots and approve or reject sessions.</p>
-      </div>
+      <AdminPageHeader
+        title="Payment Verification"
+        subtitle="Review uploaded GCash screenshots and approve or reject sessions."
+        onRefresh={() => fetchQueue()}
+        refreshing={refreshing}
+      />
 
       {bookings.length === 0 ? (
         <div className="border border-white/10 bg-[#0A0A0F] p-16 text-center shadow-sm">
@@ -176,11 +257,34 @@ export default function PaymentVerificationQueue() {
           <p className="text-xs text-white/40 mt-1">All booking deposits have been verified. Excellent job!</p>
         </div>
       ) : (
+        <>
+          <div className="border border-white/10 bg-[#0A0A0F] p-4 mb-5">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search FM-123456, receipt no., GCash ref, name, phone..."
+                className={`${adminInput} pl-11`}
+              />
+            </div>
+            <p className="text-[11px] text-white/45 mt-3">
+              Showing <span className="font-semibold text-white/70">{visibleBookings.length}</span> of{' '}
+              <span className="font-semibold text-white/70">{bookings.length}</span> in queue
+            </p>
+          </div>
+
+          {visibleBookings.length === 0 ? (
+            <div className="border border-white/10 bg-[#0A0A0F] p-12 text-center">
+              <p className="text-sm text-white/50">No bookings match your search.</p>
+            </div>
+          ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {bookings.map((booking) => {
+          {visibleBookings.map((booking) => {
             const display = enrichBookingDisplay(booking)
             return (
-            <div key={booking.id} className="border border-white/10 bg-white/[0.02] flex flex-col justify-between overflow-hidden">
+            <div key={booking.id} className={`border border-white/10 bg-white/[0.02] flex flex-col justify-between overflow-hidden ${adminCardHover} ${flashId === booking.id ? 'ring-2 ring-green-500/40' : ''} ${isLikelyInvalidReceipt(display.receiptUrl) ? 'ring-1 ring-red-500/40' : ''}`}>
               {/* Receipt Preview Thumbnail */}
               <div 
                 className="h-48 bg-white/[0.05] relative overflow-hidden group cursor-pointer border-b border-white/10"
@@ -227,7 +331,18 @@ export default function PaymentVerificationQueue() {
               </div>
 
               {/* Action Buttons */}
-              <div className="bg-white/[0.03] px-5 py-3 border-t border-white/10 flex gap-2">
+              <div className="bg-white/[0.03] px-5 py-3 border-t border-white/10 space-y-2">
+                {isLikelyInvalidReceipt(display.receiptUrl) && (
+                  <button
+                    type="button"
+                    onClick={() => handleRejectForged(display)}
+                    disabled={actionLoading}
+                    className="w-full bg-red-950 hover:bg-red-900 border border-red-500/50 text-red-200 text-[10px] font-bold uppercase tracking-wider py-2 flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5" /> Reject — Forged / Not a receipt
+                  </button>
+                )}
+                <div className="flex gap-2">
                 <button
                   onClick={() => handleApprove(display)}
                   disabled={actionLoading}
@@ -238,6 +353,7 @@ export default function PaymentVerificationQueue() {
                 <button
                   onClick={() => {
                     setSelectedBooking(display)
+                    setRejectionReason(isLikelyInvalidReceipt(display.receiptUrl) ? 'forged' : 'unable_to_verify')
                     setShowRejectModal(true)
                   }}
                   disabled={actionLoading}
@@ -245,11 +361,14 @@ export default function PaymentVerificationQueue() {
                 >
                   <X className="w-3.5 h-3.5" /> Reject
                 </button>
+                </div>
               </div>
             </div>
             )
           })}
         </div>
+          )}
+        </>
       )}
 
       {/* 1. RECEIPT VIEWER MODAL */}
@@ -295,29 +414,29 @@ export default function PaymentVerificationQueue() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-y-4 text-xs">
-                  <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4 text-xs">
+                  <div className="min-w-0">
                     <p className="text-white/40 font-medium text-[8px] uppercase tracking-wider">Email</p>
-                    <p className="font-semibold text-white/90">{selectedBooking.customerEmail}</p>
+                    <p className="font-semibold text-white/90 break-all">{selectedBooking.customerEmail}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-white/40 font-medium text-[8px] uppercase tracking-wider">Phone</p>
-                    <p className="font-semibold text-white/90">{selectedBooking.customerPhone}</p>
+                    <p className="font-semibold text-white/90 break-words">{selectedBooking.customerPhone}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-white/40 font-medium text-[8px] uppercase tracking-wider">Facebook Name</p>
-                    <p className="font-semibold text-white/90">{selectedBooking.customerFbName || 'N/A'}</p>
+                    <p className="font-semibold text-white/90 break-words">{selectedBooking.customerFbName || 'N/A'}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-white/40 font-medium text-[8px] uppercase tracking-wider">Facebook Link</p>
                     {selectedBooking.customerFbLink ? (
                       <a 
                         href={selectedBooking.customerFbLink} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="text-[#0500D0] hover:underline font-semibold flex items-center gap-1 mt-0.5"
+                        className="text-[#0500D0] hover:underline font-semibold inline-flex items-center gap-1 mt-0.5 break-all"
                       >
-                        Visit Profile <ExternalLink className="w-3.5 h-3.5" />
+                        Visit Profile <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                       </a>
                     ) : (
                       <p className="text-white/50 italic mt-0.5">No link provided</p>
@@ -360,6 +479,22 @@ export default function PaymentVerificationQueue() {
               </div>
 
               <div className="space-y-3 pt-6 border-t border-white/10">
+                {isLikelyInvalidReceipt(receiptModalBooking.receiptUrl) && (
+                  <div className="bg-red-500/10 border border-red-500/40 p-3 text-xs text-red-200 flex gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p>This file does not look like a GCash/BPI screenshot. Use <strong>Reject — Forged</strong> if it is not genuine payment proof.</p>
+                  </div>
+                )}
+                {isLikelyInvalidReceipt(receiptModalBooking.receiptUrl) && (
+                  <button
+                    type="button"
+                    onClick={() => handleRejectForged(selectedBooking)}
+                    disabled={actionLoading}
+                    className="w-full bg-red-950 hover:bg-red-900 border border-red-500/50 text-red-200 text-xs font-bold uppercase tracking-wider py-3 flex items-center justify-center gap-1"
+                  >
+                    <AlertCircle className="w-4 h-4" /> Reject — Forged / Fake Receipt
+                  </button>
+                )}
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleApprove(selectedBooking)}
@@ -369,7 +504,12 @@ export default function PaymentVerificationQueue() {
                     <Check className="w-4 h-4" /> Approve Payment
                   </button>
                   <button
-                    onClick={() => setShowRejectModal(true)}
+                    onClick={() => {
+                      setRejectionReason(
+                        isLikelyInvalidReceipt(receiptModalBooking.receiptUrl) ? 'forged' : 'unable_to_verify',
+                      )
+                      setShowRejectModal(true)
+                    }}
                     disabled={actionLoading}
                     className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider py-3 flex items-center justify-center gap-1 transition-colors"
                   >
@@ -404,10 +544,10 @@ export default function PaymentVerificationQueue() {
 
       {/* 2. REJECT PAYMENT MODAL */}
       {showRejectModal && selectedBooking && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-55 animate-fade-in">
-          <form 
-            onSubmit={handleRejectSubmit} 
-            className="border border-white/10 bg-[#0A0A0F] shadow-2xl max-w-md w-full p-6 md:p-8 space-y-5"
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-in fade-in duration-200">
+          <form
+            onSubmit={handleRejectSubmit}
+            className="relative border border-white/10 bg-[#0A0A0F] shadow-2xl max-w-md w-full p-6 md:p-8 space-y-5"
           >
             <div className="flex justify-between items-start border-b border-white/10 pb-3">
               <div>
@@ -424,7 +564,7 @@ export default function PaymentVerificationQueue() {
             </div>
 
             <div className="space-y-4">
-              <div className="bg-red-50 border border-red-100 p-3 text-xs text-red-800 flex gap-2">
+              <div className="bg-red-500/10 border border-red-500/30 p-3 text-xs text-red-200 flex gap-2">
                 <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                 <p className="leading-relaxed">
                   Rejecting this payment will email the client with the specified reason and instructions to re-upload. The booking status will return to <strong>Pending Payment</strong>.
@@ -437,18 +577,23 @@ export default function PaymentVerificationQueue() {
                 </label>
                 <select
                   value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 focus:border-primary focus:outline-none p-3 text-xs font-semibold"
+                  onChange={(e) => setRejectionReason(e.target.value as RejectionReasonId)}
+                  className={adminSelect}
                 >
-                  <option value="Unable to verify payment">Unable to verify payment</option>
-                  <option value="Incorrect amount">Incorrect amount</option>
-                  <option value="Duplicate receipt">Duplicate receipt</option>
-                  <option value="Blurry image">Blurry image</option>
-                  <option value="Other">Other (Write Custom Reason)</option>
+                  {REJECTION_REASONS.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.label}
+                    </option>
+                  ))}
                 </select>
+                {rejectionReason !== 'other' && (
+                  <p className="text-[10px] text-white/40 leading-relaxed mt-2">
+                    Customer will see: &ldquo;{resolveRejectionMessage(rejectionReason)}&rdquo;
+                  </p>
+                )}
               </div>
 
-              {rejectionReason === 'Other' && (
+              {rejectionReason === 'other' && (
                 <div className="space-y-2">
                   <label htmlFor="customReason" className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                     Custom Reason Details

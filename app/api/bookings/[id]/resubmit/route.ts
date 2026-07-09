@@ -5,7 +5,7 @@ import { upsertBooking, addServerNotification } from '@/lib/server-store'
 import { isSupabaseConfigured } from '@/lib/supabase/env'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { saveBookingToDb, addNotificationToDb } from '@/lib/supabase-store'
-import { sendPaymentReceivedEmail } from '@/lib/email'
+import { sendBookingSubmittedEmail } from '@/lib/email'
 
 type Body = {
   email?: string
@@ -60,7 +60,7 @@ export async function POST(
           await upsertBooking(saved)
           const msg = `${booking.customerName} resubmitted a receipt for booking ${booking.id}.`
           await addNotificationToDb(admin, booking.id, 'RESUBMITTED', msg)
-          await sendPaymentReceivedEmail(saved).catch(console.error)
+          await sendBookingSubmittedEmail(saved).catch(console.error)
           return NextResponse.json({
             id: saved.id,
             bookingStatus: saved.bookingStatus,
@@ -73,7 +73,7 @@ export async function POST(
     const saved = await upsertBooking(updatedBooking)
     const msg = `${booking.customerName} resubmitted a receipt for booking ${booking.id}.`
     await addServerNotification(booking.id, 'RESUBMITTED', msg)
-    await sendPaymentReceivedEmail(saved).catch(console.error)
+    await sendBookingSubmittedEmail(saved).catch(console.error)
 
     return NextResponse.json({
       id: saved.id,

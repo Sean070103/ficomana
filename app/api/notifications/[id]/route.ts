@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { markServerNotificationRead } from '@/lib/server-store'
 import { requireStaffAuth } from '@/lib/auth-api'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { isSupabaseConfigured } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { isSupabaseConfigured } from '@/lib/supabase/env'
 
 export async function PATCH(
   _request: Request,
@@ -15,9 +15,14 @@ export async function PATCH(
     const { id } = await params
 
     if (isSupabaseConfigured()) {
-      const db = await createSupabaseServerClient()
-      const { error } = await db.from('notifications').update({ is_read: true }).eq('id', id)
-      if (!error) return NextResponse.json({ ok: true })
+      const admin = getSupabaseAdmin()
+      if (admin) {
+        const { error } = await admin.from('notifications').update({ is_read: true }).eq('id', id)
+        if (!error) {
+          await markServerNotificationRead(id)
+          return NextResponse.json({ ok: true })
+        }
+      }
     }
 
     await markServerNotificationRead(id)

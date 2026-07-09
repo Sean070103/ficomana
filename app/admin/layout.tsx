@@ -6,7 +6,8 @@ import Link from 'next/link'
 import {
   LayoutDashboard,
   CheckSquare,
-  Calendar,
+  CalendarDays,
+  List,
   LogOut,
   Bell,
   User,
@@ -17,6 +18,10 @@ import {
 } from 'lucide-react'
 import { getNotifications, getBookings, markNotificationRead, Notification } from '@/lib/data-store'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { AdminToastProvider } from '@/components/admin-toast-provider'
+import { AdminAutoSyncProvider } from '@/components/admin-auto-sync'
+import AdminSyncStatus from '@/components/admin-sync-status'
+import { notificationTypeBadge } from '@/lib/admin-ui'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -49,21 +54,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => subscription.unsubscribe()
   }, [pathname, router])
 
-  useEffect(() => {
-    if (!isLoggedIn) return
-
-    const fetchData = async () => {
+  const refreshConsoleData = async () => {
+    try {
       const notifs = await getNotifications()
       setNotifications(notifs)
       setUnreadCount(notifs.filter((n) => !n.isRead).length)
-
       const bookings = await getBookings()
       setPendingVerifications(bookings.filter((b) => b.bookingStatus === 'Pending Verification').length)
+    } catch (err) {
+      console.error(err)
     }
+  }
 
-    fetchData()
-    const interval = setInterval(fetchData, 8000)
-    return () => clearInterval(interval)
+  useEffect(() => {
+    if (!isLoggedIn) return
+    refreshConsoleData()
+    const onSync = () => refreshConsoleData()
+    window.addEventListener('admin:db-synced', onSync)
+    return () => window.removeEventListener('admin:db-synced', onSync)
   }, [isLoggedIn, pathname])
 
   const handleLogout = async () => {
@@ -106,11 +114,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       icon: CheckSquare,
       badge: pendingVerifications > 0 ? pendingVerifications : undefined,
     },
-    { label: 'Bookings List', href: '/admin/bookings', icon: Calendar },
+    { label: 'Bookings List', href: '/admin/bookings', icon: List },
+    { label: 'Session Calendar', href: '/admin/calendar', icon: CalendarDays },
     { label: 'System Email Logs', href: '/admin/emails', icon: FileText },
   ]
 
   return (
+    <AdminToastProvider>
+    <AdminAutoSyncProvider enabled={isLoggedIn && !isLoginPage}>
     <div className="min-h-screen bg-black text-white flex">
       {/* Sidebar — desktop */}
       <aside className="hidden md:flex md:w-64 bg-[#0A0A0F] border-r border-white/10 flex-col flex-shrink-0">
@@ -140,7 +151,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <span>{item.label}</span>
                 </div>
                 {item.badge !== undefined && (
-                  <span className={`px-2 py-0.5 text-[9px] font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-red-500 text-white'}`}>
+                  <span
+                    className={`min-w-[1.25rem] px-2 py-0.5 text-[9px] font-bold text-center ${
+                      isActive ? 'bg-white text-[#0500D0]' : 'bg-red-500 text-white'
+                    }`}
+                  >
                     {item.badge}
                   </span>
                 )}
@@ -184,6 +199,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="flex items-center gap-4">
+            <AdminSyncStatus />
             <div className="relative">
               <button
                 onClick={() => setShowNotifDrawer((prev) => !prev)}
@@ -198,7 +214,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </button>
 
               {showNotifDrawer && (
-                <div className="absolute right-0 mt-2 w-80 bg-[#0A0A0F] border border-white/10 shadow-2xl overflow-hidden z-30">
+                <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-20"
+                  aria-label="Close notifications"
+                  onClick={() => setShowNotifDrawer(false)}
+                />
+                <div className="absolute right-0 mt-2 w-80 bg-[#0A0A0F] border border-white/10 shadow-2xl overflow-hidden z-30 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="p-3.5 border-b border-white/10 flex justify-between items-center">
                     <span className="text-xs font-bold uppercase tracking-wider text-white/80">Notifications</span>
                     <span className="text-[10px] text-white/40 font-semibold">{unreadCount} unread</span>
@@ -211,29 +234,44 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       notifications.map((n) => (
                         <div
                           key={n.id}
-                          className={`p-3 text-xs leading-normal flex flex-col gap-1 ${
+                          className={`p-3 text-xs leading-normal flex flex-col gap-1 transition-colors ${
                             n.isRead ? 'bg-transparent' : 'bg-primary/5 hover:bg-primary/10'
                           }`}
                         >
+                          <p className={`text-[8px] font-bold uppercase tracking-wider ${notificationTypeBadge(n.type)}`}>
+                            {n.type.replace(/_/g, ' ')}
+                          </p>
                           <p className="text-white/80">{n.message}</p>
-                          <div className="flex justify-between items-center mt-1">
+                          <div className="flex justify-between items-center mt-1 gap-2">
                             <span className="text-[9px] text-white/40">
                               {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
-                            {!n.isRead && (
-                              <button
-                                onClick={() => handleMarkRead(n.id)}
-                                className="text-[9px] text-primary font-bold uppercase hover:underline"
-                              >
-                                Mark read
-                              </button>
-                            )}
+                            <div className="flex gap-2">
+                              {n.bookingId && (
+                                <Link
+                                  href={`/admin/bookings?search=${encodeURIComponent(n.bookingId)}`}
+                                  onClick={() => setShowNotifDrawer(false)}
+                                  className="text-[9px] text-primary font-bold uppercase hover:underline"
+                                >
+                                  View
+                                </Link>
+                              )}
+                              {!n.isRead && (
+                                <button
+                                  onClick={() => handleMarkRead(n.id)}
+                                  className="text-[9px] text-primary font-bold uppercase hover:underline"
+                                >
+                                  Mark read
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))
                     )}
                   </div>
                 </div>
+                </>
               )}
             </div>
 
@@ -267,7 +305,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <span>{item.label}</span>
                   </div>
                   {item.badge !== undefined && (
-                    <span className="px-2 py-0.5 text-[9px] font-bold bg-red-500 text-white">{item.badge}</span>
+                    <span
+                      className={`min-w-[1.25rem] px-2 py-0.5 text-[9px] font-bold text-center ${
+                        isActive ? 'bg-white text-[#0500D0]' : 'bg-red-500 text-white'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
                   )}
                 </Link>
               )
@@ -288,5 +332,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-black">{children}</main>
       </div>
     </div>
+    </AdminAutoSyncProvider>
+    </AdminToastProvider>
   )
 }

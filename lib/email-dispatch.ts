@@ -2,8 +2,10 @@ import type { Booking, PaymentRecord } from '@/lib/data-store'
 
 export type EmailAction =
   | 'booking_created'
+  | 'booking_submitted'
   | 'payment_received'
   | 'payment_approved'
+  | 'deposit_approved'
   | 'payment_rejected'
   | 'transaction_confirmation'
   | 'transaction_receipt'
@@ -18,6 +20,7 @@ export type EmailDispatchPayload = {
   booking: Booking
   payment?: PaymentRecord
   reason?: string
+  reasonId?: string
   rebookingFee?: number
   driveLink?: string
 }
@@ -27,6 +30,7 @@ export async function dispatchEmail(payload: EmailDispatchPayload): Promise<{ su
     const res = await fetch('/api/emails/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(payload),
     })
     const data = (await res.json()) as { success?: boolean; error?: string }

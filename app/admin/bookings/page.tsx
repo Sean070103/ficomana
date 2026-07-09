@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { getBookings, saveBooking, getBookingPackages, Booking, PaymentRecord } from '@/lib/data-store'
-import { dispatchEmail } from '@/lib/email-dispatch'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { getBookings, getBookingPackages, addNotification, Booking, PaymentRecord } from '@/lib/data-store'
+import { runAdminTransaction, formatEmailResult } from '@/lib/admin-actions'
+import { useAdminToast } from '@/components/admin-toast-provider'
+import AdminPageHeader from '@/components/admin-page-header'
+import { useOnAdminDbSync } from '@/components/admin-auto-sync'
 import { GraduationSessionDetails } from '@/components/graduation-session-details'
-import { usesMakeupSlots } from '@/lib/booking-packages'
+import { parsePackagePrice, usesMakeupSlots, type BookingPackage } from '@/lib/booking-packages'
 import {
   ALL_MANA_SLOTS,
   FICO_ARRIVAL_LABEL,
@@ -13,6 +17,8 @@ import {
   getSlotById,
 } from '@/lib/booking-slots'
 import { generateBookingId } from '@/lib/booking-id'
+import { enrichBookingDisplay, filterBookings } from '@/lib/booking-display'
+import AdminReceiptActions from '@/components/admin-receipt-actions'
 import { 
   Search, 
   Filter, 
@@ -32,9 +38,8 @@ import {
 import Image from 'next/image'
 import {
   adminPage,
-  adminTitle,
-  adminSubtitle,
   adminInput,
+  adminSelect,
   adminLabel,
   adminBtnPrimary,
   adminTableWrap,
@@ -44,14 +49,26 @@ import {
   adminSpinner,
   adminOverlay,
   adminDrawer,
+  adminPanel,
   bookingStatusBadge,
   paymentStatusBadge,
 } from '@/lib/admin-ui'
 
-export default function BookingsManagement() {
+export default function BookingsManagementPage() {
+  return (
+    <Suspense fallback={<div className={adminSpinnerWrap}><div className={adminSpinner} /></div>}>
+      <BookingsManagement />
+    </Suspense>
+  )
+}
+
+function BookingsManagement() {
+  const searchParams = useSearchParams()
+  const toast = useAdminToast()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   // Search & Filter states
   const [searchTerm, setSearchTerm] = useState('')
@@ -79,52 +96,76 @@ export default function BookingsManagement() {
   const [walkInName, setWalkInName] = useState('')
   const [walkInPhone, setWalkInPhone] = useState('')
   const [walkInDate, setWalkInDate] = useState('')
-  const [walkInPackage, setWalkInPackage] = useState<'fico-package' | 'mana-makeup'>('fico-package')
+  const [walkInPackage, setWalkInPackage] = useState('fico-package')
   const [walkInSlotId, setWalkInSlotId] = useState('')
   const [walkInSaving, setWalkInSaving] = useState(false)
-  const [packageOptions, setPackageOptions] = useState<Array<{ id: string; title: string }>>([])
+  const [allPackages, setAllPackages] = useState<BookingPackage[]>([])
 
-  const fetchBookings = async () => {
+  const walkInPackages = allPackages.filter(
+    (pkg) => !/walk-in clients are not eligible/i.test(pkg.description),
+  )
+  const walkInNeedsSlot = usesMakeupSlots(walkInPackage)
+  const selectedWalkInPackage = walkInPackages.find((pkg) => pkg.id === walkInPackage)
+
+  const fetchBookings = async (silent = false) => {
+    if (!silent) setRefreshing(true)
     try {
       const data = await getBookings()
       setBookings(data)
       setFilteredBookings(data)
     } catch (err) {
       console.error(err)
+      toast.error('Sync failed', 'Could not load bookings from database.')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
   useEffect(() => {
-    fetchBookings()
-    getBookingPackages().then((pkgs) => setPackageOptions(pkgs.map((p) => ({ id: p.id, title: p.title }))))
-  }, [])
+    setSearchTerm(searchParams.get('search')?.trim() ?? '')
+    setDateFilter(searchParams.get('date')?.trim() ?? '')
+  }, [searchParams])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const ref = new URLSearchParams(window.location.search).get('ref')
-    if (ref) setSearchTerm(ref)
+    fetchBookings(true)
+    getBookingPackages().then((pkgs) => {
+      setAllPackages(pkgs)
+      const eligible = pkgs.filter(
+        (pkg) => !/walk-in clients are not eligible/i.test(pkg.description),
+      )
+      if (eligible.length > 0 && !eligible.some((pkg) => pkg.id === walkInPackage)) {
+        setWalkInPackage(eligible[0].id)
+      }
+    })
   }, [])
+
+  useOnAdminDbSync(() => fetchBookings(true))
 
   const handleWalkInSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!walkInName || !walkInPhone || !walkInDate) return
-    if (walkInPackage === 'mana-makeup' && !walkInSlotId) return
+
+    const pkg = selectedWalkInPackage ?? walkInPackages.find((item) => item.id === walkInPackage)
+    if (!pkg) {
+      toast.error('Walk-in failed', 'Please select a valid package.')
+      return
+    }
+    if (walkInNeedsSlot && !walkInSlotId) return
 
     setWalkInSaving(true)
     try {
       const slot = walkInSlotId ? getSlotById(walkInSlotId) : undefined
       const id = generateBookingId(bookings.map((b) => b.id))
-      await saveBooking({
+      await runAdminTransaction({
         id,
         customerName: walkInName,
         customerEmail: 'walkin@ficomana.local',
         customerPhone: walkInPhone,
         customerFbLink: '',
         customerFbName: walkInName,
-        packageId: walkInPackage,
-        packageName: walkInPackage === 'fico-package' ? 'FICO PACKAGE' : 'MANA PACKAGE',
+        packageId: pkg.id,
+        packageName: pkg.title,
         bookingDate: walkInDate,
         bookingTime: slot ? formatSlotBookingTime(slot) : FICO_BOOKING_TIME_LABEL,
         slotId: slot?.id,
@@ -132,21 +173,23 @@ export default function BookingsManagement() {
         shootTime: slot?.shootTime ?? 'Flexible (before 4:00 PM)',
         isWalkIn: true,
         depositAmount: 500,
-        price: walkInPackage === 'fico-package' ? 3000 : 6000,
+        price: parsePackagePrice(pkg.price),
         bookingStatus: 'Confirmed',
         paymentStatus: 'Paid Deposit',
         createdAt: new Date().toISOString(),
         paymentHistory: [],
       })
+      await addNotification(id, 'NEW_BOOKING', `Walk-in booking ${id} created for ${walkInName}.`)
       setWalkInName('')
       setWalkInPhone('')
       setWalkInDate('')
       setWalkInSlotId('')
       setShowWalkIn(false)
-      await fetchBookings()
+      await fetchBookings(true)
+      toast.success('Walk-in saved', `${id} confirmed in database.`)
     } catch (err) {
       console.error(err)
-      alert('Failed to save walk-in booking.')
+      toast.error('Walk-in failed', err instanceof Error ? err.message : 'Could not save.')
     } finally {
       setWalkInSaving(false)
     }
@@ -154,47 +197,38 @@ export default function BookingsManagement() {
 
   // Apply filters in real time
   useEffect(() => {
-    let result = [...bookings]
-
-    // 1. Search filter
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      result = result.filter(b => 
-        b.customerName.toLowerCase().includes(term) ||
-        b.id.toLowerCase().includes(term) ||
-        b.customerPhone.includes(term) ||
-        b.customerEmail.toLowerCase().includes(term)
-      )
-    }
-
-    // 2. Status filter
-    if (statusFilter !== 'All') {
-      result = result.filter(b => b.bookingStatus === statusFilter)
-    }
-
-    // 3. Payment filter
-    if (paymentFilter !== 'All') {
-      result = result.filter(b => b.paymentStatus === paymentFilter)
-    }
-
-    // 4. Package filter
-    if (packageFilter !== 'All') {
-      result = result.filter(b => b.packageId === packageFilter)
-    }
-
-    // 5. Date filter
-    if (dateFilter) {
-      result = result.filter(b => b.bookingDate === dateFilter)
-    }
-
-    setFilteredBookings(result)
+    setFilteredBookings(
+      filterBookings(bookings, {
+        searchTerm,
+        statusFilter,
+        paymentFilter,
+        packageFilter,
+        dateFilter,
+      }),
+    )
   }, [searchTerm, statusFilter, paymentFilter, packageFilter, dateFilter, bookings])
 
+  const hasActiveFilters =
+    Boolean(searchTerm.trim()) ||
+    Boolean(dateFilter) ||
+    statusFilter !== 'All' ||
+    paymentFilter !== 'All' ||
+    packageFilter !== 'All'
+
+  const clearFilters = () => {
+    setSearchTerm('')
+    setDateFilter('')
+    setStatusFilter('All')
+    setPaymentFilter('All')
+    setPackageFilter('All')
+  }
+
   const handleOpenDetails = (booking: Booking) => {
-    setSelectedBooking(booking)
-    setEditDate(booking.bookingDate)
-    setEditTime(booking.bookingTime)
-    setEditStaffNotes(booking.staffNotes || '')
+    const b = enrichBookingDisplay(booking)
+    setSelectedBooking(b)
+    setEditDate(b.bookingDate)
+    setEditTime(b.bookingTime)
+    setEditStaffNotes(b.staffNotes || '')
     setChargeRebookingFee(false)
     setEditDriveLink(booking.driveLink || '')
     setIsEditing(false)
@@ -213,11 +247,11 @@ export default function BookingsManagement() {
     const maxAllowed = selectedBooking.price - paidSumBefore
 
     if (studioPayAmount <= 0) {
-      alert('Payment amount must be greater than zero.')
+      toast.warning('Invalid amount', 'Payment must be greater than zero.')
       return
     }
     if (studioPayAmount > maxAllowed) {
-      alert(`Payment amount cannot exceed the remaining balance of ₱${maxAllowed.toFixed(2)}.`)
+      toast.warning('Amount too high', `Maximum balance is ₱${maxAllowed.toFixed(2)}.`)
       return
     }
 
@@ -243,21 +277,31 @@ export default function BookingsManagement() {
         paymentHistory: updatedHistory
       }
 
-      await saveBooking(updatedBooking)
-      setSelectedBooking(updatedBooking)
-      fetchBookings()
+      const { saved, emailErrors } = await runAdminTransaction(updatedBooking, [
+        { action: 'transaction_both', booking: updatedBooking, payment: newRecord },
+        ...(isFullyPaid ? [{ action: 'final_receipt' as const, booking: updatedBooking }] : []),
+      ])
 
-      await dispatchEmail({ action: 'transaction_both', booking: updatedBooking, payment: newRecord })
+      setSelectedBooking(saved)
+      fetchBookings(true)
 
-      if (isFullyPaid) {
-        await dispatchEmail({ action: 'final_receipt', booking: updatedBooking })
-        alert('Payment recorded. Confirmation, receipt, and final summary emailed to customer.')
+      const emailMsg = formatEmailResult(emailErrors)
+      if (emailMsg) {
+        toast.warning('Payment saved — email issue', emailMsg)
+      } else if (isFullyPaid) {
+        toast.success(
+          'Studio payment recorded',
+          `₱${studioPayAmount.toFixed(2)} logged — session completed & receipt emailed.`,
+        )
       } else {
-        alert(`Payment of ₱${studioPayAmount.toFixed(2)} recorded. Confirmation and receipt emailed. Balance: ₱${(selectedBooking.price - totalPaid).toFixed(2)}`)
+        toast.success(
+          'Partial payment recorded',
+          `₱${studioPayAmount.toFixed(2)} — balance ₱${(selectedBooking.price - totalPaid).toFixed(2)}.`,
+        )
       }
     } catch (err) {
       console.error(err)
-      alert('Failed to record payment.')
+      toast.error('Payment failed', err instanceof Error ? err.message : 'Could not save.')
     } finally {
       setSaveLoading(false)
     }
@@ -282,64 +326,94 @@ export default function BookingsManagement() {
         driveLink: editDriveLink || undefined
       }
       
-      await saveBooking(updatedBooking)
+      const { emailErrors } = await runAdminTransaction(updatedBooking, [
+        ...(dateChanged ? [{ action: 'booking_rescheduled' as const, booking: updatedBooking, rebookingFee: addedFee }] : []),
+        ...(driveLinkChanged && editDriveLink
+          ? [{ action: 'gallery_link' as const, booking: updatedBooking, driveLink: editDriveLink }]
+          : []),
+      ])
+
       setSelectedBooking(updatedBooking)
       setIsEditing(false)
-      fetchBookings()
+      fetchBookings(true)
 
-      // Send emails
-      if (dateChanged) {
-        await dispatchEmail({ action: 'booking_rescheduled', booking: updatedBooking, rebookingFee: addedFee })
-      }
-
-      if (driveLinkChanged && editDriveLink) {
-        await dispatchEmail({ action: 'gallery_link', booking: updatedBooking, driveLink: editDriveLink })
-        alert('Booking details updated. Drive link saved and emails dispatched.')
+      const emailMsg = formatEmailResult(emailErrors)
+      if (emailMsg) {
+        toast.warning('Saved — email issue', emailMsg)
+      } else if (driveLinkChanged && editDriveLink) {
+        toast.success('Details updated', 'Reschedule saved & gallery link emailed.')
+      } else if (dateChanged) {
+        toast.success('Rescheduled', 'Booking moved — customer notified.')
       } else {
-        alert('Booking details updated successfully.')
+        toast.success('Details saved', 'Booking updated in database.')
       }
     } catch (err) {
       console.error(err)
-      alert('Failed to save details.')
+      toast.error('Save failed', err instanceof Error ? err.message : 'Could not update booking.')
+    } finally {
+      setSaveLoading(false)
+    }
+  }
+
+  const handleSaveStaffNotes = async () => {
+    if (!selectedBooking) return
+    setSaveLoading(true)
+    try {
+      const updated = { ...selectedBooking, staffNotes: editStaffNotes }
+      const { saved } = await runAdminTransaction(updated)
+      setSelectedBooking(saved)
+      fetchBookings(true)
+      toast.success('Staff notes saved', 'Internal notes updated in database.')
+    } catch (err) {
+      toast.error('Save failed', err instanceof Error ? err.message : 'Could not save notes.')
     } finally {
       setSaveLoading(false)
     }
   }
 
   const handleUpdateStatus = async (booking: Booking, status: Booking['bookingStatus']) => {
-    const confirmMsg = `Are you sure you want to update Booking ${booking.id} status to ${status}?`
-    if (!window.confirm(confirmMsg)) return
+    if (!window.confirm(`Update ${booking.id} to ${status}?`)) return
 
+    setSaveLoading(true)
     try {
+      const paidSum = (booking.paymentHistory || []).reduce((acc, pay) => acc + pay.amount, 0)
       let payStatus = booking.paymentStatus
+
       if (status === 'Completed') {
-        payStatus = 'Paid Full'
+        payStatus = paidSum >= booking.price ? 'Paid Full' : booking.paymentStatus
       } else if (status === 'Cancelled') {
         payStatus = 'Refunded'
+      } else if (status === 'No Show') {
+        payStatus = booking.paymentStatus
       }
 
       const updatedBooking: Booking = {
         ...booking,
         bookingStatus: status,
-        paymentStatus: payStatus
+        paymentStatus: payStatus,
       }
 
-      await saveBooking(updatedBooking)
-      
-      if (selectedBooking && selectedBooking.id === booking.id) {
-        setSelectedBooking(updatedBooking)
-      }
+      const emails =
+        status === 'Cancelled'
+          ? [{ action: 'booking_cancelled' as const, booking: updatedBooking }]
+          : []
 
-      // If Cancelled, email customer
-      if (status === 'Cancelled') {
-        await dispatchEmail({ action: 'booking_cancelled', booking: updatedBooking })
-      }
+      const { emailErrors } = await runAdminTransaction(updatedBooking, emails)
 
-      fetchBookings()
-      alert(`Booking status changed to ${status}.`)
+      if (selectedBooking?.id === booking.id) setSelectedBooking(updatedBooking)
+      fetchBookings(true)
+
+      const emailMsg = formatEmailResult(emailErrors)
+      if (emailMsg) {
+        toast.warning(`Status → ${status} — email issue`, emailMsg)
+      } else {
+        toast.success(`Status → ${status}`, `${booking.id} updated in database.`)
+      }
     } catch (err) {
       console.error(err)
-      alert('Failed to update status.')
+      toast.error('Status update failed', err instanceof Error ? err.message : 'Could not save.')
+    } finally {
+      setSaveLoading(false)
     }
   }
 
@@ -356,46 +430,65 @@ export default function BookingsManagement() {
 
   return (
     <div className={adminPage}>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className={adminTitle}>Booking Management</h1>
-          <p className={adminSubtitle}>Search, filter, edit, reschedule, or cancel client portrait appointments.</p>
-        </div>
+      <AdminPageHeader
+        title="Booking Management"
+        subtitle="Search, filter, edit, reschedule, or cancel client portrait appointments."
+        onRefresh={() => fetchBookings()}
+        refreshing={refreshing}
+      >
         <button
           type="button"
           onClick={() => setShowWalkIn((v) => !v)}
-          className="bg-primary text-white px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider hover:bg-[#03008F]"
+          className="bg-primary text-white px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider hover:bg-[#03008F] transition-colors"
         >
           {showWalkIn ? 'Close Walk-in' : '+ Walk-in Booking'}
         </button>
-      </div>
+      </AdminPageHeader>
 
       {showWalkIn && (
-        <div className="border border-white/10 bg-[#0A0A0F] p-5 shadow-sm">
+        <div className={`${adminPanel} p-5 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300`}>
           <h2 className="text-xs font-bold uppercase tracking-wider text-white/70 mb-4">In-Studio Walk-in</h2>
           <form onSubmit={handleWalkInSubmit} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <input required value={walkInName} onChange={(e) => setWalkInName(e.target.value)} placeholder="Client name" className="border border-white/10 p-3 text-xs" />
-            <input required value={walkInPhone} onChange={(e) => setWalkInPhone(e.target.value)} placeholder="Phone" className="border border-white/10 p-3 text-xs" />
-            <input required type="date" value={walkInDate} onChange={(e) => setWalkInDate(e.target.value)} className="border border-white/10 p-3 text-xs" />
+            <input required value={walkInName} onChange={(e) => setWalkInName(e.target.value)} placeholder="Client name" className={adminInput} />
+            <input required value={walkInPhone} onChange={(e) => setWalkInPhone(e.target.value)} placeholder="Phone" className={adminInput} />
+            <input required type="date" value={walkInDate} onChange={(e) => setWalkInDate(e.target.value)} className={adminInput} />
             <select
               value={walkInPackage}
               onChange={(e) => {
-                setWalkInPackage(e.target.value as 'fico-package' | 'mana-makeup')
+                setWalkInPackage(e.target.value)
                 setWalkInSlotId('')
               }}
-              className="border border-white/10 p-3 text-xs"
+              className={`${adminInput} sm:col-span-2 lg:col-span-4`}
             >
-              <option value="fico-package">FICO (No Makeup — no time slot)</option>
-              <option value="mana-makeup">MANA (Makeup — pick session slot)</option>
+              {(['graduation', 'self-portrait', 'creative'] as const).map((category) => {
+                const packages = walkInPackages.filter((pkg) => pkg.category === category)
+                if (packages.length === 0) return null
+                const label =
+                  category === 'graduation'
+                    ? 'Graduation'
+                    : category === 'self-portrait'
+                      ? 'Self Portrait'
+                      : 'Creative'
+                return (
+                  <optgroup key={category} label={label}>
+                    {packages.map((pkg) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.title} — {pkg.price}
+                        {pkg.slotType === 'makeup' ? ' · pick slot' : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              })}
             </select>
-            {walkInPackage === 'mana-makeup' && (
+            {walkInNeedsSlot && (
               <select
                 required
                 value={walkInSlotId}
                 onChange={(e) => setWalkInSlotId(e.target.value)}
-                className="border border-white/10 p-3 text-xs sm:col-span-2"
+                className={`${adminInput} sm:col-span-2 lg:col-span-4`}
               >
-                <option value="">Select MANA slot</option>
+                <option value="">Select makeup session slot</option>
                 {ALL_MANA_SLOTS.map((slot) => (
                   <option key={slot.id} value={slot.id}>
                     {slot.blockLabel} · {slot.slotLabel}
@@ -403,7 +496,7 @@ export default function BookingsManagement() {
                 ))}
               </select>
             )}
-            <button type="submit" disabled={walkInSaving} className="bg-primary text-white p-3 text-[10px] font-bold uppercase tracking-wider sm:col-span-2 lg:col-span-1">
+            <button type="submit" disabled={walkInSaving} className={`${adminBtnPrimary} p-3 sm:col-span-2 lg:col-span-4 disabled:cursor-not-allowed active:scale-95 transition-transform`}>
               {walkInSaving ? 'Saving...' : 'Save Walk-in'}
             </button>
           </form>
@@ -420,8 +513,8 @@ export default function BookingsManagement() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by client name, reference code, phone number, email address..."
-              className="w-full bg-black/40 border border-white/10 focus:border-primary focus:outline-none p-3 pl-11 text-xs font-semibold"
+              placeholder="Search FM-123456, GCash ref, name, email, phone..."
+              className={`${adminInput} pl-11`}
             />
           </div>
           <div className="md:col-span-4 relative">
@@ -430,7 +523,7 @@ export default function BookingsManagement() {
               type="date"
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 focus:border-primary focus:outline-none p-3 pl-11 text-xs font-semibold"
+              className={`${adminInput} pl-11`}
             />
           </div>
         </div>
@@ -443,12 +536,13 @@ export default function BookingsManagement() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 p-3.5 text-xs font-semibold"
+              className={adminSelect}
             >
               <option value="All">All Statuses</option>
               <option value="Confirmed">Confirmed</option>
               <option value="Pending Verification">Pending Verification</option>
               <option value="Pending Payment">Pending Payment</option>
+              <option value="Rejected">Rejected</option>
               <option value="Completed">Completed</option>
               <option value="Cancelled">Cancelled</option>
               <option value="No Show">No Show</option>
@@ -461,7 +555,7 @@ export default function BookingsManagement() {
             <select
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 p-3.5 text-xs font-semibold"
+              className={adminSelect}
             >
               <option value="All">All Payments</option>
               <option value="Unpaid">Unpaid</option>
@@ -478,14 +572,30 @@ export default function BookingsManagement() {
             <select
               value={packageFilter}
               onChange={(e) => setPackageFilter(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 p-3.5 text-xs font-semibold"
+              className={adminSelect}
             >
               <option value="All">All Packages</option>
-              {packageOptions.map((p) => (
-                <option key={p.id} value={p.id}>{p.title}</option>
+              {allPackages.map((pkg) => (
+                <option key={pkg.id} value={pkg.id}>{pkg.title}</option>
               ))}
             </select>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+          <p className="text-[11px] text-white/45">
+            Showing <span className="font-semibold text-white/70">{filteredBookings.length}</span> of{' '}
+            <span className="font-semibold text-white/70">{bookings.length}</span> bookings
+          </p>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-[10px] font-bold uppercase tracking-wider text-primary hover:underline"
+            >
+              Clear all filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -555,8 +665,8 @@ export default function BookingsManagement() {
 
       {/* 3. CUSTOMER DETAILS DRAWER / MODAL */}
       {selectedBooking && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-end z-50 animate-fade-in">
-          <div className="bg-[#0A0A0F] border-l border-white/10 w-full max-w-lg h-full flex flex-col justify-between shadow-2xl animate-slide-left">
+        <div className={`${adminOverlay} justify-end`}>
+          <div className={adminDrawer}>
             {/* Header */}
             <div className="p-6 border-b border-white/10 flex justify-between items-start bg-white/[0.03]">
               <div>
@@ -579,29 +689,29 @@ export default function BookingsManagement() {
                 <h4 className="text-[10px] font-bold tracking-widest text-white/40 uppercase border-b border-white/10 pb-1.5">
                   Contact Information
                 </h4>
-                <div className="grid grid-cols-2 gap-y-2 text-xs">
-                  <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                  <div className="min-w-0">
                      <p className="text-white/40 font-medium">Email Address</p>
-                     <p className="font-semibold mt-0.5">{selectedBooking.customerEmail}</p>
+                     <p className="font-semibold mt-0.5 break-all">{selectedBooking.customerEmail}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                      <p className="text-white/40 font-medium">Phone Number</p>
-                     <p className="font-semibold mt-0.5">{selectedBooking.customerPhone}</p>
+                     <p className="font-semibold mt-0.5 break-words">{selectedBooking.customerPhone}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-white/40 font-medium">Facebook Name</p>
-                    <p className="font-semibold mt-0.5">{selectedBooking.customerFbName || 'N/A'}</p>
+                    <p className="font-semibold mt-0.5 break-words">{selectedBooking.customerFbName || 'N/A'}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-white/40 font-medium">Facebook Profile</p>
                     {selectedBooking.customerFbLink ? (
                       <a 
                         href={selectedBooking.customerFbLink} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="text-primary hover:underline font-bold mt-0.5 flex items-center gap-1.5"
+                        className="text-primary hover:underline font-bold mt-0.5 inline-flex items-center gap-1.5 break-all"
                       >
-                        View Profile <ArrowUpRight className="w-3.5 h-3.5" />
+                        View Profile <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
                       </a>
                     ) : (
                       <p className="text-white/50 italic mt-0.5">No link provided</p>
@@ -743,12 +853,19 @@ export default function BookingsManagement() {
                     <textarea
                       id="staffNotes"
                       rows={3}
-                      disabled={!isEditing}
                       value={editStaffNotes}
                       onChange={(e) => setEditStaffNotes(e.target.value)}
                       placeholder="Add private staff notes, backdrop choices, or check-in records here..."
-                      className="w-full bg-black/40 border border-white/10 p-2.5 text-xs font-semibold focus:border-primary focus:outline-none resize-none leading-relaxed disabled:opacity-80"
+                      className="w-full bg-black/40 border border-white/10 p-2.5 text-xs font-semibold focus:border-primary focus:outline-none resize-none leading-relaxed"
                     />
+                    <button
+                      type="button"
+                      onClick={handleSaveStaffNotes}
+                      disabled={saveLoading}
+                      className="text-[10px] font-bold uppercase tracking-wider text-primary hover:underline"
+                    >
+                      Save staff notes
+                    </button>
                   </div>
 
                   {isEditing && (
@@ -774,8 +891,8 @@ export default function BookingsManagement() {
                 <p className="text-xs text-white/40">No transactions recorded.</p>
               ) : (
                 <div className="space-y-2 text-xs">
-                  {(selectedBooking.paymentHistory || []).map((pay, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-white/[0.03] p-2.5 border border-white/10">
+                  {(selectedBooking.paymentHistory || []).map((pay) => (
+                    <div key={pay.id} className="flex justify-between items-start gap-3 bg-white/[0.03] p-2.5 border border-white/10">
                       <div>
                         <p className="font-semibold text-white/90">{pay.type}</p>
                         <p className="text-[9px] text-white/40 font-mono mt-0.5">{new Date(pay.date).toLocaleDateString()} via {pay.method}</p>
@@ -783,7 +900,15 @@ export default function BookingsManagement() {
                           <p className="text-[9px] text-white/40 font-mono mt-0.5">Ref: {pay.transactionRef}</p>
                         )}
                       </div>
-                      <span className="font-bold text-white">₱{pay.amount.toFixed(2)}</span>
+                      <AdminReceiptActions
+                        booking={selectedBooking}
+                        payment={pay}
+                        disabled={saveLoading}
+                        onResult={(success, message) => {
+                          if (success) toast.success('Receipt sent', message)
+                          else toast.error('Receipt action failed', message)
+                        }}
+                      />
                     </div>
                   ))}
                   <div className="border-t border-white/10 pt-2 flex justify-between items-center font-bold text-xs">
@@ -906,22 +1031,27 @@ export default function BookingsManagement() {
               <h4 className="text-[10px] font-bold tracking-widest text-white/40 uppercase">
                 Quick Actions
               </h4>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {/* Complete */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                 <button
                   onClick={() => handleUpdateStatus(selectedBooking, 'Completed')}
-                  disabled={selectedBooking.bookingStatus === 'Completed' || selectedBooking.bookingStatus === 'Cancelled'}
-                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={selectedBooking.bookingStatus === 'Completed' || selectedBooking.bookingStatus === 'Cancelled' || saveLoading}
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                 >
                   <CheckCircle className="w-3.5 h-3.5" /> Complete
                 </button>
-                {/* Cancel */}
+                <button
+                  onClick={() => handleUpdateStatus(selectedBooking, 'No Show')}
+                  disabled={selectedBooking.bookingStatus === 'No Show' || selectedBooking.bookingStatus === 'Cancelled' || saveLoading}
+                  className="bg-white/10 hover:bg-white/20 text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                >
+                  <Clock className="w-3.5 h-3.5" /> No Show
+                </button>
                 <button
                   onClick={() => handleUpdateStatus(selectedBooking, 'Cancelled')}
-                  disabled={selectedBooking.bookingStatus === 'Cancelled' || selectedBooking.bookingStatus === 'Completed'}
-                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={selectedBooking.bookingStatus === 'Cancelled' || selectedBooking.bookingStatus === 'Completed' || saveLoading}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 sm:col-span-1 col-span-2"
                 >
-                  <XCircle className="w-3.5 h-3.5" /> Cancel Booking
+                  <XCircle className="w-3.5 h-3.5" /> Cancel
                 </button>
               </div>
             </div>

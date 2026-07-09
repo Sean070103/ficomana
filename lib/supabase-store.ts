@@ -61,8 +61,13 @@ export async function saveBookingToDb(client: SupabaseClient, booking: Booking):
   const fromDb = mapDbBookingToModel(data)
   // Keep rich client fields when DB schema is missing extended columns
   return {
-    ...booking,
     ...fromDb,
+    ...booking,
+    customerName: booking.customerName || fromDb.customerName,
+    customerEmail: booking.customerEmail || fromDb.customerEmail,
+    customerPhone: booking.customerPhone || fromDb.customerPhone,
+    customerFbLink: booking.customerFbLink || fromDb.customerFbLink,
+    customerFbName: booking.customerFbName || fromDb.customerFbName,
     schoolName: booking.schoolName ?? fromDb.schoolName,
     course: booking.course ?? fromDb.course,
     hoodColor: booking.hoodColor ?? fromDb.hoodColor,
@@ -70,9 +75,17 @@ export async function saveBookingToDb(client: SupabaseClient, booking: Booking):
     tasselColor: booking.tasselColor ?? fromDb.tasselColor,
     backgroundColor: booking.backgroundColor ?? fromDb.backgroundColor,
     slotId: booking.slotId ?? fromDb.slotId,
-    receiptUrl: booking.receiptUrl ?? fromDb.receiptUrl,
-    transactionRef: booking.transactionRef?.trim() || fromDb.transactionRef,
-    paymentHistory: booking.paymentHistory?.length ? booking.paymentHistory : fromDb.paymentHistory,
+    receiptUrl:
+      Object.prototype.hasOwnProperty.call(booking, 'receiptUrl') && !booking.receiptUrl
+        ? undefined
+        : booking.receiptUrl ?? fromDb.receiptUrl,
+    transactionRef:
+      Object.prototype.hasOwnProperty.call(booking, 'transactionRef') && !booking.transactionRef
+        ? undefined
+        : booking.transactionRef?.trim() || fromDb.transactionRef,
+    paymentHistory: Array.isArray(booking.paymentHistory)
+      ? booking.paymentHistory
+      : fromDb.paymentHistory,
   }
 }
 
@@ -114,6 +127,24 @@ export async function addNotificationToDb(
     isRead: Boolean(data.is_read),
     createdAt: String(data.created_at),
   }
+}
+
+export async function markBookingNotificationsReadInDb(
+  client: SupabaseClient,
+  bookingId: string,
+): Promise<number> {
+  if (!isSupabaseConfigured()) return 0
+  const { data, error } = await client
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('booking_id', bookingId)
+    .eq('is_read', false)
+    .select('id')
+  if (error) {
+    console.error('markBookingNotificationsReadInDb:', error.message)
+    return 0
+  }
+  return data?.length ?? 0
 }
 
 export async function listPackagesFromDb(client: SupabaseClient, category?: string) {

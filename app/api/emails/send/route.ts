@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import type { Booking, PaymentRecord } from '@/lib/data-store'
 import type { EmailAction } from '@/lib/email-dispatch'
+import { requireStaffAuth } from '@/lib/auth-api'
 import {
   sendBookingCreatedEmail,
+  sendBookingSubmittedEmail,
   sendPaymentReceivedEmail,
   sendPaymentApprovedEmail,
+  sendDepositApprovedEmails,
   sendPaymentRejectedEmail,
   sendTransactionConfirmationEmail,
   sendTransactionReceiptEmail,
@@ -19,14 +22,18 @@ type Body = {
   booking: Booking
   payment?: PaymentRecord
   reason?: string
+  reasonId?: string
   rebookingFee?: number
   driveLink?: string
 }
 
 export async function POST(request: Request) {
   try {
+    const { error: authError } = await requireStaffAuth()
+    if (authError) return authError
+
     const body = (await request.json()) as Body
-    const { action, booking, payment, reason, rebookingFee, driveLink } = body
+    const { action, booking, payment, reason, reasonId, rebookingFee, driveLink } = body
 
     if (!booking?.id || !booking?.customerEmail) {
       return NextResponse.json({ error: 'Invalid booking payload' }, { status: 400 })
@@ -38,14 +45,21 @@ export async function POST(request: Request) {
       case 'booking_created':
         result = await sendBookingCreatedEmail(booking)
         break
+      case 'booking_submitted':
+        result = await sendBookingSubmittedEmail(booking)
+        break
       case 'payment_received':
         result = await sendPaymentReceivedEmail(booking)
         break
       case 'payment_approved':
-        result = await sendPaymentApprovedEmail(booking)
+        result = await sendPaymentApprovedEmail(booking, payment)
+        break
+      case 'deposit_approved':
+        if (!payment) return NextResponse.json({ error: 'Payment required' }, { status: 400 })
+        result = await sendDepositApprovedEmails(booking, payment)
         break
       case 'payment_rejected':
-        result = await sendPaymentRejectedEmail(booking, reason || 'Unable to verify payment')
+        result = await sendPaymentRejectedEmail(booking, reason || 'Unable to verify payment', reasonId)
         break
       case 'transaction_confirmation':
         if (!payment) return NextResponse.json({ error: 'Payment required' }, { status: 400 })

@@ -104,3 +104,16 @@ export async function markServerNotificationRead(id: string): Promise<void> {
     await writeStore(store)
   }
 }
+
+export async function markServerNotificationsReadForBooking(bookingId: string): Promise<number> {
+  const store = await readStore()
+  let count = 0
+  for (const notif of store.notifications) {
+    if (notif.bookingId === bookingId && !notif.isRead) {
+      notif.isRead = true
+      count++
+    }
+  }
+  if (count > 0) await writeStore(store)
+  return count
+}

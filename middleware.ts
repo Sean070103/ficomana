@@ -14,6 +14,8 @@ export const config = {
     '/api/notifications',
     '/api/notifications/:path*',
     '/api/emails/logs',
+    '/api/emails/send',
+    '/api/emails/health',
     '/auth/callback',
   ],
 }

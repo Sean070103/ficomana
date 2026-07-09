@@ -5,8 +5,6 @@ import { getEmailLogs, EmailLog } from '@/lib/data-store'
 import { Search, Clock, Eye, X } from 'lucide-react'
 import {
   adminPage,
-  adminTitle,
-  adminSubtitle,
   adminCard,
   adminPanel,
   adminInput,
@@ -15,30 +13,41 @@ import {
   adminModal,
   adminSpinnerWrap,
   adminSpinner,
+  emailStatusBadge,
 } from '@/lib/admin-ui'
+import AdminPageHeader from '@/components/admin-page-header'
+import { useOnAdminDbSync } from '@/components/admin-auto-sync'
+import { useAdminToast } from '@/components/admin-toast-provider'
 
 export default function EmailLogsConsole() {
+  const toast = useAdminToast()
   const [logs, setLogs] = useState<EmailLog[]>([])
   const [filteredLogs, setFilteredLogs] = useState<EmailLog[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedLog, setSelectedLog] = useState<EmailLog | null>(null)
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (silent = false) => {
+    if (!silent) setRefreshing(true)
     try {
       const data = await getEmailLogs()
       setLogs(data)
       setFilteredLogs(data)
     } catch (err) {
       console.error(err)
+      if (!silent) toast.error('Sync failed', 'Could not load email logs from database.')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
   useEffect(() => {
-    fetchLogs()
+    fetchLogs(true)
   }, [])
+
+  useOnAdminDbSync(() => fetchLogs(true))
 
   useEffect(() => {
     if (searchTerm) {
@@ -66,10 +75,12 @@ export default function EmailLogsConsole() {
 
   return (
     <div className={adminPage}>
-      <div>
-        <h1 className={adminTitle}>System Email Logs</h1>
-        <p className={adminSubtitle}>Live feed of emails dispatched by the booking and verification system.</p>
-      </div>
+      <AdminPageHeader
+        title="System Email Logs"
+        subtitle="Live feed of emails dispatched by the booking and verification system."
+        onRefresh={() => fetchLogs()}
+        refreshing={refreshing}
+      />
 
       <div className={`${adminCard} p-4`}>
         <div className="relative">
@@ -99,7 +110,7 @@ export default function EmailLogsConsole() {
                   <span className="text-white/20">&bull;</span>
                   <span className="font-semibold text-white/80">{log.recipientEmail}</span>
                   <span className="text-white/20">&bull;</span>
-                  <span className="text-[9px] bg-green-500/15 text-green-400 border border-green-500/30 font-bold px-2 py-0.5 uppercase">
+                  <span className={`text-[9px] font-bold px-2 py-0.5 uppercase ${emailStatusBadge(log.status as 'SENT' | 'FAILED')}`}>
                     {log.status}
                   </span>
                 </div>

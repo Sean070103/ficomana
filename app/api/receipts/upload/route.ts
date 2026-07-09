@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { emailsMatch, loadBookingById } from '@/lib/booking-load'
-import { isValidBookingId } from '@/lib/booking-id'
+import { isValidBookingId, resolveBookingReference } from '@/lib/booking-id'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { isSupabaseConfigured } from '@/lib/supabase/env'
 import { supabase } from '@/lib/supabase'
@@ -39,11 +39,12 @@ async function uploadToStorage(file: File, fileName: string) {
 export async function POST(request: Request) {
   try {
     const form = await request.formData()
-    const bookingId = String(form.get('bookingId') ?? '').trim()
+    const rawBookingId = String(form.get('bookingId') ?? '').trim()
+    const bookingId = resolveBookingReference(rawBookingId)
     const email = String(form.get('email') ?? '').trim()
     const file = form.get('file')
 
-    if (!bookingId || !(file instanceof File)) {
+    if (!rawBookingId || !(file instanceof File)) {
       return NextResponse.json({ error: 'Booking reference and file are required.' }, { status: 400 })
     }
 

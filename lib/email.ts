@@ -1,10 +1,16 @@
-import { Resend } from 'resend'
 import { persistEmailLog } from './server-email-log'
 import { getServerEmailTemplate, renderTemplate } from './email-templates'
 import { LATE_FEE_POLICY } from './booking-slots'
 import { resubmitBookingUrl } from './site-url'
+import { isForgedRejection } from './rejection-reasons'
+import {
+  getResendClient,
+  getResendFromAddress,
+  isResendConfigured,
+  getResendDiagnostics,
+} from './resend-config'
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder')
+export { getResendDiagnostics, isResendConfigured }
 
 function templateVars(booking: Record<string, unknown>) {
   return {
@@ -40,14 +46,74 @@ function formatMoney(amount: number) {
   return `₱${amount.toFixed(2)}`
 }
 
+function totalPaid(booking: Record<string, unknown>) {
+  return ((booking.paymentHistory as PaymentRecord[]) || []).reduce((s, p) => s + p.amount, 0)
+}
+
+function remainingBalance(booking: Record<string, unknown>) {
+  return Math.max(0, Number(booking.price ?? 0) - totalPaid(booking))
+}
+
+function depositPayment(booking: Record<string, unknown>, payment?: PaymentRecord): PaymentRecord {
+  if (payment) return payment
+  const history = (booking.paymentHistory as PaymentRecord[]) || []
+  return (
+    history.find((p) => p.type === 'Deposit') ?? {
+      id: 'PAY-DEP',
+      amount: Number(booking.depositAmount ?? 0),
+      method: 'GCash',
+      type: 'Deposit',
+      transactionRef: booking.transactionRef ? String(booking.transactionRef) : undefined,
+      date: String(booking.createdAt ?? new Date().toISOString()),
+    }
+  )
+}
+
+function sessionDetailsTable(booking: Record<string, unknown>) {
+  const arrival = String(booking.arrivalTime ?? booking.bookingTime ?? '')
+  const shoot = String(booking.shootTime ?? booking.bookingTime ?? '')
+  return `
+    <table style="width: 100%; font-size: 13px; margin: 16px 0; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Booking Reference</td>
+        <td style="padding: 8px 0; font-weight: bold; color: #0500D0; font-family: monospace; border-bottom: 1px solid #EEF0FF;">${booking.id}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Package</td>
+        <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #EEF0FF;">${booking.packageName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Session Date</td>
+        <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #EEF0FF;">${booking.bookingDate}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Time Slot</td>
+        <td style="padding: 8px 0; font-weight: bold; color: #0500D0; border-bottom: 1px solid #EEF0FF;">${booking.bookingTime}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Arrival Time</td>
+        <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #EEF0FF;">${arrival}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Shoot Time</td>
+        <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #EEF0FF;">${shoot}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #5A5A8A;">Status</td>
+        <td style="padding: 8px 0; font-weight: bold; color: #16A34A;">Confirmed</td>
+      </tr>
+    </table>
+  `
+}
+
 function receiptNumber(bookingId: string, paymentId: string) {
   return `FM-RCP-${bookingId.replace('FM-', '')}-${paymentId.replace('PAY-', '')}`
 }
 
 function paymentDetailsTable(booking: Record<string, unknown>, payment: PaymentRecord) {
-  const totalPaid = ((booking.paymentHistory as PaymentRecord[]) || []).reduce((s, p) => s + p.amount, 0)
   const price = Number(booking.price ?? 0)
-  const remaining = Math.max(0, price - totalPaid)
+  const paid = totalPaid(booking)
+  const remaining = Math.max(0, price - paid)
 
   return `
     <table style="width: 100%; font-size: 13px; margin: 16px 0; border-collapse: collapse;">
@@ -115,23 +181,34 @@ export async function sendTransactionConfirmationEmail(booking: Record<string, u
 /** Official receipt — sent per transaction after verification or in-studio payment. */
 export async function sendTransactionReceiptEmail(booking: Record<string, unknown>, payment: PaymentRecord) {
   const rcpNo = receiptNumber(String(booking.id), payment.id)
+  const verifiedLabel =
+    payment.type === 'Deposit' ? 'Deposit Verified by FICO MANA Studio' : 'Payment Recorded'
   const subject = `Official Receipt ${rcpNo} — ${booking.id}`
   const html = brandedEmail(
     'Official Payment Receipt',
     `
       <p>Hello <strong>${booking.customerName}</strong>,</p>
-      <p>Below is your official receipt for this transaction. Please present this at the studio if requested.</p>
-      <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 16px; margin: 16px 0; text-align: center;">
-        <p style="margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: #5A5A8A;">Official Receipt No.</p>
-        <p style="margin: 8px 0 0; font-size: 20px; font-weight: bold; font-family: monospace; color: #0500D0;">${rcpNo}</p>
+      <p>This is your official receipt for the verified transaction below. Please save or print this email and present it at the studio if requested.</p>
+
+      <div style="background: linear-gradient(135deg, #EEF0FF 0%, #F8FAFC 100%); border: 2px solid #0500D0; padding: 20px; margin: 16px 0; text-align: center;">
+        <p style="margin: 0; font-size: 9px; text-transform: uppercase; letter-spacing: 0.2em; color: #5A5A8A;">Official Receipt</p>
+        <p style="margin: 10px 0 4px; font-size: 22px; font-weight: bold; font-family: monospace; color: #0500D0;">${rcpNo}</p>
+        <p style="margin: 0; font-size: 11px; color: #16A34A; font-weight: bold;">${verifiedLabel}</p>
       </div>
+
       ${paymentDetailsTable(booking, payment)}
-      <table style="width: 100%; font-size: 12px; margin-top: 8px; border-collapse: collapse;">
-        <tr><td style="padding: 4px 0; color: #5A5A8A;">Client</td><td style="padding: 4px 0; font-weight: bold;">${booking.customerName}</td></tr>
+
+      <table style="width: 100%; font-size: 12px; margin-top: 8px; border-collapse: collapse; border-top: 1px dashed #D4D8F0; padding-top: 12px;">
+        <tr><td style="padding: 4px 0; color: #5A5A8A; width: 40%;">Client</td><td style="padding: 4px 0; font-weight: bold;">${booking.customerName}</td></tr>
         <tr><td style="padding: 4px 0; color: #5A5A8A;">Package</td><td style="padding: 4px 0; font-weight: bold;">${booking.packageName}</td></tr>
-        <tr><td style="padding: 4px 0; color: #5A5A8A;">Session Date</td><td style="padding: 4px 0; font-weight: bold;">${booking.bookingDate}</td></tr>
+        <tr><td style="padding: 4px 0; color: #5A5A8A;">Session Date</td><td style="padding: 4px 0; font-weight: bold;">${booking.bookingDate} · ${booking.bookingTime}</td></tr>
+        <tr><td style="padding: 4px 0; color: #5A5A8A;">Booking Status</td><td style="padding: 4px 0; font-weight: bold; color: #16A34A;">${booking.bookingStatus === 'Confirmed' ? 'Confirmed' : booking.bookingStatus}</td></tr>
       </table>
-      <p style="font-size: 11px; color: #5A5A8A; margin-top: 20px; font-style: italic;">This is an official receipt issued by FICO MANA Studio for the transaction listed above.</p>
+
+      <p style="font-size: 11px; color: #5A5A8A; margin-top: 20px; font-style: italic; text-align: center;">
+        Issued by FICO MANA Studio · Cabuyao Retail Plaza, Laguna<br />
+        This document serves as proof of payment for the transaction listed above.
+      </p>
     `,
   )
   return sendEmail({ bookingId: String(booking.id), to: String(booking.customerEmail), subject, html })
@@ -148,43 +225,101 @@ export async function sendEmail({
   subject: string
   html: string
 }) {
-  console.log(`[Email Automation] Sending Email to ${to} for Booking ${bookingId}: ${subject}`)
-  
-  let success = false
-  let errorMsg = ''
+  const recipient = to.trim()
+  const from = getResendFromAddress()
+  const resend = getResendClient()
 
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const data = await resend.emails.send({
-        from: 'FICO MANA Studio <bookings@ficomana.com>',
-        to: [to],
-        subject,
-        html,
-      })
-      if (data.error) {
-        errorMsg = data.error.message
-      } else {
-        success = true;
-      }
-    } catch (err: any) {
-      errorMsg = err?.message || 'Unknown Resend error'
-    }
-  } else {
-    // Simulator Mode
-    success = true
-    errorMsg = 'Simulator mode: Resend API Key is missing. Email logged in dashboard.'
+  if (!recipient) {
+    const errorMsg = 'Recipient email is empty'
+    console.error('[Resend] blocked:', errorMsg)
+    await persistEmailLog({
+      bookingId,
+      recipientEmail: recipient || '(empty)',
+      subject,
+      body: html,
+      status: 'FAILED',
+    })
+    return { success: false, error: errorMsg }
   }
 
-  // Always log inside local database/store for tracking
-  await persistEmailLog({
-    bookingId,
-    recipientEmail: to,
-    subject,
-    body: html,
-    status: success ? 'SENT' : 'FAILED',
-  })
+  if (!resend) {
+    const errorMsg =
+      'RESEND_API_KEY is not set at runtime. Add it in Vercel → Project → Settings → Environment Variables (Production + Preview), then redeploy.'
+    console.error('[Resend] skipped — no API key', getResendDiagnostics())
+    await persistEmailLog({
+      bookingId,
+      recipientEmail: recipient,
+      subject,
+      body: html,
+      status: 'FAILED',
+    })
+    return { success: false, error: errorMsg }
+  }
 
-  return { success, error: errorMsg }
+  try {
+    const result = await resend.emails.send({
+      from,
+      to: [recipient],
+      subject,
+      html,
+    })
+
+    if (result.error) {
+      const errorMsg = `${result.error.name}: ${result.error.message}${
+        result.error.statusCode ? ` (${result.error.statusCode})` : ''
+      }`
+      console.error('[Resend] API error', {
+        bookingId,
+        to: recipient,
+        from,
+        name: result.error.name,
+        message: result.error.message,
+        statusCode: result.error.statusCode,
+      })
+      await persistEmailLog({
+        bookingId,
+        recipientEmail: recipient,
+        subject,
+        body: html,
+        status: 'FAILED',
+      })
+      return { success: false, error: errorMsg }
+    }
+
+    if (!result.data?.id) {
+      const errorMsg = 'Resend returned no email id'
+      console.error('[Resend] unexpected response', { bookingId, result })
+      await persistEmailLog({
+        bookingId,
+        recipientEmail: recipient,
+        subject,
+        body: html,
+        status: 'FAILED',
+      })
+      return { success: false, error: errorMsg }
+    }
+
+    await persistEmailLog({
+      bookingId,
+      recipientEmail: recipient,
+      subject,
+      body: html,
+      status: 'SENT',
+    })
+
+    return { success: true, resendId: result.data.id }
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'Unknown Resend error'
+    console.error('[Resend] exception', { bookingId, to: recipient, from, error: errorMsg })
+    await persistEmailLog({
+      bookingId,
+      recipientEmail: recipient,
+      subject,
+      body: html,
+      status: 'FAILED',
+    })
+    return { success: false, error: errorMsg }
+  }
 }
 
 export async function sendBookingCreatedEmail(booking: any) {
@@ -256,87 +391,164 @@ export async function sendPaymentReceivedEmail(booking: any) {
   return sendEmail({ bookingId: booking.id, to: booking.customerEmail, subject, html })
 }
 
-export async function sendPaymentApprovedEmail(booking: any) {
-  const remainingBalance = booking.price - booking.depositAmount
-  const subject = `Reservation Confirmed - Reference: ${booking.id}`
-  const html = `
-    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid #0500D0;">
-      <h2 style="color: #0500D0; text-align: center;">FICO MANA RESERVATION</h2>
-      <p style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.2em; color: #5A5A8A; text-align: center;">Self Portrait Studio</p>
-      <hr style="border: 0; border-top: 1px dashed #D4D8F0; margin: 20px 0;" />
-      
-      <h3 style="color: #0500D0; text-align: center; margin-bottom: 20px;">Reservation Confirmed!</h3>
+/** Booking confirmation — sent when admin approves deposit. */
+export async function sendPaymentApprovedEmail(
+  booking: Record<string, unknown>,
+  payment?: PaymentRecord,
+) {
+  const deposit = depositPayment(booking, payment)
+  const remaining = remainingBalance(booking)
+  const subject = `Booking Confirmed — ${booking.id}`
+  const html = brandedEmail(
+    'Your Booking is Confirmed',
+    `
       <p>Hello <strong>${booking.customerName}</strong>,</p>
-      <p>Good news! We have successfully verified your GCash deposit. Your studio reservation is now confirmed.</p>
-      
-      <div style="background-color: #EEF0FF; padding: 20px; border: 1px solid #D4D8F0; margin: 25px 0;">
-        <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 6px 0; color: #5A5A8A;">Booking Code:</td>
-            <td style="padding: 6px 0; font-weight: bold; font-family: monospace; color: #0500D0; font-size: 16px;">${booking.id}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #5A5A8A;">Package:</td>
-            <td style="padding: 6px 0; font-weight: bold;">${booking.packageName}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #5A5A8A;">Session Date:</td>
-            <td style="padding: 6px 0; font-weight: bold;">${booking.bookingDate}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #5A5A8A;">Session Time:</td>
-            <td style="padding: 6px 0; font-weight: bold; color: #0500D0;">${booking.bookingTime}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #5A5A8A;">Arrival Time:</td>
-            <td style="padding: 6px 0; font-weight: bold;">${booking.arrivalTime || booking.bookingTime}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #5A5A8A;">Shoot Time:</td>
-            <td style="padding: 6px 0; font-weight: bold;">${booking.shootTime || booking.bookingTime}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #5A5A8A;">Total Package Price:</td>
-            <td style="padding: 6px 0; font-weight: bold;">₱${booking.price.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #5A5A8A;">Reservation Deposit Paid:</td>
-            <td style="padding: 6px 0; font-weight: bold; color: green; font-size: 14px;">₱${booking.depositAmount.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #5A5A8A;">Remaining Balance:</td>
-            <td style="padding: 6px 0; font-weight: bold; color: #DC2626; font-size: 14px;">₱${remainingBalance.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #5A5A8A;">Payment Method:</td>
-            <td style="padding: 6px 0; font-weight: bold;">GCash (Verified)</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #5A5A8A;">Payment Status:</td>
-            <td style="padding: 6px 0; font-weight: bold; color: #5A5A8A;">Reserved - Deposit Paid</td>
-          </tr>
-        </table>
+      <p>Great news — we have verified your <strong>${deposit.method}</strong> deposit. Your studio session is now <strong style="color: #16A34A;">confirmed</strong>.</p>
+
+      <div style="background: #ECFDF5; border: 1px solid #86EFAC; padding: 12px 16px; margin: 16px 0; text-align: center;">
+        <p style="margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: #166534;">Reservation Status</p>
+        <p style="margin: 6px 0 0; font-size: 18px; font-weight: bold; color: #15803D;">CONFIRMED</p>
       </div>
 
-      <div style="background-color: #FEF3C7; border: 1px solid #F59E0B; padding: 15px; margin: 20px 0;">
-        <p style="margin: 0; font-size: 12px; font-weight: bold; color: #B45309;">Important Notice:</p>
-        <p style="margin: 5px 0 0 0; font-size: 12px; color: #B45309; line-height: 1.5;">
-          This receipt confirms the **reservation deposit only**. The remaining outstanding balance of **₱${remainingBalance.toFixed(2)}** is to be paid in person at the studio on the day of your session.
+      ${sessionDetailsTable(booking)}
+
+      <table style="width: 100%; font-size: 13px; margin: 8px 0 16px; border-collapse: collapse; background: #F8FAFC; border: 1px solid #E2E8F0;">
+        <tr>
+          <td style="padding: 10px 12px; color: #5A5A8A; border-bottom: 1px solid #E2E8F0;">Package Total</td>
+          <td style="padding: 10px 12px; font-weight: bold; text-align: right; border-bottom: 1px solid #E2E8F0;">${formatMoney(Number(booking.price ?? 0))}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 12px; color: #5A5A8A; border-bottom: 1px solid #E2E8F0;">Deposit Paid (${deposit.method})</td>
+          <td style="padding: 10px 12px; font-weight: bold; text-align: right; color: #16A34A; border-bottom: 1px solid #E2E8F0;">${formatMoney(deposit.amount)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 12px; color: #5A5A8A;">Balance Due at Studio</td>
+          <td style="padding: 10px 12px; font-weight: bold; text-align: right; color: ${remaining > 0 ? '#DC2626' : '#16A34A'};">${formatMoney(remaining)}</td>
+        </tr>
+      </table>
+
+      ${
+        deposit.transactionRef
+          ? `<p style="font-size: 12px; color: #5A5A8A; margin: 0 0 16px;">Verified transaction ref: <strong style="font-family: monospace;">${deposit.transactionRef}</strong></p>`
+          : ''
+      }
+
+      <div style="background-color: #FEF3C7; border: 1px solid #F59E0B; padding: 14px; margin: 16px 0;">
+        <p style="margin: 0; font-size: 12px; font-weight: bold; color: #B45309;">Before your session</p>
+        <p style="margin: 6px 0 0; font-size: 12px; color: #92400E; line-height: 1.6;">
+          Arrive <strong>10 minutes before</strong> your scheduled arrival time. Bring a valid ID and this booking reference (<strong>${booking.id}</strong>).
+          ${remaining > 0 ? `The remaining balance of <strong>${formatMoney(remaining)}</strong> is payable in person at the studio.` : ''}
         </p>
       </div>
 
-      <div style="border: 1px solid #D4D8F0; padding: 15px; margin: 20px 0;">
-        <p style="margin: 0; font-size: 12px; font-weight: bold; color: #0500D0;">Studio Location & Guidelines:</p>
-        <p style="margin: 5px 0 0 0; font-size: 12px; color: #5A5A8A; line-height: 1.6;">
-          <strong>Location:</strong> Cabuyao Retail Plaza, 4025 Cabuyao, Laguna<br />
-          <strong>Guidelines:</strong> Please arrive <strong>10 minutes before</strong> your scheduled slot. Present this receipt or your reference code to our receptionist.
+      <div style="border: 1px solid #D4D8F0; padding: 14px; margin: 16px 0;">
+        <p style="margin: 0; font-size: 12px; font-weight: bold; color: #0500D0;">Studio Location</p>
+        <p style="margin: 6px 0 0; font-size: 12px; color: #5A5A8A; line-height: 1.6;">
+          Cabuyao Retail Plaza, 4025 Cabuyao, Laguna<br />
+          Phone: +63 49 576 5176
         </p>
       </div>
 
-      <p style="font-size: 12px; color: #5A5A8A; text-align: center; margin-top: 35px;">We look forward to hosting your session!</p>
-    </div>
-  `
-  return sendEmail({ bookingId: booking.id, to: booking.customerEmail, subject, html })
+      <p style="font-size: 12px; color: #5A5A8A; margin-top: 16px;">Please save this email — it serves as both your <strong>booking confirmation</strong> and <strong>official deposit receipt</strong>.</p>
+    `,
+  )
+  return sendEmail({ bookingId: String(booking.id), to: String(booking.customerEmail), subject, html })
+}
+
+/** Single email on admin approve: confirmation + official receipt (Resend free-tier friendly). */
+export async function sendDepositApprovedEmails(booking: Record<string, unknown>, payment: PaymentRecord) {
+  const customerEmail = String(booking.customerEmail ?? '').trim()
+  if (!customerEmail) {
+    return { success: false, error: 'No customer email on booking' }
+  }
+
+  const deposit = depositPayment(booking, payment)
+  const remaining = remainingBalance(booking)
+  const rcpNo = receiptNumber(String(booking.id), deposit.id)
+  const subject = `Confirmed & Receipt — ${booking.id}`
+  const html = brandedEmail(
+    'Booking Confirmed & Official Receipt',
+    `
+      <p>Hello <strong>${booking.customerName}</strong>,</p>
+      <p>Your <strong>${deposit.method}</strong> deposit is verified. Your session is <strong style="color: #16A34A;">confirmed</strong> — save this email as your confirmation and official receipt.</p>
+
+      <div style="background: #ECFDF5; border: 1px solid #86EFAC; padding: 12px 16px; margin: 16px 0; text-align: center;">
+        <p style="margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: #166534;">Status</p>
+        <p style="margin: 6px 0 0; font-size: 18px; font-weight: bold; color: #15803D;">CONFIRMED</p>
+      </div>
+
+      <div style="background: linear-gradient(135deg, #EEF0FF 0%, #F8FAFC 100%); border: 2px solid #0500D0; padding: 16px; margin: 16px 0; text-align: center;">
+        <p style="margin: 0; font-size: 9px; text-transform: uppercase; letter-spacing: 0.2em; color: #5A5A8A;">Official Receipt No.</p>
+        <p style="margin: 8px 0 0; font-size: 20px; font-weight: bold; font-family: monospace; color: #0500D0;">${rcpNo}</p>
+      </div>
+
+      ${sessionDetailsTable(booking)}
+      ${paymentDetailsTable(booking, deposit)}
+
+      <table style="width: 100%; font-size: 13px; margin: 0 0 16px; border-collapse: collapse; background: #F8FAFC; border: 1px solid #E2E8F0;">
+        <tr>
+          <td style="padding: 10px 12px; color: #5A5A8A; border-bottom: 1px solid #E2E8F0;">Balance Due at Studio</td>
+          <td style="padding: 10px 12px; font-weight: bold; text-align: right; color: ${remaining > 0 ? '#DC2626' : '#16A34A'};">${formatMoney(remaining)}</td>
+        </tr>
+      </table>
+
+      <div style="background-color: #FEF3C7; border: 1px solid #F59E0B; padding: 14px; margin: 16px 0;">
+        <p style="margin: 0; font-size: 12px; font-weight: bold; color: #B45309;">Before your session</p>
+        <p style="margin: 6px 0 0; font-size: 12px; color: #92400E; line-height: 1.6;">
+          Arrive <strong>10 minutes before</strong> your arrival time. Present reference <strong>${booking.id}</strong> at reception.
+          ${remaining > 0 ? ` Balance of <strong>${formatMoney(remaining)}</strong> is payable in person.` : ''}
+        </p>
+      </div>
+
+      <p style="font-size: 12px; color: #5A5A8A; margin: 0;">
+        Cabuyao Retail Plaza, 4025 Cabuyao, Laguna · +63 49 576 5176
+      </p>
+    `,
+  )
+  return sendEmail({ bookingId: String(booking.id), to: customerEmail, subject, html })
+}
+
+/** Single email when customer submits booking + receipt upload. */
+export async function sendBookingSubmittedEmail(booking: Record<string, unknown>) {
+  const customerEmail = String(booking.customerEmail ?? '').trim()
+  if (!customerEmail) {
+    return { success: false, error: 'No customer email on booking' }
+  }
+
+  const subject = `Booking Received — ${booking.id}`
+  const html = brandedEmail(
+    'Booking Received — Pending Verification',
+    `
+      <p>Hello <strong>${booking.customerName}</strong>,</p>
+      <p>We received your booking request and payment receipt. Our team will verify your deposit shortly.</p>
+
+      <table style="width: 100%; font-size: 13px; margin: 16px 0; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Reference</td>
+          <td style="padding: 8px 0; font-weight: bold; color: #0500D0; font-family: monospace; border-bottom: 1px solid #EEF0FF;">${booking.id}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Package</td>
+          <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #EEF0FF;">${booking.packageName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #5A5A8A; border-bottom: 1px solid #EEF0FF;">Session</td>
+          <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #EEF0FF;">${booking.bookingDate} · ${booking.bookingTime}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #5A5A8A;">Transaction Ref</td>
+          <td style="padding: 8px 0; font-weight: bold; font-family: monospace;">${booking.transactionRef || '—'}</td>
+        </tr>
+      </table>
+
+      <div style="background-color: #EEF0FF; padding: 14px; border-left: 3px solid #0500D0; margin: 16px 0;">
+        <p style="margin: 0; font-size: 12px; color: #5A5A8A; line-height: 1.6;">
+          Your slot is reserved while we review your receipt. You will receive <strong>one confirmation email</strong> once payment is approved.
+        </p>
+      </div>
+    `,
+  )
+  return sendEmail({ bookingId: String(booking.id), to: customerEmail, subject, html })
 }
 
 export async function sendFinalOfficialReceiptEmail(booking: any) {
@@ -402,37 +614,79 @@ export async function sendFinalOfficialReceiptEmail(booking: any) {
   return sendEmail({ bookingId: booking.id, to: booking.customerEmail, subject, html })
 }
 
-export async function sendPaymentRejectedEmail(booking: any, reason: string) {
-  const subject = `Payment Verification Failed - Action Required`
-  const html = `
-    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid #DC2626;">
-      <h2 style="color: #DC2626;">FICO MANA</h2>
-      <p style="font-size: 8px; text-transform: uppercase; letter-spacing: 0.2em; color: #5A5A8A;">Self Portrait Studio</p>
-      <hr style="border: 0; border-top: 1px dashed #D4D8F0; margin: 20px 0;" />
-      
-      <h3 style="color: #DC2626;">Payment Verification Unsuccessful</h3>
+export async function sendPaymentRejectedEmail(
+  booking: Record<string, unknown>,
+  reason: string,
+  reasonId?: string,
+) {
+  const customerEmail = String(booking.customerEmail ?? '').trim()
+  if (!customerEmail) {
+    return { success: false, error: 'No customer email on booking' }
+  }
+
+  const forged = isForgedRejection(reasonId ?? '', reason)
+  const subject = forged
+    ? `Invalid Receipt — Upload Genuine Payment Proof · ${booking.id}`
+    : `Payment Verification Failed — ${booking.id}`
+
+  const html = brandedEmail(
+    forged ? 'Receipt Rejected — Genuine Proof Required' : 'Payment Verification Unsuccessful',
+    forged
+      ? `
       <p>Hello <strong>${booking.customerName}</strong>,</p>
-      <p>Our staff reviewed the GCash payment receipt uploaded for Booking Reference <strong>${booking.id}</strong>, but were unable to confirm the transaction.</p>
-      
-      <div style="background-color: #FEF2F2; border-left: 4px solid #DC2626; padding: 15px; margin: 20px 0; font-size: 13px;">
-        <p style="margin: 0; font-weight: bold; color: #DC2626;">Reason for Rejection:</p>
-        <p style="margin: 5px 0 0 0; color: #5A5A8A; font-style: italic;">"${reason || 'Unable to verify payment details'}"</p>
+      <p>We reviewed the file uploaded for booking <strong>${booking.id}</strong>. It <strong style="color: #DC2626;">cannot be accepted</strong> as proof of payment.</p>
+
+      <div style="background: #FEF2F2; border: 2px solid #DC2626; padding: 16px; margin: 16px 0;">
+        <p style="margin: 0 0 8px; font-size: 11px; font-weight: bold; color: #DC2626; text-transform: uppercase; letter-spacing: 0.1em;">Why it was rejected</p>
+        <p style="margin: 0; font-size: 13px; color: #5A5A8A; line-height: 1.6;">${reason}</p>
       </div>
 
-      <p>Your booking status has been set back to <strong>Pending Payment</strong>. To secure your slot, please verify the deposit payment and upload a valid, clear receipt.</p>
-      
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${resubmitBookingUrl(booking.id)}" style="background-color: #0500D0; color: white; padding: 12px 25px; text-decoration: none; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em;">
+      <div style="background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 14px; margin: 16px 0;">
+        <p style="margin: 0; font-size: 12px; font-weight: bold; color: #B45309;">What to upload</p>
+        <ul style="margin: 8px 0 0; padding-left: 18px; font-size: 12px; color: #92400E; line-height: 1.7;">
+          <li>A <strong>real GCash or BPI screenshot</strong> from your transaction history</li>
+          <li>Must show <strong>₱500.00</strong> sent to the official FICO MANA account</li>
+          <li>Must show your <strong>transaction reference number</strong></li>
+          <li>Do not upload studio photos, sample images, or edited screenshots</li>
+        </ul>
+      </div>
+
+      <p style="font-size: 13px; color: #5A5A8A;">Your slot may still be held briefly. Upload valid proof below to continue verification.</p>
+
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${resubmitBookingUrl(String(booking.id))}" style="background-color: #0500D0; color: white; padding: 14px 28px; text-decoration: none; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; display: inline-block;">
+          Upload Genuine Receipt
+        </a>
+      </div>
+
+      <p style="font-size: 11px; color: #5A5A8A; text-align: center;">
+        Reference: <strong>${booking.id}</strong> · Use the same email you booked with.<br />
+        Questions? +63 49 576 5176
+      </p>
+    `
+      : `
+      <p>Hello <strong>${booking.customerName}</strong>,</p>
+      <p>We reviewed the payment receipt for booking <strong>${booking.id}</strong> but could not verify your deposit.</p>
+
+      <div style="background-color: #FEF2F2; border-left: 4px solid #DC2626; padding: 15px; margin: 20px 0; font-size: 13px;">
+        <p style="margin: 0; font-weight: bold; color: #DC2626;">Reason:</p>
+        <p style="margin: 8px 0 0; color: #5A5A8A; line-height: 1.6;">${reason}</p>
+      </div>
+
+      <p style="font-size: 13px; color: #5A5A8A;">Your booking is back to <strong>Pending Payment</strong>. Please upload a clear GCash or BPI screenshot.</p>
+
+      <div style="text-align: center; margin: 28px 0;">
+        <a href="${resubmitBookingUrl(String(booking.id))}" style="background-color: #0500D0; color: white; padding: 12px 25px; text-decoration: none; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em;">
           Upload New Receipt
         </a>
       </div>
 
-      <p style="font-size: 11px; color: #5A5A8A; text-align: center;">Or visit ficomana.studio and scroll to <strong>Resubmit Your Receipt</strong>. Use reference <strong>${booking.id}</strong> and the email you booked with.</p>
-
-      <p style="font-size: 12px; color: #5A5A8A;">If you believe this was an error, please contact us at +63 49 576 5176 or message us on our Facebook page.</p>
-    </div>
-  `
-  return sendEmail({ bookingId: booking.id, to: booking.customerEmail, subject, html })
+      <p style="font-size: 11px; color: #5A5A8A; text-align: center;">
+        Or visit our site → <strong>Resubmit Your Receipt</strong> · Ref <strong>${booking.id}</strong>
+      </p>
+    `,
+  )
+  return sendEmail({ bookingId: String(booking.id), to: customerEmail, subject, html })
 }
 
 export async function sendBookingCancelledEmail(booking: any) {
@@ -499,7 +753,7 @@ export async function sendBookingRescheduledEmail(booking: any, rebookingFee: nu
       <div style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0; font-size: 12px; color: #B45309;">
         <p style="margin: 0; font-weight: bold;">Rebooking Fee Notice:</p>
         <p style="margin: 5px 0 0 0; line-height: 1.5;">
-          A **₱500.00** rebooking fee has been applied to this schedule change as per studio policy. The remaining balance of **₱${remainingBalance.toFixed(2)}** (including the rebooking fee) is to be paid at the studio on the day of your shoot.
+          A <strong>₱500.00</strong> rebooking fee has been applied to this schedule change as per studio policy. The remaining balance of <strong>₱${remainingBalance.toFixed(2)}</strong> (including the rebooking fee) is to be paid at the studio on the day of your shoot.
         </p>
       </div>
       ` : ''}

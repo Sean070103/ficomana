@@ -8,7 +8,11 @@ import { MapPin, Phone, ExternalLink } from 'lucide-react'
 const navLinks = [
   { href: '/#home', label: 'Home' },
   { href: '/#gallery', label: 'Gallery' },
+  { href: '/#reels', label: 'Reels' },
+  { href: '/#pricing', label: 'Pricing' },
+  { href: '/packages', label: 'Packages' },
   { href: '/#about', label: 'About' },
+  { href: '/#affiliations', label: 'Schools' },
   { href: '/#contact', label: 'Contact' },
 ]
 
@@ -129,6 +133,17 @@ export default function Footer() {
                       <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
                     </svg>
                   </a>
+                  <a
+                    href="https://www.tiktok.com/@ficomanastudio?_r=1"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="TikTok"
+                    className="w-9 h-9 flex items-center justify-center border border-white/20 text-white hover:border-primary hover:bg-primary transition-all duration-300"
+                  >
+                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.23.82.96 1.93 1.66 3.16 2.05.02 1.33.01 2.66.02 4-.98-.05-1.94-.35-2.8-.83-.8-.44-1.49-1.07-2-1.84v6.23c.04 1.35-.3 2.72-1.02 3.86-.88 1.33-2.3 2.27-3.88 2.58-1.57.34-3.26.13-4.7-.58-1.5-.72-2.73-2.02-3.37-3.62-.64-1.57-.61-3.37.07-4.92.68-1.58 2.02-2.84 3.65-3.48.96-.39 2-.54 3.03-.45v4.06c-.7-.14-1.46-.02-2.09.31-.67.33-1.19.95-1.41 1.67-.28.84-.13 1.79.39 2.49.52.71 1.36 1.12 2.24 1.12.87 0 1.69-.41 2.19-1.12.35-.5.5-1.12.47-1.74V.02z"/>
+                    </svg>
+                  </a>
                 </div>
               </div>
             </motion.div>
@@ -163,12 +178,12 @@ export default function Footer() {
           >
             <p>&copy; {currentYear} FICO MANA. All rights reserved.</p>
             <div className="flex gap-6">
-              <a href="#" className="hover:text-white transition-colors">
+              <Link href="/privacy" className="hover:text-white transition-colors">
                 Privacy Policy
-              </a>
-              <a href="#" className="hover:text-white transition-colors">
+              </Link>
+              <Link href="/terms" className="hover:text-white transition-colors">
                 Terms of Service
-              </a>
+              </Link>
             </div>
           </motion.div>
         </div>

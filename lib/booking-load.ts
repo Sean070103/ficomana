@@ -1,4 +1,5 @@
 import type { Booking } from '@/lib/data-store'
+import { resolveBookingReference } from '@/lib/booking-id'
 import { getBookingById } from '@/lib/server-store'
 import { isSupabaseConfigured } from '@/lib/supabase/env'
 import { supabase } from '@/lib/supabase'
@@ -15,12 +16,13 @@ export function emailsMatch(a: string, b: string): boolean {
 
 /** Load a booking from Supabase (admin/anon) or file store fallback. */
 export async function loadBookingById(id: string): Promise<Booking | null> {
+  const resolvedId = resolveBookingReference(id)
   if (isSupabaseConfigured()) {
     const admin = getSupabaseAdmin() ?? supabase
-    const fromDb = await getBookingFromDb(admin, id)
+    const fromDb = await getBookingFromDb(admin, resolvedId)
     if (fromDb) return fromDb
   }
-  return getBookingById(id)
+  return getBookingById(resolvedId)
 }
 
 export type PublicResubmitBooking = {

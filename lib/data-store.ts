@@ -39,6 +39,8 @@ export interface Booking {
   bookingStatus: 'Pending Payment' | 'Pending Verification' | 'Confirmed' | 'Rejected' | 'Cancelled' | 'Completed' | 'No Show'
   paymentStatus: 'Unpaid' | 'Pending Verification' | 'Paid Deposit' | 'Paid Full' | 'Refunded'
   rejectionReason?: string
+  /** Transient — used when staff rejects a receipt; not stored in DB. */
+  rejectionReasonId?: string
   createdAt: string
   receiptUrl?: string
   paymentHistory: PaymentRecord[]
@@ -66,6 +68,12 @@ export interface EmailLog {
 
 const BOOKINGS_KEY = 'ficomana_bookings'
 const NOTIFS_KEY = 'ficomana_notifications'
+
+export function dispatchAdminRefresh() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('admin:db-synced'))
+  }
+}
 
 function cacheBookings(bookings: Booking[]) {
   if (typeof window !== 'undefined') {
@@ -101,7 +109,7 @@ export async function getBookingPackages(category?: string): Promise<BookingPack
   return category ? bookingPackages.filter((p) => p.category === category) : bookingPackages
 }
 
-/** Staff: all bookings from API (Supabase + file merge on server). */
+/** Staff: all bookings from API (Supabase is source of truth). */
 export async function getBookings(): Promise<Booking[]> {
   try {
     const res = await fetch('/api/bookings', { cache: 'no-store', credentials: 'include' })
@@ -114,10 +122,12 @@ export async function getBookings(): Promise<Booking[]> {
       console.error('getBookings: staff login required')
       return []
     }
+    console.error('getBookings failed:', res.status)
   } catch (error) {
     console.error('getBookings failed:', error)
   }
-  return getCachedBookings()
+  // Never fall back to localStorage for admin — stale cache shows ghost verification items.
+  return []
 }
 
 /** Public availability for booking calendar (no PII). */
@@ -240,7 +250,34 @@ export async function resubmitReceipt(payload: {
   return { message: data.message || 'Receipt submitted.' }
 }
 
-export async function saveBooking(booking: Booking): Promise<Booking> {
+export async function syncAdminDatabase(): Promise<{
+  ok: boolean
+  bookingsPushed?: number
+  bookingsUpdated?: number
+  notificationsPushed?: number
+  message?: string
+}> {
+  try {
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      credentials: 'include',
+      cache: 'no-store',
+    })
+    if (!res.ok) return { ok: false, message: 'Sync failed' }
+    return (await res.json()) as {
+      ok: boolean
+      bookingsPushed?: number
+      bookingsUpdated?: number
+      notificationsPushed?: number
+      message?: string
+    }
+  } catch (error) {
+    console.error('syncAdminDatabase failed:', error)
+    return { ok: false, message: 'Sync failed' }
+  }
+}
+
+export async function saveBooking(booking: Booking): Promise<{ booking: Booking; emailErrors: string[] }> {
   const res = await fetch('/api/bookings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -253,13 +290,14 @@ export async function saveBooking(booking: Booking): Promise<Booking> {
     throw new Error(err.error || 'Failed to save booking')
   }
 
-  const saved = (await res.json()) as Booking
+  const data = (await res.json()) as Booking & { emailErrors?: string[] }
+  const { emailErrors = [], ...saved } = data
   const cached = getCachedBookings()
   const idx = cached.findIndex((b) => b.id === saved.id)
   if (idx >= 0) cached[idx] = saved
   else cached.unshift(saved)
   cacheBookings(cached)
-  return saved
+  return { booking: saved, emailErrors }
 }
 
 export async function getNotifications(): Promise<Notification[]> {
@@ -294,6 +332,18 @@ export async function addNotification(
     body: JSON.stringify({ bookingId, type, message }),
   })
   if (!res.ok) throw new Error('Failed to add notification')
+  dispatchAdminRefresh()
+}
+
+export async function dismissBookingNotifications(bookingId: string): Promise<void> {
+  const res = await fetch('/api/notifications/dismiss', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ bookingId }),
+  })
+  if (!res.ok) throw new Error('Failed to dismiss notifications')
+  dispatchAdminRefresh()
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
@@ -306,6 +356,7 @@ export async function markNotificationRead(id: string): Promise<void> {
   if (typeof window !== 'undefined') {
     const notifs = await getNotifications()
     cacheNotifications(notifs.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
+    dispatchAdminRefresh()
   }
 }
 

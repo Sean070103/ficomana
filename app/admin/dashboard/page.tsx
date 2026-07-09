@@ -12,17 +12,14 @@ import {
   TrendingUp,
   ArrowRight,
 } from 'lucide-react'
-import { adminPage, adminTitle, adminSubtitle, adminCard, adminPanel } from '@/lib/admin-ui'
-
-function Spinner() {
-  return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <div className="w-6 h-6 border-2 border-primary border-t-transparent animate-spin rounded-full" />
-    </div>
-  )
-}
+import { adminPage, adminCard, adminPanel, adminCardHover, adminSpinnerWrap, adminSpinner } from '@/lib/admin-ui'
+import AdminBookingSearch from '@/components/admin-booking-search'
+import AdminPageHeader from '@/components/admin-page-header'
+import { useOnAdminDbSync } from '@/components/admin-auto-sync'
+import { useAdminToast } from '@/components/admin-toast-provider'
 
 export default function DashboardOverview() {
+  const toast = useAdminToast()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [stats, setStats] = useState({
     todaysBookings: 0,
@@ -33,68 +30,78 @@ export default function DashboardOverview() {
     totalRevenue: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await getBookings()
-        setBookings(data)
+  const fetchStats = async (silent = false) => {
+    if (!silent) setRefreshing(true)
+    try {
+      const data = await getBookings()
+      setBookings(data)
 
-        const todayStr = new Date().toISOString().split('T')[0]
+      const todayStr = new Date().toISOString().split('T')[0]
 
-        let todaysBookings = 0
-        let pendingVerification = 0
-        let confirmedBookings = 0
-        let completedSessions = 0
-        let outstandingBalances = 0
-        let totalRevenue = 0
+      let todaysBookings = 0
+      let pendingVerification = 0
+      let confirmedBookings = 0
+      let completedSessions = 0
+      let outstandingBalances = 0
+      let totalRevenue = 0
 
-        data.forEach((b) => {
-          if (b.bookingDate === todayStr) todaysBookings++
-          if (b.bookingStatus === 'Pending Verification') pendingVerification++
-          if (b.bookingStatus === 'Confirmed') confirmedBookings++
-          if (b.bookingStatus === 'Completed') completedSessions++
+      data.forEach((b) => {
+        if (b.bookingDate === todayStr) todaysBookings++
+        if (b.bookingStatus === 'Pending Verification') pendingVerification++
+        if (b.bookingStatus === 'Confirmed') confirmedBookings++
+        if (b.bookingStatus === 'Completed') completedSessions++
 
-          const paidPayments = b.paymentHistory || []
-          let paidSum = 0
+        const paidPayments = b.paymentHistory || []
+        let paidSum = 0
 
-          paidPayments.forEach((pay) => {
-            const isDepositVerified =
-              pay.type === 'Deposit' && ['Confirmed', 'Completed', 'No Show'].includes(b.bookingStatus)
-            const isBalancePayment = pay.type === 'Balance Payment'
+        paidPayments.forEach((pay) => {
+          const isDepositVerified =
+            pay.type === 'Deposit' && ['Confirmed', 'Completed', 'No Show'].includes(b.bookingStatus)
+          const isBalancePayment = pay.type === 'Balance Payment'
 
-            if (isDepositVerified || isBalancePayment) {
-              paidSum += pay.amount
-              totalRevenue += pay.amount
-            }
-          })
-
-          if (b.bookingStatus === 'Confirmed') {
-            outstandingBalances += b.price - paidSum
+          if (isDepositVerified || isBalancePayment) {
+            paidSum += pay.amount
+            totalRevenue += pay.amount
           }
         })
 
-        setStats({
-          todaysBookings,
-          pendingVerification,
-          confirmedBookings,
-          completedSessions,
-          outstandingBalances,
-          totalRevenue,
-        })
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
+        if (b.bookingStatus === 'Confirmed') {
+          outstandingBalances += b.price - paidSum
+        }
+      })
 
-    fetchStats()
-    const interval = setInterval(fetchStats, 8000)
-    return () => clearInterval(interval)
+      setStats({
+        todaysBookings,
+        pendingVerification,
+        confirmedBookings,
+        completedSessions,
+        outstandingBalances,
+        totalRevenue,
+      })
+    } catch (err) {
+      console.error(err)
+      if (!silent) toast.error('Sync failed', 'Could not load dashboard data from database.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchStats(true)
   }, [])
 
-  if (loading) return <Spinner />
+  useOnAdminDbSync(() => fetchStats(true))
+
+  if (loading) {
+    return (
+      <div className={adminSpinnerWrap}>
+        <div className={adminSpinner} />
+      </div>
+    )
+  }
 
   const kpis = [
     {
@@ -167,7 +174,6 @@ export default function DashboardOverview() {
       return {
         day: dayLabels[d.getDay()],
         revenue,
-        heightClass: `h-[${heightPct}%]`,
         style: { height: `${heightPct}%` },
       }
     })
@@ -176,12 +182,13 @@ export default function DashboardOverview() {
 
   return (
     <div className={adminPage}>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className={adminTitle}>Console Dashboard</h1>
-          <p className={adminSubtitle}>Live operational overview for FICO MANA Studio</p>
-        </div>
-        <div className="text-xs font-semibold text-white/50 border border-white/10 bg-white/[0.02] px-4 py-2">
+      <AdminPageHeader
+        title="Console Dashboard"
+        subtitle="Live operational overview for FICO MANA Studio"
+        onRefresh={() => fetchStats()}
+        refreshing={refreshing}
+      >
+        <div className="text-xs font-semibold text-white/50 border border-white/10 bg-white/[0.02] px-4 py-2.5">
           Studio Date:{' '}
           {new Date().toLocaleDateString('en-US', {
             weekday: 'long',
@@ -190,13 +197,15 @@ export default function DashboardOverview() {
             day: 'numeric',
           })}
         </div>
-      </div>
+      </AdminPageHeader>
+
+      <AdminBookingSearch bookings={bookings} />
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon
           const card = (
-            <div className={`${adminCard} p-6 flex items-start gap-4 hover:border-white/20 transition-colors`}>
+            <div className={`${adminCard} ${adminCardHover} p-6 flex items-start gap-4`}>
               <div className={`w-12 h-12 flex items-center justify-center border ${kpi.accent}`}>
                 <Icon className="w-5 h-5" />
               </div>
@@ -233,7 +242,7 @@ export default function DashboardOverview() {
               <div className="p-12 text-center text-xs text-white/40">No sessions booked for today.</div>
             ) : (
               todaysList.map((b) => (
-                <div key={b.id} className="py-3 flex justify-between items-center text-xs">
+                <div key={b.id} className="py-3 flex justify-between items-center text-xs hover:bg-white/[0.02] transition-colors px-1 -mx-1">
                   <div className="space-y-1">
                     <p className="font-semibold text-white">{b.customerName}</p>
                     <p className="text-white/40 font-mono text-[10px]">Time: {b.bookingTime}</p>

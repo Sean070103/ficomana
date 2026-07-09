@@ -59,11 +59,13 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'payment_approved',
     name: 'Payment Approved',
-    subject: 'Payment Verified — {{bookingId}}',
+    subject: 'Booking Confirmed — {{bookingId}}',
     body: `<h2>FICO MANA</h2>
 <p>Hello <strong>{{customerName}}</strong>,</p>
-<p>Your deposit has been verified. Your booking is now confirmed.</p>
-<p>Arrival: <strong>{{arrivalTime}}</strong> · Shoot: <strong>{{shootTime}}</strong></p>`,
+<p>Your deposit has been verified. Your booking is now <strong>confirmed</strong>.</p>
+<p>Reference: <strong>{{bookingId}}</strong> · Package: <strong>{{packageName}}</strong></p>
+<p>Session: <strong>{{bookingDate}}</strong> · Arrival <strong>{{arrivalTime}}</strong> · Shoot <strong>{{shootTime}}</strong></p>
+<p>Deposit: <strong>₱{{depositAmount}}</strong></p>`,
   },
 ]
 

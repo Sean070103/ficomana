@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import Image from 'next/image'
 import SectionHeader from '@/components/section-header'
 import SectionShell from '@/components/section-shell'
 
@@ -9,11 +10,13 @@ const partnerSchools = [
     name: 'Philippine Law School – Lacson College',
     short: 'PLS',
     tag: 'Official Photographer',
+    logo: '/pl.jpg',
   },
   {
     name: 'Our Lady of Fatima University – Laguna Campus',
     short: 'OLFU',
     tag: 'Official Photographer',
+    logo: '/fatima.jpg',
   },
 ]
 
@@ -43,10 +46,14 @@ export default function SchoolAffiliations() {
             viewport={{ once: true }}
             className="min-w-[220px] md:min-w-0 snap-start border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 flex flex-col gap-4"
           >
-            <div className="w-14 h-14 rounded-full border border-primary/40 bg-primary/10 flex items-center justify-center">
-              <span className="text-[10px] font-bold tracking-widest text-primary uppercase">
-                {school.short}
-              </span>
+            <div className="w-16 h-16 rounded-full border border-white/15 bg-white overflow-hidden flex items-center justify-center shrink-0">
+              <Image
+                src={school.logo}
+                alt={`${school.name} logo`}
+                width={64}
+                height={64}
+                className="w-full h-full object-contain p-0.5"
+              />
             </div>
             <div>
               <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-primary mb-2">

@@ -11,6 +11,7 @@ import {
   uploadReceiptForResubmit,
   type PublicResubmitBooking,
 } from '@/lib/data-store'
+import { isForgedRejection } from '@/lib/rejection-reasons'
 
 const inputClass =
   'w-full border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30'
@@ -130,7 +131,7 @@ function BookingResubmitForm() {
                 required
                 value={bookingId}
                 onChange={(e) => setBookingId(e.target.value.toUpperCase())}
-                placeholder="FM-123456"
+                placeholder="FM-123456 or FM-RCP-123456-####"
                 className={inputClass + ' font-mono mt-1.5'}
               />
             </div>
@@ -167,9 +168,26 @@ function BookingResubmitForm() {
               </p>
               <p className="text-primary font-semibold text-xs">Deposit: ₱{booking.depositAmount.toFixed(2)}</p>
               {booking.rejectionReason && (
-                <div className="mt-3 border-l-2 border-red-500/60 pl-3 text-xs text-red-200/90">
-                  <p className="font-semibold uppercase tracking-wider text-[9px] text-red-300 mb-1">Rejection reason</p>
-                  <p className="italic">&ldquo;{booking.rejectionReason}&rdquo;</p>
+                <div
+                  className={`mt-3 border-l-2 pl-3 text-xs ${
+                    isForgedRejection('', booking.rejectionReason)
+                      ? 'border-red-500 bg-red-500/10 p-3'
+                      : 'border-red-500/60'
+                  }`}
+                >
+                  <p className="font-semibold uppercase tracking-wider text-[9px] text-red-300 mb-1">
+                    {isForgedRejection('', booking.rejectionReason)
+                      ? 'Forged / invalid receipt'
+                      : 'Rejection reason'}
+                  </p>
+                  <p className={isForgedRejection('', booking.rejectionReason) ? 'text-red-100' : 'text-red-200/90 italic'}>
+                    {booking.rejectionReason}
+                  </p>
+                  {isForgedRejection('', booking.rejectionReason) && (
+                    <p className="text-[10px] text-red-200/80 mt-2 leading-relaxed">
+                      Upload a genuine GCash or BPI screenshot from your transaction history — not a studio photo or sample image.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -206,7 +224,12 @@ function BookingResubmitForm() {
               className="border-2 border-dashed border-white/20 p-6 sm:p-8 text-center cursor-pointer hover:border-primary/40 hover:bg-white/[0.03] transition-colors"
             >
               <Upload className="w-7 h-7 mx-auto mb-2 text-primary" />
-              <p className="text-sm text-white/70">{receiptFile?.name || 'Click to upload new receipt *'}</p>
+              <p className="text-sm text-white/70">
+                {receiptFile?.name ||
+                  (booking.rejectionReason && isForgedRejection('', booking.rejectionReason)
+                    ? 'Upload genuine GCash/BPI screenshot *'
+                    : 'Click to upload new receipt *')}
+              </p>
               <p className="text-[10px] text-white/40 mt-1">JPG, PNG, or PDF · Max 5 MB</p>
               <input
                 ref={fileInputRef}
@@ -241,7 +264,17 @@ function BookingResubmitForm() {
 
 export default function BookingResubmit() {
   return (
-    <Suspense fallback={<div className="py-16 text-center text-white/50">Loading...</div>}>
+    <Suspense
+      fallback={
+        <SectionShell id="resubmit" variant="elevated">
+          <div className="max-w-xl mx-auto border border-white/10 bg-white/[0.02] p-6 sm:p-8 space-y-4">
+            <div className="h-6 w-40 mx-auto bg-white/10 animate-pulse" />
+            <div className="h-10 bg-white/[0.04] animate-pulse" />
+            <div className="h-10 bg-white/[0.04] animate-pulse" />
+          </div>
+        </SectionShell>
+      }
+    >
       <BookingResubmitForm />
     </Suspense>
   )

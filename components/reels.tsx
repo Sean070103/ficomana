@@ -1,17 +1,13 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useEffect, useRef } from 'react'
+import { Volume2, VolumeX, Play } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 const REEL_VIDEO = '/breanna-reel.mp4'
 const PLAY_LEAD_VH = 1.75
 const PRELOAD_LEAD_VH = 2.5
 const PAUSE_ABOVE_VH = 1.2
-
-function isAndroidDevice() {
-  if (typeof navigator === 'undefined') return false
-  return /Android/i.test(navigator.userAgent)
-}
 
 export default function Reels() {
   const sectionRef = useRef<HTMLElement>(null)
@@ -19,23 +15,20 @@ export default function Reels() {
   const shouldPlayRef = useRef(false)
   const hasLoadedRef = useRef(false)
   const preloadStartedRef = useRef(false)
-  const needsUnmuteRef = useRef(false)
+  const [muted, setMuted] = useState(true)
+  const [playing, setPlaying] = useState(false)
 
   useEffect(() => {
     const video = videoRef.current
     const section = sectionRef.current
     if (!video || !section) return
 
-    const android = isAndroidDevice()
-
     video.loop = true
     video.playsInline = true
     video.setAttribute('playsinline', '')
     video.setAttribute('webkit-playsinline', '')
-    video.setAttribute('x5-playsinline', 'true')
-    video.setAttribute('x5-video-player-type', 'h5')
-    video.muted = false
-    video.defaultMuted = false
+    video.muted = true
+    video.defaultMuted = true
     video.preload = 'auto'
 
     if (!hasLoadedRef.current) {
@@ -51,35 +44,25 @@ export default function Reels() {
 
     const playVideo = () => {
       if (!shouldPlayRef.current) return
-
-      if (needsUnmuteRef.current) {
-        needsUnmuteRef.current = false
-        video.muted = false
-      } else {
-        video.muted = false
-      }
-
-      if (!video.paused && !video.muted) return
-
-      void video.play().catch(() => {
-        if (android && video.paused) {
+      video.muted = muted
+      if (!video.paused) return
+      void video
+        .play()
+        .then(() => setPlaying(true))
+        .catch(() => {
           video.muted = true
+          setMuted(true)
           void video
             .play()
-            .then(() => {
-              needsUnmuteRef.current = true
-            })
+            .then(() => setPlaying(true))
             .catch(showPreviewFrame)
-        } else {
-          showPreviewFrame()
-        }
-      })
+        })
     }
 
     const pauseVideo = () => {
       if (video.paused) return
       video.pause()
-      needsUnmuteRef.current = false
+      setPlaying(false)
     }
 
     const syncPlayback = () => {
@@ -103,11 +86,8 @@ export default function Reels() {
         shouldPlayRef.current = false
       }
 
-      if (shouldPlayRef.current) {
-        playVideo()
-      } else if (forcePause) {
-        pauseVideo()
-      }
+      if (shouldPlayRef.current) playVideo()
+      else if (forcePause) pauseVideo()
     }
 
     const onVideoReady = () => {
@@ -122,15 +102,11 @@ export default function Reels() {
     video.addEventListener('canplaythrough', onVideoReady)
 
     const touchOpts = { passive: true, capture: true } as const
-
-    // Android Chrome often ignores scroll for play(); touchstart/touchmove carry the gesture
     window.addEventListener('touchstart', syncPlayback, touchOpts)
     window.addEventListener('touchmove', syncPlayback, touchOpts)
     window.addEventListener('scroll', syncPlayback, { passive: true })
     window.addEventListener('wheel', syncPlayback, { passive: true })
-
-    const onResize = () => syncPlayback()
-    window.addEventListener('resize', onResize)
+    window.addEventListener('resize', syncPlayback)
 
     const observer = new IntersectionObserver(() => syncPlayback(), {
       threshold: 0,
@@ -138,9 +114,7 @@ export default function Reels() {
     })
     observer.observe(section)
 
-    const retryTimers = [0, 50, 150, 300, 600].map((ms) =>
-      window.setTimeout(syncPlayback, ms),
-    )
+    const retryTimers = [0, 50, 150, 300, 600].map((ms) => window.setTimeout(syncPlayback, ms))
 
     return () => {
       retryTimers.forEach((id) => window.clearTimeout(id))
@@ -151,20 +125,34 @@ export default function Reels() {
       window.removeEventListener('touchmove', syncPlayback, touchOpts)
       window.removeEventListener('scroll', syncPlayback)
       window.removeEventListener('wheel', syncPlayback)
-      window.removeEventListener('resize', onResize)
+      window.removeEventListener('resize', syncPlayback)
       observer.disconnect()
       video.pause()
     }
-  }, [])
+  }, [muted])
+
+  const toggleMute = () => {
+    const video = videoRef.current
+    if (!video) return
+    const next = !muted
+    setMuted(next)
+    video.muted = next
+    shouldPlayRef.current = true
+    void video.play().then(() => setPlaying(true)).catch(() => {})
+  }
+
+  const tapToPlay = () => {
+    const video = videoRef.current
+    if (!video) return
+    shouldPlayRef.current = true
+    void video.play().then(() => setPlaying(true)).catch(() => {})
+  }
 
   return (
     <section
       ref={sectionRef}
       id="reels"
-      className="relative overflow-hidden py-12 sm:py-16 md:py-20 lg:py-28 px-4 sm:px-6 md:px-8 lg:px-12"
-      style={{
-        background: 'linear-gradient(180deg, #eef3ff 0%, #4a6fd4 45%, #1034a6 100%)',
-      }}
+      className="relative overflow-hidden bg-black border-t border-white/6 py-12 sm:py-16 md:py-20 lg:py-28 px-4 sm:px-6 md:px-8 lg:px-12"
     >
       <div className="max-w-7xl mx-auto flex flex-col items-center">
         <motion.div
@@ -172,7 +160,7 @@ export default function Reels() {
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           viewport={{ once: true, margin: '-80px' }}
-          className="relative w-[200px] xs:w-[220px] sm:w-[240px] md:w-[280px] lg:w-[320px] xl:w-[340px]"
+          className="relative w-[200px] sm:w-[240px] md:w-[280px] lg:w-[320px] xl:w-[340px]"
         >
           <div className="relative rounded-[2rem] sm:rounded-[2.5rem] md:rounded-[3rem] lg:rounded-[3.5rem] border-[5px] sm:border-[6px] md:border-[7px] lg:border-8 border-black bg-black shadow-2xl overflow-hidden">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 w-[38%] h-5 sm:h-6 md:h-7 lg:h-8 bg-black rounded-b-2xl" />
@@ -184,8 +172,32 @@ export default function Reels() {
                 className="absolute inset-0 h-full w-full object-cover"
                 playsInline
                 loop
+                muted
                 preload="auto"
+                onClick={tapToPlay}
               />
+
+              {!playing && (
+                <button
+                  type="button"
+                  onClick={tapToPlay}
+                  className="absolute inset-0 z-10 flex items-center justify-center bg-black/25"
+                  aria-label="Play reel"
+                >
+                  <span className="w-14 h-14 rounded-full bg-white/90 text-black flex items-center justify-center">
+                    <Play className="w-6 h-6 fill-current ml-0.5" />
+                  </span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={toggleMute}
+                className="absolute bottom-4 right-4 z-20 w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+                aria-label={muted ? 'Unmute reel' : 'Mute reel'}
+              >
+                {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
             </div>
           </div>
         </motion.div>
@@ -198,13 +210,13 @@ export default function Reels() {
           className="mt-8 sm:mt-10 md:mt-12 lg:mt-14 text-center px-4"
         >
           <h2
-            className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-[0.05em] sm:tracking-[0.08em] uppercase text-white"
+            className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-[0.05em] sm:tracking-[0.08em] uppercase text-white"
             style={{ fontFamily: 'var(--font-aileron)' }}
           >
-            Graduation Shoot Reels
+            Graduation Shoot Reel
           </h2>
-          <p className="mt-1.5 sm:mt-2 text-xs xs:text-sm md:text-base lg:text-lg font-light tracking-[0.25em] sm:tracking-[0.35em] uppercase text-white/80">
-            Samples
+          <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm md:text-base lg:text-lg font-light tracking-[0.25em] sm:tracking-[0.35em] uppercase text-white/80">
+            Sample
           </p>
         </motion.div>
       </div>
