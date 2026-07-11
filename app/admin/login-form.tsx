@@ -57,7 +57,7 @@ export default function AdminLogin() {
     <div className="min-h-screen bg-black text-white flex flex-col justify-center items-center px-6 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(5,0,208,0.15)_0%,_transparent_60%)] pointer-events-none" />
 
-      <div className="w-full max-w-md border border-white/10 bg-white/[0.02] backdrop-blur-sm p-8 md:p-10 relative z-10">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-8 md:p-10 relative z-10 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
         <div className="text-center space-y-2 mb-8">
           <h1 className="font-serif text-3xl font-bold tracking-tight text-white">FICO MANA</h1>
           <p className="text-[10px] font-bold tracking-[0.25em] text-primary uppercase">Staff Console</p>
@@ -65,7 +65,7 @@ export default function AdminLogin() {
 
         <form onSubmit={handleLogin} className="space-y-5">
           {error && (
-            <div className="bg-red-500/10 text-red-400 border border-red-500/30 p-3.5 text-xs font-semibold uppercase tracking-wider text-center">
+            <div className="rounded-lg bg-red-500/10 text-red-400 border border-red-500/25 p-3.5 text-xs font-medium text-center">
               {error}
             </div>
           )}

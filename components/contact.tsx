@@ -92,18 +92,18 @@ export default function Contact() {
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: index * 0.05 }}
                   viewport={{ once: true }}
-                  className="group flex items-center gap-4 p-5 bg-white/[0.03] border border-white/10 hover:border-primary/40 transition-all duration-300"
+                  className="group flex items-center gap-4 p-5 bg-white/[0.03] border border-white/10 hover:border-white/30 transition-all duration-300"
                 >
-                  <div className="w-10 h-10 flex items-center justify-center bg-primary/15 border border-primary/25 shrink-0">
-                    <Icon className="w-5 h-5 text-primary" strokeWidth={1.5} />
+                  <div className="w-10 h-10 flex items-center justify-center bg-white/10 border border-white/20 shrink-0">
+                    <Icon className="w-5 h-5 text-white" strokeWidth={1.5} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-medium tracking-[0.2em] uppercase text-muted-foreground mb-1">
+                    <p className="text-[9px] font-medium tracking-[0.2em] uppercase text-white/60 mb-1">
                       {method.label}
                     </p>
-                    <p className="font-medium text-sm truncate text-foreground">{method.value}</p>
+                    <p className="font-medium text-sm truncate text-white">{method.value}</p>
                   </div>
-                  <ArrowUpRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary shrink-0" />
+                  <ArrowUpRight className="w-4 h-4 text-white/40 group-hover:text-white shrink-0" />
                 </motion.a>
               )
             })}

@@ -10,7 +10,6 @@ import {
   List,
   LogOut,
   Bell,
-  User,
   Menu,
   X,
   RefreshCw,
@@ -21,7 +20,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { AdminToastProvider } from '@/components/admin-toast-provider'
 import { AdminAutoSyncProvider } from '@/components/admin-auto-sync'
 import AdminSyncStatus from '@/components/admin-sync-status'
-import { notificationTypeBadge } from '@/lib/admin-ui'
+import { notificationTypeBadge, adminNavActive, adminNavIdle } from '@/lib/admin-ui'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -122,17 +121,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <AdminToastProvider>
     <AdminAutoSyncProvider enabled={isLoggedIn && !isLoginPage}>
-    <div className="min-h-screen bg-black text-white flex">
+    <div className="min-h-screen bg-[#222222] text-white flex">
       {/* Sidebar — desktop */}
-      <aside className="hidden md:flex md:w-64 bg-[#0A0A0F] border-r border-white/10 flex-col flex-shrink-0">
-        <div className="p-6 border-b border-white/10">
-          <Link href="/admin/dashboard" className="block">
-            <h1 className="font-serif text-xl font-bold tracking-tight text-white">FICO MANA</h1>
-            <p className="text-[8px] font-medium tracking-[0.25em] text-primary uppercase mt-0.5">Studio Console</p>
+      <aside className="hidden md:flex md:w-[260px] bg-[#222222] border-r border-white/[0.08] flex-col flex-shrink-0 relative">
+        <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-primary/20 to-transparent pointer-events-none" />
+        <div className="p-6 border-b border-white/[0.08]">
+          <Link href="/admin/dashboard" className="block group">
+            <h1 className="font-serif text-xl font-bold tracking-tight text-white group-hover:text-white/90 transition-colors">
+              FICO MANA
+            </h1>
+            <p className="text-[9px] font-semibold tracking-[0.28em] text-primary/90 uppercase mt-1">
+              Studio Console
+            </p>
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-3 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
@@ -140,20 +144,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center justify-between px-4 py-3 text-xs font-semibold tracking-wider uppercase transition-all duration-200 ${
-                  isActive
-                    ? 'bg-primary text-white'
-                    : 'text-white/60 hover:bg-white/5 hover:text-white'
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[11px] font-semibold tracking-wide transition-all duration-200 ${
+                  isActive ? adminNavActive : adminNavIdle
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className="w-4 h-4" />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : 'text-white/45'}`} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge !== undefined && (
                   <span
-                    className={`min-w-[1.25rem] px-2 py-0.5 text-[9px] font-bold text-center ${
-                      isActive ? 'bg-white text-[#0500D0]' : 'bg-red-500 text-white'
+                    className={`min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-[9px] font-bold text-center ${
+                      isActive ? 'bg-primary text-white' : 'bg-red-500/90 text-white'
                     }`}
                   >
                     {item.badge}
@@ -164,19 +166,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/10 flex items-center justify-between text-xs text-white/60">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
-              <User className="w-4 h-4 text-primary" />
+        <div className="p-3 m-3 rounded-xl border border-white/[0.08] bg-white/[0.02] flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
+              <span className="text-xs font-bold text-primary">{staffInitial}</span>
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-white truncate max-w-[120px]">{staffLabel}</p>
-              <p className="text-[9px] text-white/40 truncate max-w-[120px]">{staffUser?.email ?? 'Staff'}</p>
+              <p className="text-xs font-semibold text-white truncate max-w-[130px]">{staffLabel}</p>
+              <p className="text-[10px] text-white/40 truncate max-w-[130px]">{staffUser?.email ?? 'Staff'}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="p-2 hover:bg-white/5 text-white/60 hover:text-white transition-colors flex-shrink-0"
+            className="p-2 rounded-lg hover:bg-white/5 text-white/45 hover:text-white transition-colors flex-shrink-0"
             title="Logout"
           >
             <LogOut className="w-4 h-4" />
@@ -184,8 +186,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-[#0A0A0F] border-b border-white/10 h-16 flex items-center justify-between px-6 z-20">
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(5,0,208,0.12),transparent)]" />
+        <header className="relative bg-[#222222]/80 backdrop-blur-xl border-b border-white/[0.08] h-14 flex items-center justify-between px-5 md:px-8 z-20">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
@@ -193,21 +196,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-            <h2 className="text-sm font-bold uppercase tracking-[0.1em] text-white/80 hidden sm:block">
+            <h2 className="text-xs font-semibold tracking-wide text-white/50 hidden sm:block">
               {navItems.find((n) => n.href === pathname)?.label || 'Console'}
             </h2>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <AdminSyncStatus />
             <div className="relative">
               <button
                 onClick={() => setShowNotifDrawer((prev) => !prev)}
-                className="p-2 text-white/60 hover:bg-white/5 transition-colors relative"
+                className="p-2 rounded-lg text-white/50 hover:bg-white/5 hover:text-white transition-colors relative"
               >
-                <Bell className="w-5 h-5" />
+                <Bell className="w-[18px] h-[18px]" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full">
                     {unreadCount}
                   </span>
                 )}
@@ -221,29 +224,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   aria-label="Close notifications"
                   onClick={() => setShowNotifDrawer(false)}
                 />
-                <div className="absolute right-0 mt-2 w-80 bg-[#0A0A0F] border border-white/10 shadow-2xl overflow-hidden z-30 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="p-3.5 border-b border-white/10 flex justify-between items-center">
-                    <span className="text-xs font-bold uppercase tracking-wider text-white/80">Notifications</span>
-                    <span className="text-[10px] text-white/40 font-semibold">{unreadCount} unread</span>
+                <div className="absolute right-0 mt-2 w-80 rounded-xl bg-[#222222] border border-white/10 shadow-2xl overflow-hidden z-30 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
+                    <span className="text-xs font-semibold text-white">Notifications</span>
+                    <span className="text-[10px] text-white/40 font-medium">{unreadCount} unread</span>
                   </div>
 
-                  <div className="max-h-[300px] overflow-y-auto divide-y divide-white/5">
+                  <div className="max-h-[320px] overflow-y-auto divide-y divide-white/5">
                     {notifications.length === 0 ? (
-                      <div className="p-6 text-center text-xs text-white/40">No recent notifications.</div>
+                      <div className="p-8 text-center text-xs text-white/40">No recent notifications.</div>
                     ) : (
                       notifications.map((n) => (
                         <div
                           key={n.id}
-                          className={`p-3 text-xs leading-normal flex flex-col gap-1 transition-colors ${
-                            n.isRead ? 'bg-transparent' : 'bg-primary/5 hover:bg-primary/10'
+                          className={`p-3.5 text-xs leading-normal flex flex-col gap-1.5 transition-colors ${
+                            n.isRead ? 'bg-transparent' : 'bg-primary/[0.06] hover:bg-primary/10'
                           }`}
                         >
-                          <p className={`text-[8px] font-bold uppercase tracking-wider ${notificationTypeBadge(n.type)}`}>
+                          <p className={`text-[9px] font-bold uppercase tracking-wider ${notificationTypeBadge(n.type)}`}>
                             {n.type.replace(/_/g, ' ')}
                           </p>
-                          <p className="text-white/80">{n.message}</p>
-                          <div className="flex justify-between items-center mt-1 gap-2">
-                            <span className="text-[9px] text-white/40">
+                          <p className="text-white/75">{n.message}</p>
+                          <div className="flex justify-between items-center mt-0.5 gap-2">
+                            <span className="text-[10px] text-white/35">
                               {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <div className="flex gap-2">
@@ -251,7 +254,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 <Link
                                   href={`/admin/bookings?search=${encodeURIComponent(n.bookingId)}`}
                                   onClick={() => setShowNotifDrawer(false)}
-                                  className="text-[9px] text-primary font-bold uppercase hover:underline"
+                                  className="text-[10px] text-primary font-semibold hover:underline"
                                 >
                                   View
                                 </Link>
@@ -259,7 +262,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                               {!n.isRead && (
                                 <button
                                   onClick={() => handleMarkRead(n.id)}
-                                  className="text-[9px] text-primary font-bold uppercase hover:underline"
+                                  className="text-[10px] text-primary font-semibold hover:underline"
                                 >
                                   Mark read
                                 </button>
@@ -275,11 +278,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               )}
             </div>
 
-            <div className="flex items-center gap-2 border-l border-white/10 pl-4">
-              <div className="w-8 h-8 bg-primary/20 border border-primary/30 text-primary font-bold flex items-center justify-center text-xs">
+            <div className="hidden sm:flex items-center gap-2.5 border-l border-white/10 pl-3">
+              <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 text-primary font-bold flex items-center justify-center text-xs">
                 {staffInitial}
               </div>
-              <span className="text-xs font-semibold text-white/70 hidden md:block truncate max-w-[140px]">
+              <span className="text-xs font-medium text-white/60 hidden lg:block truncate max-w-[160px]">
                 {staffUser?.email ?? 'Staff'}
               </span>
             </div>
@@ -287,7 +290,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         {mobileMenuOpen && (
-          <nav className="md:hidden bg-[#0A0A0F] border-b border-white/10 p-4 space-y-1">
+          <nav className="md:hidden relative z-10 bg-[#222222] border-b border-white/[0.08] p-3 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
@@ -296,20 +299,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center justify-between px-4 py-3 text-xs font-semibold tracking-wider uppercase ${
-                    isActive ? 'bg-primary text-white' : 'text-white/60 hover:bg-white/5'
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[11px] font-semibold ${
+                    isActive ? adminNavActive : adminNavIdle
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className="w-4 h-4" />
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : ''}`} />
                     <span>{item.label}</span>
                   </div>
                   {item.badge !== undefined && (
-                    <span
-                      className={`min-w-[1.25rem] px-2 py-0.5 text-[9px] font-bold text-center ${
-                        isActive ? 'bg-white text-[#0500D0]' : 'bg-red-500 text-white'
-                      }`}
-                    >
+                    <span className="min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-500 text-white text-center">
                       {item.badge}
                     </span>
                   )}
@@ -321,7 +320,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 setMobileMenuOpen(false)
                 handleLogout()
               }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-xs font-semibold tracking-wider uppercase text-white/60 hover:bg-white/5"
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-[11px] font-semibold text-white/55 hover:bg-white/[0.04]"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
@@ -329,7 +328,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </nav>
         )}
 
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-black">{children}</main>
+        <main className="relative flex-1 overflow-y-auto p-5 md:p-8">{children}</main>
       </div>
     </div>
     </AdminAutoSyncProvider>

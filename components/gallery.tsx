@@ -35,38 +35,18 @@ const bottomRowItems: GalleryItem[] = [
 
 const allItems = [...topRowItems, ...bottomRowItems]
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.12, delayChildren: 0.1 },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
-  },
-}
-
 function GalleryImage({
   item,
-  variants,
   className = '',
   onOpen,
 }: {
   item: GalleryItem
-  variants?: typeof itemVariants
   className?: string
   onOpen: (item: GalleryItem) => void
 }) {
   return (
     <motion.button
       type="button"
-      {...(variants ? { variants } : {})}
       onClick={() => onOpen(item)}
       className={`relative overflow-hidden rounded-2xl md:rounded-3xl group cursor-pointer text-left ${className}`}
     >
@@ -87,7 +67,7 @@ function GalleryImage({
   )
 }
 
-function MobileGalleryCarousel({
+function GalleryCarousel({
   items,
   onOpen,
 }: {
@@ -111,21 +91,28 @@ function MobileGalleryCarousel({
   }, [])
 
   return (
-    <div className="md:hidden relative overflow-hidden -mx-4 sm:-mx-6">
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-black via-black/80 to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-black via-black/80 to-transparent" />
+    <div
+      className="relative overflow-hidden -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-12"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 md:w-16 bg-gradient-to-r from-black via-black/80 to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-14 md:w-20 bg-gradient-to-l from-black via-black/80 to-transparent" />
 
       <div
         className={cn(
-          'gallery-marquee-track flex w-max gap-3 px-4 sm:px-6',
+          'gallery-marquee-track flex w-max gap-3 md:gap-4 px-4 sm:px-6 md:px-8 lg:px-12',
           paused && 'is-paused',
         )}
-        style={{ '--gallery-marquee-duration': `${items.length * 3.5}s` } as React.CSSProperties}
+        style={{ '--gallery-marquee-duration': `${items.length * 4}s` } as React.CSSProperties}
         onTouchStart={pauseBriefly}
         onPointerDown={pauseBriefly}
       >
         {loopItems.map((item, index) => (
-          <div key={`${item.id}-${index}`} className="shrink-0 w-[76vw] max-w-[300px]">
+          <div
+            key={`${item.id}-${index}`}
+            className="shrink-0 w-[76vw] max-w-[300px] sm:max-w-[320px] md:w-[28vw] md:max-w-[360px] lg:max-w-[400px]"
+          >
             <GalleryImage item={item} onOpen={onOpen} className="w-full" />
           </div>
         ))}
@@ -136,7 +123,6 @@ function MobileGalleryCarousel({
 
 export default function Gallery() {
   const [lightbox, setLightbox] = useState<GalleryItem | null>(null)
-  const [grad4, grad5, grad2, grad6, grad7, grad9] = bottomRowItems
 
   useEffect(() => {
     if (!lightbox) return
@@ -155,39 +141,7 @@ export default function Gallery() {
         description="Celebrate your achievement with professionally captured graduation portraits — elegant, timeless, and uniquely yours."
       />
 
-      <div className="space-y-2 md:space-y-3">
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          className="hidden md:grid grid-cols-3 gap-3"
-        >
-          {topRowItems.map((item) => (
-            <GalleryImage key={item.id} item={item} variants={itemVariants} onOpen={setLightbox} />
-          ))}
-        </motion.div>
-
-        <MobileGalleryCarousel items={allItems} onOpen={setLightbox} />
-
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          className="hidden md:flex gap-3 items-start"
-        >
-          <GalleryImage item={grad4} variants={itemVariants} className="w-[40%] shrink-0" onOpen={setLightbox} />
-
-          <div className="flex-1 grid grid-cols-3 gap-3 items-start">
-            <GalleryImage item={grad5} variants={itemVariants} className="col-span-2" onOpen={setLightbox} />
-            <GalleryImage item={grad2} variants={itemVariants} className="col-span-1" onOpen={setLightbox} />
-            <GalleryImage item={grad6} variants={itemVariants} className="col-span-1" onOpen={setLightbox} />
-            <GalleryImage item={grad7} variants={itemVariants} className="col-span-1" onOpen={setLightbox} />
-            <GalleryImage item={grad9} variants={itemVariants} className="col-span-1" onOpen={setLightbox} />
-          </div>
-        </motion.div>
-      </div>
+      <GalleryCarousel items={allItems} onOpen={setLightbox} />
 
       {lightbox && (
         <div

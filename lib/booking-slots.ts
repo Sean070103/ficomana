@@ -1,4 +1,8 @@
 import type { Booking } from '@/lib/data-store'
+import type { BlockedSlot } from '@/lib/blocked-slots'
+import { isSlotBlocked } from '@/lib/blocked-slots'
+import type { FicoSpotBlock } from '@/lib/fico-spot-blocks'
+import { getFicoBookableLimit } from '@/lib/fico-spot-blocks'
 import { usesMakeupSlots } from '@/lib/booking-packages'
 
 export const FICO_DAILY_LIMIT = 10
@@ -126,12 +130,21 @@ export function getFicoBookingCount(bookings: Booking[], dateKey: string): numbe
   return getBookingsForDate(bookings, dateKey).filter((b) => !usesMakeupSlots(b.packageId)).length
 }
 
-export function getFicoRemainingCapacity(bookings: Booking[], dateKey: string): number {
-  return Math.max(0, FICO_DAILY_LIMIT - getFicoBookingCount(bookings, dateKey))
+export function getFicoRemainingCapacity(
+  bookings: Booking[],
+  dateKey: string,
+  ficoSpotBlocks: FicoSpotBlock[] = [],
+): number {
+  const limit = getFicoBookableLimit(ficoSpotBlocks, dateKey)
+  return Math.max(0, limit - getFicoBookingCount(bookings, dateKey))
 }
 
-export function isFicoDateFull(bookings: Booking[], dateKey: string): boolean {
-  return getFicoBookingCount(bookings, dateKey) >= FICO_DAILY_LIMIT
+export function isFicoDateFull(
+  bookings: Booking[],
+  dateKey: string,
+  ficoSpotBlocks: FicoSpotBlock[] = [],
+): boolean {
+  return getFicoRemainingCapacity(bookings, dateKey, ficoSpotBlocks) <= 0
 }
 
 export function getMakeupBookingsCount(bookings: Booking[], dateKey: string): number {
@@ -146,10 +159,11 @@ export function isDateFullForPackage(
   bookings: Booking[],
   dateKey: string,
   packageId: string,
+  ficoSpotBlocks: FicoSpotBlock[] = [],
 ): boolean {
   return usesMakeupSlots(packageId)
     ? isMakeupDateFull(bookings, dateKey)
-    : isFicoDateFull(bookings, dateKey)
+    : isFicoDateFull(bookings, dateKey, ficoSpotBlocks)
 }
 
 export function getMakeupSlotBookingCount(
@@ -188,6 +202,16 @@ export function isMakeupSessionFull(
 
 export function isSlotTaken(bookings: Booking[], dateKey: string, slotId: string): boolean {
   return isMakeupSlotTaken(bookings, dateKey, slotId)
+}
+
+/** Booked or admin-blocked — slot cannot be selected. */
+export function isSlotUnavailable(
+  bookings: Booking[],
+  blockedSlots: BlockedSlot[],
+  dateKey: string,
+  slotId: string,
+): boolean {
+  return isSlotTaken(bookings, dateKey, slotId) || isSlotBlocked(blockedSlots, dateKey, slotId)
 }
 
 export function getSlotById(slotId: string): SessionSlot | undefined {

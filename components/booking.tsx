@@ -9,7 +9,9 @@ import SectionShell from '@/components/section-shell'
 import BookingSlotPicker from '@/components/booking-slot-picker'
 import BookingGraduationPreview from '@/components/booking-graduation-preview'
 import BookingSummarySidebar from '@/components/booking-summary'
-import { saveBooking, uploadReceipt, getBookingsForAvailability, getBooking, getBookingPackages } from '@/lib/data-store'
+import { saveBooking, uploadReceipt, getBookingsForAvailability, getBooking, getBookingPackages, getBlockedSlots, getFicoSpotBlocks } from '@/lib/data-store'
+import { getBlockedSlot, type BlockedSlot } from '@/lib/blocked-slots'
+import { getFicoBookableLimit, getFicoSpotBlock, type FicoSpotBlock } from '@/lib/fico-spot-blocks'
 import { getBookingPackage, usesMakeupSlots, parsePackagePrice, type BookingPackage, type BookingPackageCategory } from '@/lib/booking-packages'
 import {
   GRADUATION_TOGA_NOTE,
@@ -17,6 +19,8 @@ import {
   STUDIO_BACKGROUNDS,
   TASSEL_COLORS,
   TOGA_COLORS,
+  colorToPreviewFill,
+  colorSwatchTextClass,
 } from '@/lib/graduation-booking-options'
 import {
   formatDateKey,
@@ -45,7 +49,7 @@ const STEP_LABELS = ['Package', 'Date & Slot', 'Details', 'Your Info', 'Deposit'
 const inputClass =
   'w-full border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30'
 
-const labelClass = 'text-[10px] font-bold tracking-[0.12em] uppercase text-primary'
+const labelClass = 'text-[10px] font-bold tracking-[0.12em] uppercase text-white'
 
 const cardClass = 'border border-white/10 bg-white/[0.02] backdrop-blur-sm'
 
@@ -120,9 +124,9 @@ function BookingForm() {
   const [note, setNote] = useState('')
   const [schoolName, setSchoolName] = useState('')
   const [course, setCourse] = useState('')
-  const [hoodColor, setHoodColor] = useState('')
+  const [hoodColor, setHoodColor] = useState('Pink')
   const [togaColor, setTogaColor] = useState('Plain Black Toga')
-  const [tasselColor, setTasselColor] = useState('')
+  const [tasselColor, setTasselColor] = useState('Pink')
   const [backgroundColor, setBackgroundColor] = useState('Gray')
   const [paymentMethod, setPaymentMethod] = useState<'GCash' | 'BPI'>('GCash')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
@@ -137,6 +141,8 @@ function BookingForm() {
     bookingDate: string
   } | null>(null)
   const [allBookings, setAllBookings] = useState<any[]>([])
+  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([])
+  const [ficoSpotBlocks, setFicoSpotBlocks] = useState<FicoSpotBlock[]>([])
   const [packages, setPackages] = useState<BookingPackage[]>([])
   const [packagesLoading, setPackagesLoading] = useState(true)
   const [formError, setFormError] = useState('')
@@ -145,7 +151,13 @@ function BookingForm() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    getBookingsForAvailability().then(setAllBookings).catch(console.error)
+    Promise.all([getBookingsForAvailability(), getBlockedSlots(), getFicoSpotBlocks()])
+      .then(([bookings, blocked, ficoBlocks]) => {
+        setAllBookings(bookings)
+        setBlockedSlots(blocked)
+        setFicoSpotBlocks(ficoBlocks)
+      })
+      .catch(console.error)
     getBookingPackages()
       .then(setPackages)
       .catch(console.error)
@@ -165,7 +177,11 @@ function BookingForm() {
   const isGraduationPackage = selectedSession?.category === 'graduation'
   const isMakeupPackage = selectedSession ? usesMakeupSlots(selectedSession.id) : false
   const dateKey = selectedDate ? formatDateKey(selectedDate) : ''
-  const ficoRemaining = selectedDate && !isMakeupPackage ? getFicoRemainingCapacity(allBookings, dateKey) : null
+  const ficoBookableLimit =
+    selectedDate && !isMakeupPackage ? getFicoBookableLimit(ficoSpotBlocks, dateKey) : FICO_DAILY_LIMIT
+  const ficoRemaining =
+    selectedDate && !isMakeupPackage ? getFicoRemainingCapacity(allBookings, dateKey, ficoSpotBlocks) : null
+  const selectedFicoHold = dateKey ? getFicoSpotBlock(ficoSpotBlocks, dateKey) : undefined
   const filteredPackages = packages.filter((p) => p.category === activeCategory)
   const daysInMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
   const startDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1).getDay()
@@ -179,12 +195,23 @@ function BookingForm() {
     selectedDate.getDate() === day &&
     selectedDate.getMonth() === currentMonth.getMonth() &&
     selectedDate.getFullYear() === currentMonth.getFullYear()
+  const dateKeyForDay = (day: number) =>
+    formatDateKey(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day))
   const isDayFull = (day: number) =>
     selectedSession
-      ? isDateFullForPackage(allBookings, formatDateKey(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)), selectedSession.id)
+      ? isDateFullForPackage(allBookings, dateKeyForDay(day), selectedSession.id, ficoSpotBlocks)
       : false
-  const isSlotTaken = (slotId: string) => (dateKey ? checkSlotTaken(allBookings, dateKey, slotId) : false)
-  const canProceedDate = !!selectedDate && (isMakeupPackage ? !!selectedSlotId : (ficoRemaining ?? 0) > 0)
+  const isSlotBooked = (slotId: string) =>
+    dateKey ? checkSlotTaken(allBookings, dateKey, slotId) : false
+  const isSlotBlocked = (slotId: string) =>
+    dateKey ? !!getBlockedSlot(blockedSlots, dateKey, slotId) : false
+  const isSlotUnavailableForPicker = (slotId: string) =>
+    isSlotBooked(slotId) || isSlotBlocked(slotId)
+  const canProceedDate =
+    !!selectedDate &&
+    (isMakeupPackage
+      ? !!selectedSlotId && !isSlotBlocked(selectedSlotId) && !isSlotBooked(selectedSlotId)
+      : (ficoRemaining ?? 0) > 0)
 
   const cells: (number | null)[] = []
   for (let i = 0; i < startDay(currentMonth); i++) cells.push(null)
@@ -231,9 +258,20 @@ function BookingForm() {
     setIsSubmitting(true)
     setFormError('')
     try {
-      const latest = await getBookingsForAvailability()
+      const [latest, latestBlocked, latestFicoBlocks] = await Promise.all([
+        getBookingsForAvailability(),
+        getBlockedSlots(),
+        getFicoSpotBlocks(),
+      ])
+      setBlockedSlots(latestBlocked)
+      setFicoSpotBlocks(latestFicoBlocks)
       const dk = formatDateKey(selectedDate)
-      if (!isMakeupPackage && isFicoDateFull(latest, dk)) {
+      if (isMakeupPackage && selectedSlotId && getBlockedSlot(latestBlocked, dk, selectedSlotId)) {
+        const reason = getBlockedSlot(latestBlocked, dk, selectedSlotId)?.reason
+        setFormError(reason ? `Slot unavailable: ${reason}` : 'This session slot is no longer available.')
+        return
+      }
+      if (!isMakeupPackage && isFicoDateFull(latest, dk, latestFicoBlocks)) {
         setFormError('This date is fully booked. Please choose another date.')
         return
       }
@@ -328,9 +366,9 @@ function BookingForm() {
     setNote('')
     setSchoolName('')
     setCourse('')
-    setHoodColor('')
+    setHoodColor('Pink')
     setTogaColor('Plain Black Toga')
-    setTasselColor('')
+    setTasselColor('Pink')
     setBackgroundColor('Gray')
     setReceiptFile(null)
     setTransactionRef('')
@@ -350,7 +388,7 @@ function BookingForm() {
         {step < 6 && <StepProgress step={step} isGraduation={!!isGraduationPackage} />}
 
         {formError && (
-          <div className="mb-5 border border-red-500/35 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <div className="mb-5 border border-white/20 bg-white/5 px-4 py-3 text-sm text-white">
             {formError}
           </div>
         )}
@@ -398,9 +436,9 @@ function BookingForm() {
                       selected ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-white/10 hover:border-white/25'
                     }`}
                   >
-                    <Icon className={`w-5 h-5 mb-2 ${selected ? 'text-primary' : 'text-white/40'}`} />
+                    <Icon className={`w-5 h-5 mb-2 ${selected ? 'text-white' : 'text-white/40'}`} />
                     <p className="font-semibold text-sm text-white">{pkg.title}</p>
-                    <p className="text-primary font-medium mt-1">{pkg.price}</p>
+                    <p className="text-white font-medium mt-1">{pkg.price}</p>
                   </button>
                 )
               })}
@@ -425,70 +463,165 @@ function BookingForm() {
         {/* Step 2 — Date */}
         {step === 2 && (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-center text-white">2. Date{isMakeupPackage ? ' & Time Slot' : ''}</h3>
-            <p className="text-sm text-center text-muted-foreground">
-              {isMakeupPackage ? 'MANA: 2 slots per 2-hour session.' : `FICO: max ${FICO_DAILY_LIMIT}/day, arrive before 4PM.`}
-            </p>
-            <div className={`grid gap-4 sm:gap-6 ${isMakeupPackage ? 'lg:grid-cols-2' : 'max-w-md mx-auto w-full'}`}>
-              <div className={`${cardClass} p-4`}>
-                <div className="flex justify-between mb-3">
-                  <span className="text-xs uppercase tracking-wider font-semibold text-white/70">
-                    {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-                  </span>
-                  <div className="flex gap-1">
-                    <button type="button" onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}>
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <button type="button" onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-7 gap-1 text-center">
-                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                    <span key={d} className="text-[10px] text-white/40 py-1">{d}</span>
-                  ))}
-                  {cells.map((day, idx) =>
-                    day === null ? (
-                      <div key={idx} className="h-9" />
-                    ) : (
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-semibold text-white">2. Date{isMakeupPackage ? ' & Time Slot' : ''}</h3>
+              <p className="text-sm text-white/70 max-w-xl mx-auto">
+                {isMakeupPackage
+                  ? 'Pick a date, then choose an available session slot.'
+                  : `FICO packages: up to ${FICO_DAILY_LIMIT} per day. Arrive before 4:00 PM.`}
+              </p>
+            </div>
+
+            <div
+              className={
+                isMakeupPackage
+                  ? 'grid grid-cols-1 lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] gap-5 lg:gap-8 lg:items-start'
+                  : 'grid grid-cols-1 lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] gap-5 lg:gap-8 lg:items-start max-w-3xl lg:max-w-none mx-auto w-full'
+              }
+            >
+              {/* Calendar — sticky on desktop */}
+              <div className="lg:sticky lg:top-24 lg:self-start">
+                <div className={`${cardClass} p-4 sm:p-5`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs uppercase tracking-wider font-semibold text-white/70">
+                      {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                    </span>
+                    <div className="flex gap-1 rounded-sm border border-white/10 overflow-hidden">
                       <button
-                        key={day}
                         type="button"
-                        disabled={isPast(day) || isDayFull(day)}
-                        onClick={() => pickDate(day)}
-                        className={`h-9 text-xs rounded-sm ${
-                          isSame(day)
-                            ? 'bg-primary text-primary-foreground font-bold'
-                            : isPast(day) || isDayFull(day)
-                              ? 'text-white/20 line-through'
-                              : 'hover:bg-white/10 text-white/80'
-                        }`}
+                        onClick={() =>
+                          setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))
+                        }
+                        className="p-2 text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+                        aria-label="Previous month"
                       >
-                        {day}
+                        <ChevronLeft className="w-4 h-4" />
                       </button>
-                    ),
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
+                        }
+                        className="p-2 text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+                        aria-label="Next month"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 text-center">
+                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                      <span key={d} className="text-[10px] font-medium text-white/40 py-1">
+                        {d}
+                      </span>
+                    ))}
+                    {cells.map((day, idx) =>
+                      day === null ? (
+                        <div key={idx} className="h-10" />
+                      ) : (
+                        <button
+                          key={day}
+                          type="button"
+                          disabled={isPast(day) || isDayFull(day)}
+                          title={isDayFull(day) ? 'Fully booked' : undefined}
+                          onClick={() => pickDate(day)}
+                          className={`h-10 text-sm rounded-sm transition-colors ${
+                            isSame(day)
+                              ? 'bg-primary text-primary-foreground font-bold shadow-[0_0_12px_rgba(5,0,208,0.35)]'
+                              : isPast(day) || isDayFull(day)
+                                ? 'text-white/20 line-through cursor-not-allowed'
+                                : 'text-white/80 hover:bg-white/10'
+                          }`}
+                        >
+                          {day}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                  {selectedDate && (
+                    <p className="mt-4 pt-4 border-t border-white/10 text-xs text-white/55 text-center lg:text-left">
+                      Selected:{' '}
+                      <span className="text-white font-medium">
+                        {selectedDate.toLocaleDateString('en-US', {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </p>
                   )}
                 </div>
               </div>
-              {isMakeupPackage && selectedDate && (
-                <div className={`${cardClass} p-4`}>
-                  <BookingSlotPicker selectedSlotId={selectedSlotId} onSelect={(id) => {
-                    setSelectedSlotId(id)
-                    const s = getSlotById(id)
-                    if (s) setSelectedTimeSlot(formatSlotBookingTime(s))
-                  }} isSlotTaken={isSlotTaken} />
-                </div>
-              )}
-              {!isMakeupPackage && selectedDate && (
-                <div className={`${cardClass} p-5 text-center`}>
-                  <p className="text-sm font-medium text-white">{FICO_BOOKING_TIME_LABEL}</p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {(ficoRemaining ?? 0) > 0 ? `${ficoRemaining} of ${FICO_DAILY_LIMIT} spots left` : 'Fully booked'}
-                  </p>
-                </div>
-              )}
+
+              {/* Time slots / availability — independent scroll */}
+              <div className="min-h-0 flex flex-col">
+                {!selectedDate ? (
+                  <div
+                    className={`${cardClass} flex flex-col items-center justify-center text-center p-8 sm:p-10 min-h-[240px] lg:min-h-[320px] lg:max-h-[80vh]`}
+                  >
+                    <p className="text-sm font-medium text-white/70">Select a date</p>
+                    <p className="text-xs text-white/40 mt-2 max-w-xs leading-relaxed">
+                      {isMakeupPackage
+                        ? 'Available session slots will appear here.'
+                        : 'Capacity for your chosen day will appear here.'}
+                    </p>
+                  </div>
+                ) : isMakeupPackage ? (
+                  <div
+                    className={`${cardClass} flex flex-col overflow-hidden max-h-[min(80vh,640px)] lg:max-h-[80vh]`}
+                  >
+                    <div className="shrink-0 px-4 sm:px-5 pt-4 sm:pt-5 pb-3 border-b border-white/10">
+                      <p className="text-[10px] font-bold tracking-[0.14em] uppercase text-white/45">
+                        Available times
+                      </p>
+                      <p className="text-sm font-semibold text-white mt-1">
+                        {selectedDate.toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto overscroll-contain px-4 sm:px-5 py-4 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]">
+                      <BookingSlotPicker
+                        selectedSlotId={selectedSlotId}
+                        onSelect={(id) => {
+                          setSelectedSlotId(id)
+                          const s = getSlotById(id)
+                          if (s) setSelectedTimeSlot(formatSlotBookingTime(s))
+                        }}
+                        isSlotBooked={isSlotBooked}
+                        isSlotBlocked={isSlotBlocked}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={`${cardClass} flex flex-col justify-center p-6 sm:p-8 text-center min-h-[200px] lg:min-h-[280px] lg:max-h-[80vh]`}
+                  >
+                    <p className="text-[10px] font-bold tracking-[0.14em] uppercase text-white/45 mb-3">
+                      Session time
+                    </p>
+                    <p className="text-base sm:text-lg font-semibold text-white">{FICO_BOOKING_TIME_LABEL}</p>
+                    <p className="text-sm text-white/70 mt-3">
+                      {(ficoRemaining ?? 0) > 0
+                        ? `${ficoRemaining} of ${ficoBookableLimit} spots left`
+                        : 'Fully booked on this date'}
+                    </p>
+                    {selectedFicoHold && selectedFicoHold.spotsBlocked > 0 && (
+                      <p className="text-xs text-amber-400/80 mt-3">
+                        {selectedFicoHold.spotsBlocked} spot{selectedFicoHold.spotsBlocked === 1 ? '' : 's'} held by
+                        studio
+                      </p>
+                    )}
+                    <p className="text-xs text-white/40 mt-4 leading-relaxed max-w-sm mx-auto">
+                      Arrive before 4:00 PM. No specific time slot — first come, first served within daily capacity.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
+
             <div className={stepNavClass}>
               <button type="button" onClick={() => setStep(1)} className={btnBackClass}>
                 Back
@@ -512,7 +645,7 @@ function BookingForm() {
           >
             <div className="text-center space-y-1">
               <h3 className="text-lg font-semibold text-white">3. Details</h3>
-              <p className="text-sm text-muted-foreground">Select the color of your hood and background.</p>
+              <p className="text-sm text-white/70">Select the color of your hood and background.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
@@ -535,23 +668,23 @@ function BookingForm() {
                 <div>
                   <p className={labelClass + ' mb-3'}>Hood Color</p>
                   <div className="grid grid-cols-2 min-[420px]:grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2">
-                    {HOOD_COLOR_GRID.map((color) => (
+                    {HOOD_COLOR_GRID.map((color) => {
+                      const selected = hoodColor === color
+                      return (
                       <button
                         key={color}
                         type="button"
-                        onClick={() => {
-                          setHoodColor(color)
-                          if (!tasselColor) setTasselColor(color)
-                        }}
+                        onClick={() => setHoodColor(color)}
+                        style={selected ? { background: colorToPreviewFill(color) } : undefined}
                         className={`py-2.5 px-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide border transition-colors ${
-                          hoodColor === color
-                            ? 'bg-primary border-primary text-primary-foreground'
-                            : 'bg-black border-white/20 text-white hover:border-primary/50'
+                          selected
+                            ? `border-white ring-2 ring-white/70 ${colorSwatchTextClass(color)}`
+                            : 'bg-black border-white/20 text-white hover:border-white/40'
                         }`}
                       >
                         {color}
                       </button>
-                    ))}
+                    )})}
                   </div>
                 </div>
 
@@ -559,40 +692,51 @@ function BookingForm() {
                   <div>
                     <p className={labelClass + ' mb-2'}>Toga</p>
                     <div className="flex flex-col gap-2">
-                      {TOGA_COLORS.map((c) => (
+                      {TOGA_COLORS.map((c) => {
+                        const selected = togaColor === c
+                        const fill = colorToPreviewFill(c)
+                        return (
                         <button
                           key={c}
                           type="button"
                           onClick={() => setTogaColor(c)}
+                          style={selected ? { background: fill } : undefined}
                           className={`py-2 text-[10px] uppercase border rounded-sm ${
-                            togaColor === c ? 'border-primary bg-primary/20 text-primary font-semibold' : 'border-white/10 text-white/60 hover:border-white/30'
+                            selected
+                              ? `border-white ring-2 ring-white/70 font-semibold ${colorSwatchTextClass(c)}`
+                              : 'border-white/10 text-white/60 hover:border-white/30'
                           }`}
                         >
                           {c}
                         </button>
-                      ))}
+                      )})}
                     </div>
                   </div>
                   <div>
                     <p className={labelClass + ' mb-2'}>Tassel</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {TASSEL_COLORS.map((c) => (
+                      {TASSEL_COLORS.map((c) => {
+                        const selected = tasselColor === c
+                        return (
                         <button
                           key={c}
                           type="button"
                           onClick={() => setTasselColor(c)}
+                          style={selected ? { background: colorToPreviewFill(c) } : undefined}
                           className={`px-2.5 py-1.5 text-[9px] uppercase border rounded-sm ${
-                            tasselColor === c ? 'border-primary bg-primary text-primary-foreground' : 'border-white/10 text-white/60 hover:border-white/30'
+                            selected
+                              ? `border-white ring-2 ring-white/70 ${colorSwatchTextClass(c)}`
+                              : 'border-white/10 text-white/60 hover:border-white/30'
                           }`}
                         >
                           {c}
                         </button>
-                      ))}
+                      )})}
                     </div>
                   </div>
                 </div>
 
-                <p className="text-xs text-primary/80 leading-relaxed">{GRADUATION_TOGA_NOTE}</p>
+                <p className="text-xs text-white/80 leading-relaxed">{GRADUATION_TOGA_NOTE}</p>
               </div>
 
               {/* Preview — shown first on mobile */}
@@ -604,7 +748,7 @@ function BookingForm() {
                 />
 
                 <div>
-                  <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-primary mb-3">
+                  <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-white mb-3">
                     Background Color Available
                   </p>
                   <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-3">
@@ -650,7 +794,7 @@ function BookingForm() {
           >
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-white">{isGraduationPackage ? '4. Your Information' : '3. Your Information'}</h3>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-white/70 mt-1">
                 Provide your contact info and any special instructions or preferences for the shoot.
               </p>
             </div>
@@ -691,7 +835,7 @@ function BookingForm() {
                 <div>
                   <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between mb-1.5">
                     <label className={labelClass}>Pre-Shoot Note / Special Requests</label>
-                    <span className="text-[8px] uppercase tracking-wider text-primary bg-primary/15 px-2 py-0.5 border border-primary/30 w-fit">Requested before shoot</span>
+                    <span className="text-[8px] uppercase tracking-wider text-white bg-white/10 px-2 py-0.5 border border-white/20 w-fit">Requested before shoot</span>
                   </div>
                   <textarea
                     value={note}
@@ -719,7 +863,7 @@ function BookingForm() {
         {step === 5 && (
           <form onSubmit={submitBooking} className="w-full max-w-lg mx-auto space-y-5 sm:space-y-6 px-1 sm:px-0">
             <h3 className="text-lg font-semibold text-center text-white">Deposit — PHP 500</h3>
-            <p className="text-sm text-center text-muted-foreground">
+            <p className="text-sm text-center text-white/70">
               Upload a clear screenshot of your {paymentMethod} payment receipt (not a studio photo).
             </p>
             <div className="flex gap-2 justify-center">
@@ -750,7 +894,7 @@ function BookingForm() {
               onClick={() => fileInputRef.current?.click()}
               className="border-2 border-dashed border-white/20 p-6 sm:p-10 text-center cursor-pointer hover:border-primary/40 hover:bg-white/[0.03] transition-colors"
             >
-              <Upload className="w-8 h-8 mx-auto mb-2 text-primary" />
+              <Upload className="w-8 h-8 mx-auto mb-2 text-white" />
               <p className="text-sm text-white/70">{receiptFile?.name || 'Click to upload receipt *'}</p>
               <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => e.target.files?.[0] && setReceiptFile(e.target.files[0])} />
             </div>
@@ -769,15 +913,15 @@ function BookingForm() {
         {step === 6 && (
           <div className="max-w-md mx-auto text-center space-y-5 py-4">
             <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center mx-auto border border-primary/30">
-              <Check className="w-7 h-7 text-primary" />
+              <Check className="w-7 h-7 text-white" />
             </div>
             <h3 className="text-xl font-semibold text-white">Booking Submitted</h3>
-            <p className="text-sm text-muted-foreground">Your deposit is pending verification. You will receive a confirmation email once approved.</p>
+            <p className="text-sm text-white/70">Your deposit is pending verification. You will receive a confirmation email once approved.</p>
             <div className="border border-primary/30 bg-primary/10 p-6 space-y-4 text-left">
               <div>
                 <p className="text-[9px] uppercase tracking-wider text-white/40">Booking Reference</p>
-                <p className="text-2xl font-bold text-primary font-mono mt-1">{bookingId}</p>
-                <button type="button" onClick={() => { navigator.clipboard.writeText(bookingId); setCopiedText(true) }} className="text-[10px] text-primary mt-3 inline-flex items-center gap-1">
+                <p className="text-2xl font-bold text-white font-mono mt-1">{bookingId}</p>
+                <button type="button" onClick={() => { navigator.clipboard.writeText(bookingId); setCopiedText(true) }} className="text-[10px] text-white mt-3 inline-flex items-center gap-1">
                   <Copy className="w-3 h-3" /> {copiedText ? 'Copied!' : 'Copy reference'}
                 </button>
               </div>
@@ -790,7 +934,7 @@ function BookingForm() {
                   </div>
                   <div>
                     <p className="text-white/40">Deposit</p>
-                    <p className="font-semibold text-primary">₱{(submittedSummary?.depositAmount ?? 500).toFixed(2)}</p>
+                    <p className="font-semibold text-white">₱{(submittedSummary?.depositAmount ?? 500).toFixed(2)}</p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-white/40">GCash / BPI Transaction Reference</p>
@@ -806,7 +950,7 @@ function BookingForm() {
                           setCopiedRef(true)
                         }
                       }}
-                      className="text-[10px] text-primary mt-2 inline-flex items-center gap-1"
+                      className="text-[10px] text-white mt-2 inline-flex items-center gap-1"
                     >
                       <Copy className="w-3 h-3" /> {copiedRef ? 'Copied!' : 'Copy transaction ref'}
                     </button>

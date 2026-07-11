@@ -1,4 +1,7 @@
 import type { Booking } from '@/lib/data-store'
+import type { BlockedSlot } from '@/lib/blocked-slots'
+import { isSlotBlocked } from '@/lib/blocked-slots'
+import type { FicoSpotBlock } from '@/lib/fico-spot-blocks'
 import { usesMakeupSlots } from '@/lib/booking-packages'
 import {
   isActiveBooking,
@@ -15,17 +18,19 @@ type AvailabilityBooking = Pick<
 export function validateBookingAvailability(
   booking: AvailabilityBooking,
   existing: AvailabilityBooking[],
-  options?: { isUpdate?: boolean },
+  options?: { isUpdate?: boolean; blockedSlots?: BlockedSlot[]; ficoSpotBlocks?: FicoSpotBlock[] },
 ): { ok: true } | { ok: false; error: string } {
   if (booking.bookingStatus === 'Cancelled' || booking.bookingStatus === 'Rejected') {
     return { ok: true }
   }
 
+  const blocked = options?.blockedSlots ?? []
+  const ficoSpotBlocks = options?.ficoSpotBlocks ?? []
   const others = existing.filter(
     (b) => b.id !== booking.id && isActiveBooking(b as Booking),
   )
 
-  if (isDateFullForPackage(others as Booking[], booking.bookingDate, booking.packageId)) {
+  if (isDateFullForPackage(others as Booking[], booking.bookingDate, booking.packageId, ficoSpotBlocks)) {
     return { ok: false, error: 'This date is fully booked for the selected package.' }
   }
 
@@ -33,6 +38,13 @@ export function validateBookingAvailability(
     const slotId = booking.slotId
     if (!slotId) {
       return { ok: false, error: 'A session slot is required for this package.' }
+    }
+    if (isSlotBlocked(blocked, booking.bookingDate, slotId)) {
+      const reason = blocked.find((b) => b.date === booking.bookingDate && b.slotId === slotId)?.reason
+      return {
+        ok: false,
+        error: reason ? `This slot is unavailable: ${reason}` : 'This session slot is unavailable.',
+      }
     }
     if (isSlotTaken(others as Booking[], booking.bookingDate, slotId)) {
       return { ok: false, error: 'This session slot is no longer available.' }

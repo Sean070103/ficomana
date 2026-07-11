@@ -21,12 +21,13 @@ export default function AdminPageHeader({ title, subtitle, onRefresh, refreshing
   }
 
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div>
+    <div className="flex flex-wrap items-start justify-between gap-4 pb-1">
+      <div className="space-y-1">
+        <p className="text-[10px] font-bold tracking-[0.2em] text-primary/80 uppercase">FICO Mana</p>
         <h1 className={adminTitle}>{title}</h1>
         {subtitle && <p className={adminSubtitle}>{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {onRefresh && (
           <button
             type="button"

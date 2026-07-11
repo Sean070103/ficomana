@@ -83,7 +83,7 @@ export function renderTemplate(
 }
 
 function wrapEmailHtml(inner: string): string {
-  return `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#0A0A0F;color:#F4F4F8;border:1px solid #1E1E2E;">${inner}</div>`
+  return `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#222222;color:#F4F4F8;border:1px solid rgba(255,255,255,0.1);">${inner}</div>`
 }
 
 export function getServerEmailTemplate(id: EmailTemplateId): EmailTemplate {

@@ -85,6 +85,25 @@ CREATE TABLE payments (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Per-slot blocks (studio stays open; admin blocks individual MANA session slots)
+CREATE TABLE blocked_slots (
+  date DATE NOT NULL,
+  slot_id VARCHAR(50) NOT NULL,
+  reason TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  created_by TEXT,
+  PRIMARY KEY (date, slot_id)
+);
+
+-- Admin-held FICO daily spots (reduces bookable capacity without closing the day)
+CREATE TABLE fico_spot_blocks (
+  date DATE PRIMARY KEY,
+  spots_blocked INTEGER NOT NULL DEFAULT 0 CHECK (spots_blocked >= 0 AND spots_blocked <= 10),
+  reason TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  created_by TEXT
+);
+
 -- Packages catalog (synced with lib/packages-seed.ts)
 CREATE TABLE packages (
   id VARCHAR(50) PRIMARY KEY,

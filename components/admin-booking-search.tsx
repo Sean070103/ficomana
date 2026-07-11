@@ -27,8 +27,8 @@ export default function AdminBookingSearch({ bookings }: Props) {
   return (
     <div className={`${adminCard} p-5 sm:p-6 space-y-4`}>
       <div>
-        <h4 className="text-xs font-bold uppercase tracking-wider text-white/80">Find Booking / Transaction</h4>
-        <p className="text-[11px] text-white/45 mt-1">
+        <h4 className="text-sm font-semibold text-white/85">Find Booking / Transaction</h4>
+        <p className="text-xs text-white/45 mt-1 leading-relaxed">
           Search by booking reference (FM-123456), receipt number (FM-RCP-…), GCash ref, name, email, or phone.
         </p>
       </div>

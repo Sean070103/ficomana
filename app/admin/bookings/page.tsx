@@ -504,7 +504,7 @@ function BookingsManagement() {
       )}
 
       {/* FILTER BAR */}
-      <div className="border border-white/10 bg-[#0A0A0F] p-5 shadow-sm space-y-4">
+      <div className="border border-white/10 bg-[#222222] p-5 shadow-sm space-y-4">
         {/* Search & Date */}
         <div className="grid md:grid-cols-12 gap-4">
           <div className="md:col-span-8 relative">

@@ -1,11 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronDown, Menu as MenuIcon } from 'lucide-react'
-import { Menu } from '@base-ui/react/menu'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Sheet,
@@ -56,7 +55,7 @@ function NavAnchor({ href, label, className }: { href: string; label: string; cl
     <a href={href} className={cn(className, 'group/nav relative')}>
       <span className="relative inline-block">
         {label}
-        <span className="absolute -bottom-1.5 left-0 h-px w-0 bg-primary transition-all duration-300 ease-out group-hover/nav:w-full group-hover/nav:shadow-[0_0_10px_rgba(5,0,208,0.55)]" />
+        <span className="absolute -bottom-1.5 left-0 h-px w-0 bg-white transition-all duration-300 ease-out group-hover/nav:w-full group-hover/nav:shadow-[0_0_10px_rgba(255,255,255,0.35)]" />
       </span>
     </a>
   )
@@ -71,12 +70,42 @@ function NavDropdownMenu({
   links: NavLink[]
   linkClass: string
 }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!wrapRef.current?.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
   return (
-    <Menu.Root modal={false}>
-      <Menu.Trigger
-        openOnHover
-        delay={90}
-        closeDelay={220}
+    <div
+      ref={wrapRef}
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((value) => !value)}
         className={cn(
           linkClass,
           'group/trigger relative inline-flex items-center gap-1.5 cursor-pointer bg-transparent border-0 p-0 outline-none',
@@ -84,28 +113,44 @@ function NavDropdownMenu({
       >
         <span className="relative inline-block">
           {label}
-          <span className="absolute -bottom-1.5 left-0 h-px w-0 bg-primary transition-all duration-300 ease-out group-hover/trigger:w-full group-aria-expanded/trigger:w-full group-aria-expanded/trigger:shadow-[0_0_10px_rgba(5,0,208,0.55)]" />
+          <span className="absolute -bottom-1.5 left-0 h-px w-0 bg-white transition-all duration-300 ease-out group-hover/trigger:w-full group-aria-expanded/trigger:w-full group-aria-expanded/trigger:shadow-[0_0_10px_rgba(255,255,255,0.35)]" />
         </span>
-        <ChevronDown className="size-3 opacity-50 transition-all duration-300 ease-out group-hover/trigger:opacity-90 group-aria-expanded/trigger:rotate-180 group-aria-expanded/trigger:opacity-100" />
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner sideOffset={14} align="center">
-          <Menu.Popup className="nav-dropdown-popup min-w-[12.5rem] overflow-hidden border border-white/10 bg-gradient-to-b from-[#0c0c12]/98 to-black/95 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.04)_inset] py-2 outline-none origin-top transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] data-[starting-style]:opacity-0 data-[starting-style]:scale-[0.96] data-[starting-style]:-translate-y-2 data-[ending-style]:opacity-0 data-[ending-style]:scale-[0.96] data-[ending-style]:-translate-y-2">
-            <div className="mx-3 mb-2 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
-            {links.map((link) => (
-              <Menu.LinkItem
-                key={link.href}
-                href={link.href}
-                closeOnClick
-                className="nav-dropdown-item relative mx-1.5 block rounded-sm px-3.5 py-2.5 text-[10px] tracking-[0.16em] uppercase text-white/65 outline-none transition-all duration-200 ease-out before:absolute before:left-0 before:top-1/2 before:h-0 before:w-0.5 before:-translate-y-1/2 before:bg-primary before:opacity-0 before:transition-all before:duration-200 hover:text-white data-[highlighted]:bg-white/[0.07] data-[highlighted]:pl-4 data-[highlighted]:text-white data-[highlighted]:before:h-3.5 data-[highlighted]:before:opacity-100"
-              >
-                {link.label}
-              </Menu.LinkItem>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
+        <ChevronDown
+          className={cn(
+            'size-3 opacity-50 transition-all duration-300 ease-out group-hover/trigger:opacity-90',
+            open && 'rotate-180 opacity-100',
+          )}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute left-1/2 top-full z-[100] -translate-x-1/2 pt-3"
+            role="menu"
+          >
+            <div className="min-w-[12.5rem] overflow-hidden border border-white/10 bg-gradient-to-b from-[#222222]/98 to-black/95 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.04)_inset] py-2">
+              <div className="mx-3 mb-2 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
+              {links.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className="relative mx-1.5 block rounded-sm px-3.5 py-2.5 text-[10px] tracking-[0.16em] uppercase text-white/65 outline-none transition-all duration-200 ease-out before:absolute before:left-0 before:top-1/2 before:h-0 before:w-0.5 before:-translate-y-1/2 before:bg-primary before:opacity-0 before:transition-all before:duration-200 hover:bg-white/[0.07] hover:pl-4 hover:text-white hover:before:h-3.5 hover:before:opacity-100"
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 
@@ -126,7 +171,7 @@ export default function Navbar() {
     cn(
       'font-semibold uppercase transition-colors duration-300 ease-out',
       mobile
-        ? 'text-sm tracking-[0.15em] text-foreground hover:text-primary py-3 border-b border-border/60 w-full text-left'
+        ? 'text-sm tracking-[0.15em] text-white hover:text-white py-3 border-b border-border/60 w-full text-left'
         : 'text-[10px] tracking-[0.2em]',
       !mobile &&
         (isScrolled
@@ -135,11 +180,11 @@ export default function Navbar() {
     )
 
   const bookButtonClass = cn(
-    buttonVariants({ size: 'lg' }),
-    'rounded-none text-[10px] sm:text-xs md:text-sm font-semibold tracking-[0.15em] sm:tracking-[0.2em] uppercase h-10 sm:h-11 md:h-12 px-5 sm:px-7 md:px-8 transition-all duration-300 ease-out hover:shadow-[0_0_24px_rgba(5,0,208,0.35)]',
+    'inline-flex shrink-0 items-center justify-center rounded-none text-[9px] sm:text-xs md:text-sm font-semibold tracking-[0.14em] sm:tracking-[0.2em] uppercase h-9 sm:h-10 md:h-12 px-3 sm:px-6 md:px-8 transition-all duration-300',
+    'hidden md:inline-flex',
     isScrolled
-      ? 'bg-primary text-primary-foreground hover:bg-[#03008F]'
-      : 'bg-white text-primary hover:bg-white/90',
+      ? 'bg-white text-black hover:bg-white/90'
+      : 'bg-white text-black hover:bg-white/90',
   )
 
   return (
@@ -148,7 +193,7 @@ export default function Navbar() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        'fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 md:px-12 lg:px-16 transition-all duration-500 ease-out',
+        'fixed top-0 left-0 right-0 z-[100] px-4 sm:px-6 md:px-12 lg:px-16 transition-all duration-500 ease-out',
         isScrolled
           ? 'bg-black/90 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)] py-2'
           : 'bg-transparent border-b border-transparent py-2.5 sm:py-3',
@@ -156,7 +201,7 @@ export default function Navbar() {
       style={{ fontFamily: 'var(--font-sans)' }}
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4">
-        <Link href="/#home" className="flex items-center justify-start shrink-0 min-w-0 max-w-[60%] sm:max-w-none">
+        <Link href="/#home" className="flex items-center justify-start shrink-0 min-w-0 max-w-[42%] sm:max-w-[48%] md:max-w-none">
             <Image
               src="/logoo%20(1).png"
               alt="Fico Mana Self Portrait Studio"
@@ -165,8 +210,8 @@ export default function Navbar() {
               className={cn(
                 'w-auto h-auto transition-all duration-300',
                 isScrolled
-                  ? 'h-12 sm:h-14 md:h-16'
-                  : 'h-16 sm:h-20 md:h-28 lg:h-32 xl:h-36',
+                  ? 'h-10 sm:h-12 md:h-16'
+                  : 'h-11 sm:h-14 md:h-28 lg:h-32 xl:h-36',
               )}
               priority
             />
@@ -187,14 +232,10 @@ export default function Navbar() {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 sm:gap-3 shrink-0">
-          <Button
-            nativeButton={false}
-              render={<Link href="/#booking" />}
-            className={bookButtonClass}
-          >
+        <div className="flex items-center justify-end gap-2 shrink-0">
+          <Link href="/#booking" className={bookButtonClass}>
             Book Session
-          </Button>
+          </Link>
 
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
@@ -237,7 +278,7 @@ export default function Navbar() {
                       >
                         {isDropdown(item) ? (
                           <div className="border-b border-border/60 pb-2 mb-1">
-                            <p className="text-[9px] font-bold tracking-[0.22em] uppercase text-primary pt-3 pb-2">
+                            <p className="text-[9px] font-bold tracking-[0.22em] uppercase text-white pt-3 pb-2">
                               {item.label}
                             </p>
                             {item.links.map((link) => (
@@ -246,7 +287,7 @@ export default function Navbar() {
                                 render={
                                   <Link
                                     href={link.href}
-                                    className={cn(linkClass(true), 'pl-3 border-l-2 border-transparent hover:border-primary/50')}
+                                    className={cn(linkClass(true), 'pl-3 border-l-2 border-transparent hover:border-white/50')}
                                   />
                                 }
                               >
@@ -270,7 +311,9 @@ export default function Navbar() {
                   render={
                     <Link
                       href="/#booking"
-                      className={cn(buttonVariants({ size: 'lg' }), 'w-full rounded-none text-xs sm:text-sm tracking-[0.2em] uppercase h-12')}
+                      className={cn(
+                        'w-full rounded-none text-xs sm:text-sm tracking-[0.2em] uppercase h-12 bg-white text-black hover:bg-white/90',
+                      )}
                     />
                   }
                 >

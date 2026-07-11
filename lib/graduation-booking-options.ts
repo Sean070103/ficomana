@@ -51,7 +51,7 @@ export const GRADUATION_TOGA_NOTE =
 export function colorToCss(name: string): string {
   const map: Record<string, string> = {
     Pink: '#ec4899',
-    Black: '#111827',
+    Black: '#0a0a0a',
     White: '#f8fafc',
     Yellow: '#eab308',
     'Red and White': '#dc2626',
@@ -68,6 +68,31 @@ export function colorToCss(name: string): string {
     Brown: '#78350f',
     Gold: '#ca8a04',
     Blue: '#2563eb',
+    'Plain Green Toga': '#16a34a',
+    'Plain Black Toga': '#111827',
   }
-  return map[name] || '#0500D0'
+  return map[name] || '#ffffff'
+}
+
+function hexLuminance(hex: string): number {
+  const n = parseInt(hex.replace('#', ''), 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+}
+
+/** Text color that reads on a color swatch button. */
+export function colorSwatchTextClass(name: string): string {
+  const parts = name.split(/\s+and\s+/i)
+  return hexLuminance(colorToCss(parts[0].trim())) > 0.62 ? 'text-black' : 'text-white'
+}
+
+/** Supports split hood colors like "Red and White". */
+export function colorToPreviewFill(name: string): string {
+  const parts = name.split(/\s+and\s+/i)
+  if (parts.length >= 2) {
+    return `linear-gradient(135deg, ${colorToCss(parts[0].trim())} 0%, ${colorToCss(parts[0].trim())} 46%, ${colorToCss(parts[1].trim())} 54%, ${colorToCss(parts[1].trim())} 100%)`
+  }
+  return colorToCss(name)
 }

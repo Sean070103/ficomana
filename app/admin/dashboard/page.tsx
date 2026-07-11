@@ -12,7 +12,7 @@ import {
   TrendingUp,
   ArrowRight,
 } from 'lucide-react'
-import { adminPage, adminCard, adminPanel, adminCardHover, adminSpinnerWrap, adminSpinner } from '@/lib/admin-ui'
+import { adminPage, adminCard, adminPanel, adminCardHover, adminSpinnerWrap, adminSpinner, adminEmptyState } from '@/lib/admin-ui'
 import AdminBookingSearch from '@/components/admin-booking-search'
 import AdminPageHeader from '@/components/admin-page-header'
 import { useOnAdminDbSync } from '@/components/admin-auto-sync'
@@ -188,7 +188,7 @@ export default function DashboardOverview() {
         onRefresh={() => fetchStats()}
         refreshing={refreshing}
       >
-        <div className="text-xs font-semibold text-white/50 border border-white/10 bg-white/[0.02] px-4 py-2.5">
+        <div className="rounded-lg text-xs font-medium text-white/55 border border-white/10 bg-white/[0.03] px-4 py-2.5">
           Studio Date:{' '}
           {new Date().toLocaleDateString('en-US', {
             weekday: 'long',
@@ -205,14 +205,14 @@ export default function DashboardOverview() {
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon
           const card = (
-            <div className={`${adminCard} ${adminCardHover} p-6 flex items-start gap-4`}>
-              <div className={`w-12 h-12 flex items-center justify-center border ${kpi.accent}`}>
+            <div className={`${adminCard} ${adminCardHover} p-5 flex items-start gap-4`}>
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center border ${kpi.accent}`}>
                 <Icon className="w-5 h-5" />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0">
                 <p className="text-[10px] font-bold tracking-widest text-white/40 uppercase">{kpi.label}</p>
-                <h3 className="text-2xl font-bold text-white">{kpi.value}</h3>
-                <p className="text-[11px] text-white/50 leading-normal">{kpi.desc}</p>
+                <h3 className="text-2xl font-bold text-white tabular-nums">{kpi.value}</h3>
+                <p className="text-xs text-white/45 leading-relaxed">{kpi.desc}</p>
               </div>
             </div>
           )
@@ -229,17 +229,20 @@ export default function DashboardOverview() {
       </div>
 
       <div className="grid lg:grid-cols-12 gap-6">
-        <div className={`lg:col-span-7 ${adminPanel} p-6 space-y-4`}>
-          <div className="flex justify-between items-center border-b border-white/10 pb-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white/80">Today&apos;s Session Schedule</h4>
-            <span className="text-[10px] bg-primary/20 text-primary font-bold px-2 py-0.5 uppercase">
+        <div className={`lg:col-span-7 ${adminPanel} p-5 space-y-4`}>
+          <div className="flex justify-between items-center border-b border-white/[0.08] pb-3">
+            <h4 className="text-sm font-semibold text-white/85">Today&apos;s Session Schedule</h4>
+            <span className="text-[10px] bg-primary/15 text-primary font-bold px-2.5 py-1 rounded-full uppercase">
               {todaysList.length} Active
             </span>
           </div>
 
-          <div className="divide-y divide-white/5 max-h-[300px] overflow-y-auto">
+          <div className="divide-y divide-white/[0.06] max-h-[300px] overflow-y-auto">
             {todaysList.length === 0 ? (
-              <div className="p-12 text-center text-xs text-white/40">No sessions booked for today.</div>
+              <div className={`${adminEmptyState} border-none bg-transparent py-10`}>
+                <Calendar className="w-8 h-8 text-white/20" />
+                <p className="text-sm text-white/50">No sessions booked for today</p>
+              </div>
             ) : (
               todaysList.map((b) => (
                 <div key={b.id} className="py-3 flex justify-between items-center text-xs hover:bg-white/[0.02] transition-colors px-1 -mx-1">
@@ -267,20 +270,20 @@ export default function DashboardOverview() {
           </div>
         </div>
 
-        <div className={`lg:col-span-5 ${adminPanel} p-6 space-y-4 flex flex-col justify-between`}>
-          <div className="border-b border-white/10 pb-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white/80">Weekly Revenue Trend</h4>
+        <div className={`lg:col-span-5 ${adminPanel} p-5 space-y-4 flex flex-col justify-between`}>
+          <div className="border-b border-white/[0.08] pb-3">
+            <h4 className="text-sm font-semibold text-white/85">Weekly Revenue Trend</h4>
           </div>
 
-          <div className="h-44 flex items-end justify-between px-4 pb-2 border-b border-white/10">
+          <div className="h-44 flex items-end justify-between gap-2 px-2 pb-2 border-b border-white/[0.08]">
             {weeklyRevenue.map((bar, idx) => (
               <div key={idx} className="flex flex-col items-center gap-2 w-8 h-full justify-end">
                 <div
-                  className={`w-full bg-white/20 hover:bg-primary transition-colors ${bar.revenue > 0 && bar.revenue === peakDay.revenue ? '!bg-primary' : ''}`}
+                  className={`w-full rounded-t-md bg-white/15 hover:bg-primary/80 transition-colors ${bar.revenue > 0 && bar.revenue === peakDay.revenue ? '!bg-primary' : ''}`}
                   style={bar.style}
                   title={`₱${bar.revenue.toLocaleString()}`}
                 />
-                <span className="text-[10px] font-semibold text-white/40">{bar.day}</span>
+                <span className="text-[10px] font-medium text-white/40">{bar.day}</span>
               </div>
             ))}
           </div>

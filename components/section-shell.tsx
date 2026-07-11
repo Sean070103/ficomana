@@ -5,7 +5,7 @@ type SectionVariant = 'base' | 'gradient' | 'elevated' | 'blue-glow'
 const variantClasses: Record<SectionVariant, string> = {
   base: 'bg-black',
   gradient: 'bg-gradient-to-b from-[#0500D0]/25 via-black to-black',
-  elevated: 'bg-gradient-to-b from-black via-[#080812] to-black',
+  elevated: 'bg-gradient-to-b from-black via-[#222222] to-black',
   'blue-glow': 'bg-gradient-to-br from-[#0500D0]/15 via-black to-black',
 }
 

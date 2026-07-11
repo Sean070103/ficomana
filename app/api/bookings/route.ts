@@ -14,6 +14,8 @@ import {
   addNotificationToDb,
 } from '@/lib/supabase-store'
 import { validateBookingAvailability } from '@/lib/booking-validate'
+import { listBlockedSlots } from '@/lib/server-blocked-slots'
+import { listFicoSpotBlocks } from '@/lib/server-fico-spot-blocks'
 import { loadSyncedBookings } from '@/lib/db-sync'
 import {
   sendPaymentRejectedEmail,
@@ -129,7 +131,13 @@ export async function POST(request: Request) {
     }
 
     const availabilityPool = await loadAvailabilityBookings()
-    const validation = validateBookingAvailability(booking, availabilityPool, { isUpdate: isExisting })
+    const blockedSlots = await listBlockedSlots()
+    const ficoSpotBlocks = await listFicoSpotBlocks()
+    const validation = validateBookingAvailability(booking, availabilityPool, {
+      isUpdate: isExisting,
+      blockedSlots,
+      ficoSpotBlocks,
+    })
     if (!validation.ok) {
       return NextResponse.json({ error: validation.error }, { status: 409 })
     }

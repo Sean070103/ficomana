@@ -89,14 +89,14 @@ export default function Footer() {
                 </h4>
                 <div className="space-y-3 text-xs text-white/80">
                   <div className="flex items-start gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-white mt-0.5 flex-shrink-0" />
                     <span>
                       Cabuyao Retail Plaza<br />
                       4025 Cabuyao Laguna
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                    <Phone className="w-3.5 h-3.5 text-white flex-shrink-0" />
                     <a href="tel:+63495765176" className="hover:underline hover:text-white transition-colors font-medium">
                       +63 49 576 5176
                     </a>

@@ -90,7 +90,7 @@ export default function Hero() {
             className="text-[10px] sm:text-[11px] md:text-xs font-semibold tracking-[0.2em] sm:tracking-[0.32em] uppercase mb-3 sm:mb-5"
             style={{ fontFamily: 'var(--font-neue)' }}
           >
-            <span className="text-[#D1D5DB]">The Portrait </span>
+            <span className="text-white">The Portrait </span>
             <span className="text-white/90">of Success</span>
           </motion.p>
 
@@ -111,7 +111,7 @@ export default function Hero() {
               render={<Link href="#booking" />}
               className={cn(
                 buttonVariants({ size: 'lg' }),
-                'w-full sm:w-auto rounded-none bg-[#0500D0] hover:bg-[#03008F] text-[10px] sm:text-[11px] font-bold tracking-[0.16em] sm:tracking-[0.18em] uppercase h-11 sm:h-12 px-6 sm:px-8 transition-all duration-300 hover:shadow-[0_0_32px_rgba(5,0,208,0.45)]',
+                'w-full sm:w-auto rounded-none bg-white text-black hover:bg-white/90 text-[10px] sm:text-[11px] font-bold tracking-[0.16em] sm:tracking-[0.18em] uppercase h-11 sm:h-12 px-6 sm:px-8 transition-all duration-300',
               )}
               style={{ fontFamily: 'var(--font-sans)' }}
             >

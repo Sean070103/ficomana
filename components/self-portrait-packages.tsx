@@ -159,7 +159,7 @@ function PackageSection({
         <h2 className="text-xl md:text-2xl font-normal tracking-[0.14em] uppercase text-white">
           {title}
         </h2>
-        <p className="mt-3 text-[10px] md:text-[11px] font-light text-[#4169E1] tracking-[0.08em]">
+        <p className="mt-3 text-[10px] md:text-[11px] font-light text-white/70 tracking-[0.08em]">
           {ladder}
         </p>
       </motion.div>

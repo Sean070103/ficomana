@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getBookings, Booking } from '@/lib/data-store'
+import { getBookings, getBlockedSlots, getFicoSpotBlocks, Booking } from '@/lib/data-store'
+import type { BlockedSlot } from '@/lib/blocked-slots'
+import type { FicoSpotBlock } from '@/lib/fico-spot-blocks'
+import AdminDayOperations from '@/components/admin-day-operations'
 import { useOnAdminDbSync } from '@/components/admin-auto-sync'
 import { useAdminToast } from '@/components/admin-toast-provider'
 import AdminPageHeader from '@/components/admin-page-header'
@@ -16,17 +19,25 @@ function todayKey() {
 export default function AdminCalendarPage() {
   const toast = useAdminToast()
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([])
+  const [ficoSpotBlocks, setFicoSpotBlocks] = useState<FicoSpotBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [selectedDate, setSelectedDate] = useState(todayKey())
 
-  const fetchBookings = async (silent = false) => {
+  const fetchData = async (silent = false) => {
     if (!silent) setRefreshing(true)
     try {
-      const data = await getBookings()
+      const [data, blocked, ficoBlocks] = await Promise.all([
+        getBookings(),
+        getBlockedSlots(),
+        getFicoSpotBlocks(),
+      ])
       setBookings(data)
+      setBlockedSlots(blocked)
+      setFicoSpotBlocks(ficoBlocks)
     } catch {
-      if (!silent) toast.error('Sync failed', 'Could not load bookings.')
+      if (!silent) toast.error('Sync failed', 'Could not load calendar data.')
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -34,10 +45,10 @@ export default function AdminCalendarPage() {
   }
 
   useEffect(() => {
-    fetchBookings(true)
+    fetchData(true)
   }, [])
 
-  useOnAdminDbSync(() => fetchBookings(true))
+  useOnAdminDbSync(() => fetchData(true))
 
   if (loading) {
     return (
@@ -51,18 +62,47 @@ export default function AdminCalendarPage() {
     <div className={adminPage}>
       <AdminPageHeader
         title="Session Calendar"
-        subtitle="Browse dates and see how many bookings are scheduled each day."
-        onRefresh={() => fetchBookings()}
+        subtitle="Pick a date, then adjust FICO capacity or MANA slots."
+        onRefresh={() => fetchData()}
         refreshing={refreshing}
       />
 
-      <div className="grid md:grid-cols-[minmax(0,280px)_1fr] gap-5 items-start max-w-4xl">
-        <AdminBookingCalendar
-          bookings={bookings}
-          selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-        />
-        <AdminDaySessions bookings={bookings} date={selectedDate} />
+      <div className="grid xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)] gap-6 items-start">
+        <div className="xl:sticky xl:top-4 space-y-4">
+          <AdminBookingCalendar
+            bookings={bookings}
+            blockedSlots={blockedSlots}
+            ficoSpotBlocks={ficoSpotBlocks}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+          />
+        </div>
+
+        <div className="space-y-5 min-w-0">
+          {selectedDate ? (
+            <>
+              <AdminDayOperations
+                date={selectedDate}
+                blockedSlots={blockedSlots}
+                ficoSpotBlocks={ficoSpotBlocks}
+                onChanged={() => fetchData(true)}
+              />
+              <AdminDaySessions
+                bookings={bookings}
+                date={selectedDate}
+                blockedSlots={blockedSlots}
+                ficoSpotBlocks={ficoSpotBlocks}
+              />
+            </>
+          ) : (
+            <AdminDaySessions
+              bookings={bookings}
+              date=""
+              blockedSlots={blockedSlots}
+              ficoSpotBlocks={ficoSpotBlocks}
+            />
+          )}
+        </div>
       </div>
     </div>
   )

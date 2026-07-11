@@ -132,7 +132,7 @@ export default function FAQ() {
                   <h3 className="font-medium text-sm md:text-base text-balance pr-4">
                     {faq.question}
                   </h3>
-                  <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-primary/5 text-primary">
+                  <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-white/5 text-white">
                     {isOpen ? (
                       <Minus className="w-4 h-4" strokeWidth={1.5} />
                     ) : (
@@ -151,7 +151,7 @@ export default function FAQ() {
                   className="overflow-hidden"
                 >
                   <div className="px-6 pb-5 border-t border-border/50">
-                    <div className="pt-4 text-sm text-muted-foreground leading-relaxed">
+                    <div className="pt-4 text-sm text-white/70 leading-relaxed">
                       {faq.content}
                     </div>
                   </div>

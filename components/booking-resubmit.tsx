@@ -16,7 +16,7 @@ import { isForgedRejection } from '@/lib/rejection-reasons'
 const inputClass =
   'w-full border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30'
 
-const labelClass = 'text-[10px] font-bold tracking-[0.12em] uppercase text-primary'
+const labelClass = 'text-[10px] font-bold tracking-[0.12em] uppercase text-white'
 
 const cardClass = 'border border-white/10 bg-white/[0.02] backdrop-blur-sm'
 
@@ -112,11 +112,11 @@ function BookingResubmitForm() {
         {submitted ? (
           <div className="text-center space-y-4 py-4">
             <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center mx-auto border border-primary/30">
-              <Check className="w-7 h-7 text-primary" />
+              <Check className="w-7 h-7 text-white" />
             </div>
             <h3 className="text-lg font-semibold text-white">Receipt Resubmitted</h3>
-            <p className="text-sm text-muted-foreground">
-              Booking <span className="font-mono text-primary">{booking?.id}</span> is back in the verification queue.
+            <p className="text-sm text-white/70">
+              Booking <span className="font-mono text-white">{booking?.id}</span> is back in the verification queue.
               You will receive an email once it is approved.
             </p>
             <button type="button" onClick={resetForm} className={btnPrimaryClass + ' gap-2'}>
@@ -148,7 +148,7 @@ function BookingResubmitForm() {
             </div>
 
             {lookupError && (
-              <div className="flex gap-2 items-start border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+              <div className="flex gap-2 items-start border border-white/20 bg-white/5 p-3 text-sm text-white">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <p>{lookupError}</p>
               </div>
@@ -166,7 +166,7 @@ function BookingResubmitForm() {
               <p className="text-white/50 text-xs">
                 {booking.bookingDate} · {booking.bookingTime}
               </p>
-              <p className="text-primary font-semibold text-xs">Deposit: ₱{booking.depositAmount.toFixed(2)}</p>
+              <p className="text-white font-semibold text-xs">Deposit: ₱{booking.depositAmount.toFixed(2)}</p>
               {booking.rejectionReason && (
                 <div
                   className={`mt-3 border-l-2 pl-3 text-xs ${
@@ -175,16 +175,16 @@ function BookingResubmitForm() {
                       : 'border-red-500/60'
                   }`}
                 >
-                  <p className="font-semibold uppercase tracking-wider text-[9px] text-red-300 mb-1">
+                  <p className="font-semibold uppercase tracking-wider text-[9px] text-white mb-1">
                     {isForgedRejection('', booking.rejectionReason)
                       ? 'Forged / invalid receipt'
                       : 'Rejection reason'}
                   </p>
-                  <p className={isForgedRejection('', booking.rejectionReason) ? 'text-red-100' : 'text-red-200/90 italic'}>
+                  <p className="text-white/90 italic">
                     {booking.rejectionReason}
                   </p>
                   {isForgedRejection('', booking.rejectionReason) && (
-                    <p className="text-[10px] text-red-200/80 mt-2 leading-relaxed">
+                    <p className="text-[10px] text-white/70 mt-2 leading-relaxed">
                       Upload a genuine GCash or BPI screenshot from your transaction history — not a studio photo or sample image.
                     </p>
                   )}
@@ -223,7 +223,7 @@ function BookingResubmitForm() {
               onClick={() => fileInputRef.current?.click()}
               className="border-2 border-dashed border-white/20 p-6 sm:p-8 text-center cursor-pointer hover:border-primary/40 hover:bg-white/[0.03] transition-colors"
             >
-              <Upload className="w-7 h-7 mx-auto mb-2 text-primary" />
+              <Upload className="w-7 h-7 mx-auto mb-2 text-white" />
               <p className="text-sm text-white/70">
                 {receiptFile?.name ||
                   (booking.rejectionReason && isForgedRejection('', booking.rejectionReason)
@@ -241,7 +241,7 @@ function BookingResubmitForm() {
             </div>
 
             {submitError && (
-              <div className="flex gap-2 items-start border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+              <div className="flex gap-2 items-start border border-white/20 bg-white/5 p-3 text-sm text-white">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <p>{submitError}</p>
               </div>

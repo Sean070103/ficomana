@@ -23,16 +23,16 @@ function formatDate(d: Date) {
 export default function BookingSummarySidebar({ packageInfo, bookingDate, timeSlot, graduation }: Props) {
   return (
     <aside className="border border-white/10 bg-white/[0.03] backdrop-blur-sm p-4 sm:p-5 md:p-6 h-fit w-full">
-      <h4 className="text-xs font-bold tracking-[0.2em] text-primary uppercase mb-5 pb-3 border-b border-white/10">
+      <h4 className="text-xs font-bold tracking-[0.2em] text-white uppercase mb-5 pb-3 border-b border-white/10">
         Booking Summary
       </h4>
 
       <div className="space-y-4 text-sm">
         <div>
           <p className="text-[9px] font-semibold tracking-[0.15em] uppercase text-white/40 mb-1">Package</p>
-          <p className="font-semibold text-primary">{packageInfo?.title || '—'}</p>
+          <p className="font-semibold text-white">{packageInfo?.title || '—'}</p>
           {packageInfo && (
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-white/70 mt-0.5">
               {packageInfo.price} · {packageInfo.duration}
             </p>
           )}

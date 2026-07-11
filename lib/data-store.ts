@@ -1,5 +1,7 @@
 import type { BookingPackage } from './booking-packages'
 import { bookingPackages } from './booking-packages'
+import type { BlockedSlot } from './blocked-slots'
+import type { FicoSpotBlock } from './fico-spot-blocks'
 
 export interface PaymentRecord {
   id: string
@@ -166,6 +168,86 @@ export async function getBookingsForAvailability(): Promise<Booking[]> {
     console.error('getBookingsForAvailability failed:', error)
   }
   return []
+}
+
+/** Public: admin-held FICO spots per day. */
+export async function getFicoSpotBlocks(): Promise<FicoSpotBlock[]> {
+  try {
+    const res = await fetch('/api/fico-spot-blocks', { cache: 'no-store' })
+    if (res.ok) return (await res.json()) as FicoSpotBlock[]
+  } catch (error) {
+    console.error('getFicoSpotBlocks failed:', error)
+  }
+  return []
+}
+
+/** Staff: hold N FICO spots on a date (0 clears the hold). */
+export async function setFicoSpotBlock(
+  date: string,
+  spotsBlocked: number,
+  reason: string,
+): Promise<FicoSpotBlock | null> {
+  try {
+    const res = await fetch('/api/fico-spot-blocks', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, spotsBlocked, reason }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data?.cleared) return null
+      return data as FicoSpotBlock
+    }
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? 'Failed to update FICO spots')
+  } catch (error) {
+    console.error('setFicoSpotBlock failed:', error)
+    throw error
+  }
+}
+
+/** Public: admin-blocked session slots (studio can still operate other slots). */
+export async function getBlockedSlots(): Promise<BlockedSlot[]> {
+  try {
+    const res = await fetch('/api/blocked-slots', { cache: 'no-store' })
+    if (res.ok) return (await res.json()) as BlockedSlot[]
+  } catch (error) {
+    console.error('getBlockedSlots failed:', error)
+  }
+  return []
+}
+
+/** Staff: block a session slot on a date. */
+export async function blockSlot(date: string, slotId: string, reason: string): Promise<BlockedSlot | null> {
+  try {
+    const res = await fetch('/api/blocked-slots', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, slotId, reason }),
+    })
+    if (res.ok) return (await res.json()) as BlockedSlot
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? 'Failed to block slot')
+  } catch (error) {
+    console.error('blockSlot failed:', error)
+    throw error
+  }
+}
+
+/** Staff: reopen a blocked session slot. */
+export async function unblockSlot(date: string, slotId: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `/api/blocked-slots?date=${encodeURIComponent(date)}&slotId=${encodeURIComponent(slotId)}`,
+      { method: 'DELETE', credentials: 'include' },
+    )
+    return res.ok
+  } catch (error) {
+    console.error('unblockSlot failed:', error)
+    return false
+  }
 }
 
 export async function getBooking(id: string): Promise<Booking | null> {

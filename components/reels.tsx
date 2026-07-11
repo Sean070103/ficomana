@@ -160,44 +160,53 @@ export default function Reels() {
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           viewport={{ once: true, margin: '-80px' }}
-          className="relative w-[200px] sm:w-[240px] md:w-[280px] lg:w-[320px] xl:w-[340px]"
+          className="relative w-[210px] sm:w-[250px] md:w-[290px] lg:w-[320px] xl:w-[340px]"
         >
-          <div className="relative rounded-[2rem] sm:rounded-[2.5rem] md:rounded-[3rem] lg:rounded-[3.5rem] border-[5px] sm:border-[6px] md:border-[7px] lg:border-8 border-black bg-black shadow-2xl overflow-hidden">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 w-[38%] h-5 sm:h-6 md:h-7 lg:h-8 bg-black rounded-b-2xl" />
+          {/* Side buttons */}
+          <div className="pointer-events-none absolute -left-[3px] top-[17%] z-30 h-7 w-[3px] rounded-l-sm bg-gradient-to-b from-zinc-500 to-zinc-700" />
+          <div className="pointer-events-none absolute -left-[3px] top-[24%] z-30 h-11 w-[3px] rounded-l-sm bg-gradient-to-b from-zinc-500 to-zinc-700" />
+          <div className="pointer-events-none absolute -left-[3px] top-[34%] z-30 h-11 w-[3px] rounded-l-sm bg-gradient-to-b from-zinc-500 to-zinc-700" />
+          <div className="pointer-events-none absolute -right-[3px] top-[28%] z-30 h-14 w-[3px] rounded-r-sm bg-gradient-to-b from-zinc-500 to-zinc-700" />
 
-            <div className="relative aspect-[9/19] bg-black">
-              <video
-                ref={videoRef}
-                src={REEL_VIDEO}
-                className="absolute inset-0 h-full w-full object-cover"
-                playsInline
-                loop
-                muted
-                preload="auto"
-                onClick={tapToPlay}
-              />
+          <div className="relative rounded-[2.65rem] sm:rounded-[2.9rem] md:rounded-[3.15rem] lg:rounded-[3.35rem] bg-gradient-to-b from-zinc-300 via-zinc-500 to-zinc-800 p-[2px] sm:p-[3px] shadow-[0_28px_70px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.35)]">
+            <div className="overflow-hidden rounded-[2.55rem] sm:rounded-[2.8rem] md:rounded-[3.05rem] lg:rounded-[3.25rem] bg-black ring-1 ring-white/10">
+              <div className="relative aspect-[9/19.5] bg-black">
+                {/* Dynamic Island */}
+                <div className="absolute left-1/2 top-2.5 z-20 h-[22px] w-[78px] -translate-x-1/2 rounded-full bg-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] sm:top-3 sm:h-[24px] sm:w-[86px] md:h-[26px] md:w-[92px]" />
 
-              {!playing && (
+                <video
+                  ref={videoRef}
+                  src={REEL_VIDEO}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  playsInline
+                  loop
+                  muted
+                  preload="auto"
+                  onClick={tapToPlay}
+                />
+
+                {!playing && (
+                  <button
+                    type="button"
+                    onClick={tapToPlay}
+                    className="absolute inset-0 z-10 flex items-center justify-center bg-black/25"
+                    aria-label="Play reel"
+                  >
+                    <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-black">
+                      <Play className="ml-0.5 h-6 w-6 fill-current" />
+                    </span>
+                  </button>
+                )}
+
                 <button
                   type="button"
-                  onClick={tapToPlay}
-                  className="absolute inset-0 z-10 flex items-center justify-center bg-black/25"
-                  aria-label="Play reel"
+                  onClick={toggleMute}
+                  className="absolute bottom-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
+                  aria-label={muted ? 'Unmute reel' : 'Mute reel'}
                 >
-                  <span className="w-14 h-14 rounded-full bg-white/90 text-black flex items-center justify-center">
-                    <Play className="w-6 h-6 fill-current ml-0.5" />
-                  </span>
+                  {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                 </button>
-              )}
-
-              <button
-                type="button"
-                onClick={toggleMute}
-                className="absolute bottom-4 right-4 z-20 w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
-                aria-label={muted ? 'Unmute reel' : 'Mute reel'}
-              >
-                {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </button>
+              </div>
             </div>
           </div>
         </motion.div>

@@ -26,14 +26,14 @@ export default function SectionHeader({
       className={`mb-14 md:mb-20 ${isCenter ? 'text-center' : ''}`}
     >
       <div className={`flex items-center gap-4 mb-5 ${isCenter ? 'justify-center' : ''}`}>
-        {!isCenter && <span className="h-px w-10 bg-primary" />}
-        <span className="label-premium">{eyebrow}</span>
-        {isCenter && <span className="h-px w-10 bg-primary" />}
+        {!isCenter && <span className="h-px w-10 bg-white" />}
+        <span className="label-premium text-white">{eyebrow}</span>
+        {isCenter && <span className="h-px w-10 bg-white" />}
       </div>
-      <h2 className="heading-lg text-foreground mb-4">{title}</h2>
+      <h2 className="heading-lg text-white mb-4">{title}</h2>
       {description && (
         <p
-          className={`text-base md:text-lg text-muted-foreground leading-relaxed max-w-2xl ${
+          className={`text-base md:text-lg text-white/70 leading-relaxed max-w-2xl ${
             isCenter ? 'mx-auto' : ''
           }`}
         >

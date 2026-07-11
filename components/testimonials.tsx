@@ -67,7 +67,7 @@ export default function Testimonials() {
             >
               <div className="flex justify-center gap-1 mb-8">
                 {[...Array(current.rating)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-primary text-primary" />
+                  <Star key={i} className="w-4 h-4 fill-white text-white" />
                 ))}
               </div>
 
@@ -76,8 +76,8 @@ export default function Testimonials() {
               </blockquote>
 
               <div className="flex flex-col items-center gap-1">
-                <div className="w-8 h-px bg-primary/30 mb-3" />
-                <p className="text-sm font-medium tracking-[0.15em] uppercase text-muted-foreground">
+                <div className="w-8 h-px bg-white/30 mb-3" />
+                <p className="text-sm font-medium tracking-[0.15em] uppercase text-white/70">
                   {current.author}
                 </p>
               </div>
@@ -93,8 +93,8 @@ export default function Testimonials() {
               aria-label={`Go to testimonial ${index + 1}`}
               className={`h-1 transition-all duration-300 ${
                 index === currentIndex
-                  ? 'w-8 bg-primary'
-                  : 'w-4 bg-primary/20 hover:bg-primary/40'
+                  ? 'w-8 bg-white'
+                  : 'w-4 bg-white/20 hover:bg-white/40'
               }`}
             />
           ))}

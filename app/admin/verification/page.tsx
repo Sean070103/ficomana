@@ -249,7 +249,7 @@ export default function PaymentVerificationQueue() {
       />
 
       {bookings.length === 0 ? (
-        <div className="border border-white/10 bg-[#0A0A0F] p-16 text-center shadow-sm">
+        <div className="border border-white/10 bg-[#222222] p-16 text-center shadow-sm">
           <div className="w-16 h-16 bg-green-500/10 border border-green-500/30 flex items-center justify-center text-green-400 rounded-full mx-auto mb-4">
             <Check className="w-8 h-8" />
           </div>
@@ -258,7 +258,7 @@ export default function PaymentVerificationQueue() {
         </div>
       ) : (
         <>
-          <div className="border border-white/10 bg-[#0A0A0F] p-4 mb-5">
+          <div className="border border-white/10 bg-[#222222] p-4 mb-5">
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
               <input
@@ -276,7 +276,7 @@ export default function PaymentVerificationQueue() {
           </div>
 
           {visibleBookings.length === 0 ? (
-            <div className="border border-white/10 bg-[#0A0A0F] p-12 text-center">
+            <div className="border border-white/10 bg-[#222222] p-12 text-center">
               <p className="text-sm text-white/50">No bookings match your search.</p>
             </div>
           ) : (
@@ -374,7 +374,7 @@ export default function PaymentVerificationQueue() {
       {/* 1. RECEIPT VIEWER MODAL */}
       {receiptModalBooking && selectedBooking && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="border border-white/10 bg-[#0A0A0F] shadow-2xl max-w-4xl w-full flex flex-col md:flex-row overflow-hidden max-h-[90vh]">
+          <div className="border border-white/10 bg-[#222222] shadow-2xl max-w-4xl w-full flex flex-col md:flex-row overflow-hidden max-h-[90vh]">
             <div className="md:w-1/2 bg-white/[0.05] border-r border-white/10 relative min-h-[300px] flex items-center justify-center">
               {receiptModalBooking.receiptUrl && receiptModalBooking.receiptUrl.endsWith('.pdf') ? (
                 <div className="p-12 text-center text-white/50 space-y-4">
@@ -547,7 +547,7 @@ export default function PaymentVerificationQueue() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-in fade-in duration-200">
           <form
             onSubmit={handleRejectSubmit}
-            className="relative border border-white/10 bg-[#0A0A0F] shadow-2xl max-w-md w-full p-6 md:p-8 space-y-5"
+            className="relative border border-white/10 bg-[#222222] shadow-2xl max-w-md w-full p-6 md:p-8 space-y-5"
           >
             <div className="flex justify-between items-start border-b border-white/10 pb-3">
               <div>
