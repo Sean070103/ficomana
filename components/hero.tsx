@@ -36,39 +36,76 @@ export default function Hero() {
     <section id="home" className="relative min-h-screen min-h-[100dvh] w-full overflow-hidden">
       <motion.div className="absolute inset-0 z-0" style={{ y: imageY }}>
         <motion.div
-          className="absolute inset-0 translate-x-0 sm:translate-x-[6%] md:translate-x-0 max-sm:scale-100 sm:scale-100"
-          initial={{ scale: 1.08 }}
+          className="absolute inset-0 translate-x-0 sm:translate-x-[6%] md:translate-x-0"
+          initial={{ scale: 1.05 }}
           animate={{ scale: 1 }}
           transition={{ duration: 14, ease: 'easeOut' }}
         >
           <Image
-            src="/raw_bg.jpg"
+            src="/model/model_2.jpg"
             alt="Graduation portrait at FICO MANA Studio"
             fill
-            className="object-cover object-[center_8%] sm:object-[68%_18%] md:object-[72%_18%] brightness-[1.15] contrast-[1.05] saturate-[1.06]"
+            className="object-cover object-[center_18%] sm:object-[68%_18%] md:object-[72%_18%] brightness-[1.1] contrast-[1.04] max-sm:brightness-[1.08]"
             priority
             quality={95}
             sizes="100vw"
           />
         </motion.div>
 
-        {/* Mobile: bottom scrim for text; desktop: side fade */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-transparent to-black/55 max-sm:via-transparent sm:from-black/75 sm:via-black/45 sm:to-transparent md:w-full" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/20 sm:from-black/80 sm:via-transparent md:from-black/70" />
+        <div className="absolute inset-0 hidden sm:block bg-gradient-to-r from-black/75 via-black/45 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent max-sm:from-black/70 max-sm:via-black/25 max-sm:to-transparent sm:from-black/80 sm:via-transparent md:from-black/70" />
         <div className="absolute inset-0 hidden sm:block bg-gradient-to-t from-black/25 to-black/40" />
       </motion.div>
 
       <motion.div
         style={{ y: contentY, opacity: contentOpacity }}
-        className="relative z-10 min-h-screen min-h-[100dvh] flex flex-col justify-end md:justify-start px-4 sm:px-6 md:px-12 lg:px-16 xl:px-20 pt-24 sm:pt-32 md:pt-40 pb-8 sm:pb-12 md:pb-14"
+        className="relative z-10 min-h-screen min-h-[100dvh] sm:flex sm:flex-col sm:justify-start sm:items-start px-6 sm:px-6 md:px-12 lg:px-16 xl:px-20 pt-24 sm:pt-32 md:pt-40 pb-14 sm:pb-12 md:pb-14"
       >
+        {/* Mobile — pixel-match reference (no FICO MANA) */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="w-full max-w-[11.5rem] sm:max-w-md md:max-w-2xl flex flex-col items-start text-left"
+          className="absolute inset-x-0 bottom-0 px-5 pb-10 flex flex-col items-start text-left sm:hidden"
         >
-          <motion.div variants={itemVariants} className="hidden sm:flex items-center gap-3 mb-5 md:mb-6">
+          <motion.p
+            variants={itemVariants}
+            className="text-[13px] leading-[1.6] font-bold tracking-[0.22em] uppercase text-white mb-6 max-w-[15rem]"
+            style={{ fontFamily: 'var(--font-sans)' }}
+          >
+            The Portrait of Success
+          </motion.p>
+
+          <motion.div variants={itemVariants} className="w-full flex flex-col items-start gap-5">
+            <Button
+              nativeButton={false}
+              render={<Link href="#booking" />}
+              className={cn(
+                buttonVariants({ size: 'lg' }),
+                'w-[94%] rounded-none bg-white text-black hover:bg-white/90 text-[10px] font-semibold tracking-[0.16em] uppercase h-11 px-4 transition-all duration-300 shadow-none justify-center',
+              )}
+              style={{ fontFamily: 'var(--font-sans)' }}
+            >
+              Reserve Your Session
+            </Button>
+            <Link
+              href="/#gallery"
+              className="pl-12 text-[10px] font-bold tracking-[0.2em] uppercase text-white hover:text-white/75 transition-colors"
+              style={{ fontFamily: 'var(--font-sans)' }}
+            >
+              View Gallery
+            </Link>
+          </motion.div>
+        </motion.div>
+
+        {/* Desktop */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="hidden sm:flex w-full max-w-md md:max-w-2xl flex-col items-start"
+        >
+          <motion.div variants={itemVariants} className="flex items-center gap-3 mb-5 md:mb-6">
             <span className="h-px w-10 sm:w-14 bg-gradient-to-r from-white/70 to-white/0" />
             <span
               className="text-[9px] sm:text-[10px] font-semibold tracking-[0.35em] uppercase text-white/50"
@@ -78,16 +115,9 @@ export default function Hero() {
             </span>
           </motion.div>
 
-          <motion.h1
-            variants={itemVariants}
-            className="font-serif text-[1.65rem] leading-[1.15] sm:text-5xl md:text-6xl lg:text-[4.5rem] font-light tracking-[0.1em] sm:tracking-[0.18em] uppercase text-white mb-2 sm:mb-4 drop-shadow-[0_2px_16px_rgba(0,0,0,0.5)]"
-          >
-            FICO MANA
-          </motion.h1>
-
           <motion.p
             variants={itemVariants}
-            className="text-[10px] sm:text-[11px] md:text-xs font-semibold tracking-[0.2em] sm:tracking-[0.32em] uppercase mb-3 sm:mb-5"
+            className="text-lg md:text-xl lg:text-2xl font-semibold tracking-[0.22em] uppercase mb-5 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)]"
             style={{ fontFamily: 'var(--font-neue)' }}
           >
             <span className="text-white">The Portrait </span>
@@ -96,22 +126,19 @@ export default function Hero() {
 
           <motion.p
             variants={itemVariants}
-            className="hidden sm:block text-xl md:text-[1.75rem] lg:text-3xl font-normal italic text-white/95 leading-snug mb-8 md:mb-10"
+            className="text-xl md:text-[1.75rem] lg:text-3xl font-normal italic text-white/95 leading-snug mb-8 md:mb-10"
             style={{ fontFamily: "'Times New Roman', Times, serif" }}
           >
             Creating Visuals That Celebrate Every Story
           </motion.p>
 
-          <motion.div
-            variants={itemVariants}
-            className="flex flex-col gap-2.5 sm:flex-row sm:gap-4 w-full sm:w-auto"
-          >
+          <motion.div variants={itemVariants} className="flex flex-row gap-4 w-auto">
             <Button
               nativeButton={false}
               render={<Link href="#booking" />}
               className={cn(
                 buttonVariants({ size: 'lg' }),
-                'w-full sm:w-auto rounded-none bg-white text-black hover:bg-white/90 text-[10px] sm:text-[11px] font-bold tracking-[0.16em] sm:tracking-[0.18em] uppercase h-11 sm:h-12 px-6 sm:px-8 transition-all duration-300',
+                'w-auto rounded-none bg-white text-black hover:bg-white/90 text-[11px] font-bold tracking-[0.18em] uppercase h-12 px-8 transition-all duration-300',
               )}
               style={{ fontFamily: 'var(--font-sans)' }}
             >
@@ -123,7 +150,7 @@ export default function Hero() {
               variant="outline"
               className={cn(
                 buttonVariants({ variant: 'outline', size: 'lg' }),
-                'w-full sm:w-auto rounded-none border-white/40 bg-black/20 text-white backdrop-blur-sm hover:border-white/70 hover:bg-white/10 text-[10px] sm:text-[11px] font-bold tracking-[0.16em] sm:tracking-[0.18em] uppercase h-11 sm:h-12 px-6 sm:px-8 transition-all duration-300',
+                'w-auto rounded-none border-white/40 bg-black/20 text-white backdrop-blur-sm hover:border-white/70 hover:bg-white/10 text-[11px] font-bold tracking-[0.18em] uppercase h-12 px-8 transition-all duration-300',
               )}
               style={{ fontFamily: 'var(--font-sans)' }}
             >

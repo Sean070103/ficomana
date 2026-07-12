@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, ArrowRight, CalendarDays, CalendarX2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowRight, CalendarDays, CalendarX2, Download } from 'lucide-react'
 import type { Booking } from '@/lib/data-store'
+import { downloadDayBookingsExcel } from '@/lib/export-day-bookings'
 import type { BlockedSlot } from '@/lib/blocked-slots'
 import { countBlockedSlotsOnDate, getBlockedSlotsForDate } from '@/lib/blocked-slots'
 import { getFicoSpotsBlocked, type FicoSpotBlock } from '@/lib/fico-spot-blocks'
@@ -295,12 +296,22 @@ export function AdminDaySessions({
           <p className="text-[10px] font-bold tracking-[0.16em] text-white/40 uppercase">Bookings</p>
           <p className="text-sm font-semibold text-white mt-0.5">{label}</p>
         </div>
-        <Link
-          href={`/admin/bookings?date=${date}`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
-        >
-          Open in list <ArrowRight className="w-3 h-3" />
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => downloadDayBookingsExcel(bookings, date)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white/80 hover:text-white hover:border-white/25 transition-colors"
+          >
+            <Download className="w-3 h-3" />
+            Export Excel
+          </button>
+          <Link
+            href={`/admin/bookings?date=${date}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
+          >
+            Open in list <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto max-h-[360px]">

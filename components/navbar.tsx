@@ -193,28 +193,23 @@ export default function Navbar() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        'fixed top-0 left-0 right-0 z-[100] px-4 sm:px-6 md:px-12 lg:px-16 transition-all duration-500 ease-out',
+        'fixed top-0 left-0 right-0 z-[100] px-4 sm:px-6 md:px-12 lg:px-16 pb-2.5 sm:pb-3 pt-[max(0.625rem,env(safe-area-inset-top,0px))] transition-[background-color,backdrop-filter,box-shadow,border-color] duration-500 ease-out',
         isScrolled
-          ? 'bg-black/90 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)] py-2'
-          : 'bg-transparent border-b border-transparent py-2.5 sm:py-3',
+          ? 'bg-black/90 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]'
+          : 'bg-transparent border-b border-transparent',
       )}
       style={{ fontFamily: 'var(--font-sans)' }}
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4">
-        <Link href="/#home" className="flex items-center justify-start shrink-0 min-w-0 max-w-[42%] sm:max-w-[48%] md:max-w-none">
-            <Image
-              src="/logoo%20(1).png"
-              alt="Fico Mana Self Portrait Studio"
-              width={360}
-              height={108}
-              className={cn(
-                'w-auto h-auto transition-all duration-300',
-                isScrolled
-                  ? 'h-10 sm:h-12 md:h-16'
-                  : 'h-11 sm:h-14 md:h-28 lg:h-32 xl:h-36',
-              )}
-              priority
-            />
+        <Link href="/#home" className="flex items-center shrink-0 py-1">
+          <Image
+            src="/fico_navbar.png?v=3"
+            alt="Fico Mana studio"
+            width={410}
+            height={292}
+            className="h-10 w-auto sm:h-12 md:h-14 object-contain object-left"
+            priority
+          />
         </Link>
 
         <div className="hidden md:flex items-center justify-center gap-6 lg:gap-8">
@@ -245,6 +240,7 @@ export default function Navbar() {
                   size="icon-sm"
                   className={cn(
                     'md:hidden rounded-none border',
+                    open && 'hidden',
                     isScrolled
                       ? 'border-border bg-background text-foreground'
                       : 'border-white/40 bg-white/10 text-white hover:bg-white/20',
@@ -277,7 +273,7 @@ export default function Navbar() {
                         }}
                       >
                         {isDropdown(item) ? (
-                          <div className="border-b border-border/60 pb-2 mb-1">
+                          <div className="flex flex-col border-b border-border/60 pb-2 mb-1">
                             <p className="text-[9px] font-bold tracking-[0.22em] uppercase text-white pt-3 pb-2">
                               {item.label}
                             </p>
@@ -287,7 +283,10 @@ export default function Navbar() {
                                 render={
                                   <Link
                                     href={link.href}
-                                    className={cn(linkClass(true), 'pl-3 border-l-2 border-transparent hover:border-white/50')}
+                                    className={cn(
+                                      linkClass(true),
+                                      'pl-3 border-l-2 border-transparent hover:border-white/50 whitespace-nowrap',
+                                    )}
                                   />
                                 }
                               >

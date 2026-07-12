@@ -149,6 +149,18 @@ function BookingForm() {
   const [copiedText, setCopiedText] = useState(false)
   const [copiedRef, setCopiedRef] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const stepPanelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const panel = stepPanelRef.current
+    if (!panel) return
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    requestAnimationFrame(() => {
+      panel.scrollIntoView({ behavior: 'auto', block: 'start' })
+    })
+  }, [step])
 
   useEffect(() => {
     Promise.all([getBookingsForAvailability(), getBlockedSlots(), getFicoSpotBlocks()])
@@ -384,7 +396,11 @@ function BookingForm() {
         align="center"
       />
 
-      <div className={`max-w-6xl mx-auto ${cardClass} p-4 sm:p-6 md:p-10`}>
+      <div
+        ref={stepPanelRef}
+        id="booking-panel"
+        className={`max-w-6xl mx-auto scroll-mt-28 ${cardClass} p-4 sm:p-6 md:p-10`}
+      >
         {step < 6 && <StepProgress step={step} isGraduation={!!isGraduationPackage} />}
 
         {formError && (
@@ -393,6 +409,7 @@ function BookingForm() {
           </div>
         )}
 
+        <div className="min-h-[min(62vh,640px)] flex flex-col">
         {/* Step 1 — Package */}
         {step === 1 && (
           <div className="space-y-6">
@@ -645,7 +662,9 @@ function BookingForm() {
           >
             <div className="text-center space-y-1">
               <h3 className="text-lg font-semibold text-white">3. Details</h3>
-              <p className="text-sm text-white/70">Select the color of your hood and background.</p>
+              <p className="text-sm text-white/70">
+                Select your hood, toga, and tassel colors for the studio. The preview photo stays as shown.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
@@ -671,20 +690,21 @@ function BookingForm() {
                     {HOOD_COLOR_GRID.map((color) => {
                       const selected = hoodColor === color
                       return (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setHoodColor(color)}
-                        style={selected ? { background: colorToPreviewFill(color) } : undefined}
-                        className={`py-2.5 px-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide border transition-colors ${
-                          selected
-                            ? `border-white ring-2 ring-white/70 ${colorSwatchTextClass(color)}`
-                            : 'bg-black border-white/20 text-white hover:border-white/40'
-                        }`}
-                      >
-                        {color}
-                      </button>
-                    )})}
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => setHoodColor(color)}
+                          style={selected ? { background: colorToPreviewFill(color) } : undefined}
+                          className={`py-2.5 px-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide border transition-colors ${
+                            selected
+                              ? `border-white ring-2 ring-white/70 ${colorSwatchTextClass(color)}`
+                              : 'bg-black border-white/20 text-white hover:border-white/40'
+                          }`}
+                        >
+                          {color}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 
@@ -740,12 +760,8 @@ function BookingForm() {
               </div>
 
               {/* Preview — shown first on mobile */}
-              <div className="space-y-4 order-1 md:order-2 md:sticky md:top-4">
-                <BookingGraduationPreview
-                  hoodColor={hoodColor}
-                  tasselColor={tasselColor}
-                  togaColor={togaColor}
-                />
+              <div className="space-y-4 order-1 md:order-2 md:sticky md:top-28 md:self-start">
+                <BookingGraduationPreview />
 
                 <div>
                   <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-white mb-3">
@@ -861,44 +877,60 @@ function BookingForm() {
 
         {/* Step 5 — Deposit */}
         {step === 5 && (
-          <form onSubmit={submitBooking} className="w-full max-w-lg mx-auto space-y-5 sm:space-y-6 px-1 sm:px-0">
-            <h3 className="text-lg font-semibold text-center text-white">Deposit — PHP 500</h3>
-            <p className="text-sm text-center text-white/70">
-              Upload a clear screenshot of your {paymentMethod} payment receipt (not a studio photo).
-            </p>
-            <div className="flex gap-2 justify-center">
-              {(['GCash', 'BPI'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setPaymentMethod(m)}
-                  className={`px-6 py-2 text-xs uppercase border rounded-sm font-semibold ${
-                    paymentMethod === m ? 'border-primary bg-primary text-primary-foreground' : 'border-white/10 text-white/60 hover:border-white/30'
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-            <div>
-              <label className={labelClass}>GCash / BPI Transaction Reference *</label>
-              <input
-                required
-                value={transactionRef}
-                onChange={(e) => setTransactionRef(e.target.value)}
-                placeholder="e.g. 1234567890"
-                className={inputClass + ' mt-1.5 font-mono'}
+          <form onSubmit={submitBooking} className="flex flex-col flex-1">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,240px)_1fr] gap-6 lg:gap-8 flex-1">
+              <BookingSummarySidebar
+                packageInfo={selectedSession}
+                bookingDate={selectedDate}
+                timeSlot={selectedTimeSlot}
+                graduation={graduationSummary}
               />
+
+              <div className="w-full max-w-lg mx-auto lg:mx-0 space-y-5 sm:space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-white lg:text-left text-center">
+                    {isGraduationPackage ? '5. Deposit' : '4. Deposit'} — PHP 500
+                  </h3>
+                  <p className="text-sm text-white/70 mt-1 lg:text-left text-center">
+                    Upload a clear screenshot of your {paymentMethod} payment receipt (not a studio photo).
+                  </p>
+                </div>
+                <div className="flex gap-2 justify-center lg:justify-start">
+                  {(['GCash', 'BPI'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setPaymentMethod(m)}
+                      className={`px-6 py-2 text-xs uppercase border rounded-sm font-semibold ${
+                        paymentMethod === m ? 'border-primary bg-primary text-primary-foreground' : 'border-white/10 text-white/60 hover:border-white/30'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <label className={labelClass}>GCash / BPI Transaction Reference *</label>
+                  <input
+                    required
+                    value={transactionRef}
+                    onChange={(e) => setTransactionRef(e.target.value)}
+                    placeholder="e.g. 1234567890"
+                    className={inputClass + ' mt-1.5 font-mono'}
+                  />
+                </div>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-white/20 p-6 sm:p-10 text-center cursor-pointer hover:border-primary/40 hover:bg-white/[0.03] transition-colors"
+                >
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-white" />
+                  <p className="text-sm text-white/70">{receiptFile?.name || 'Click to upload receipt *'}</p>
+                  <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => e.target.files?.[0] && setReceiptFile(e.target.files[0])} />
+                </div>
+              </div>
             </div>
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-white/20 p-6 sm:p-10 text-center cursor-pointer hover:border-primary/40 hover:bg-white/[0.03] transition-colors"
-            >
-              <Upload className="w-8 h-8 mx-auto mb-2 text-white" />
-              <p className="text-sm text-white/70">{receiptFile?.name || 'Click to upload receipt *'}</p>
-              <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => e.target.files?.[0] && setReceiptFile(e.target.files[0])} />
-            </div>
-            <div className={stepNavClass}>
+
+            <div className={`${stepNavClass} mt-6 sm:mt-8`}>
               <button type="button" onClick={() => setStep(4)} className={btnBackClass}>
                 Back
               </button>
@@ -973,6 +1005,7 @@ function BookingForm() {
             </button>
           </div>
         )}
+        </div>
       </div>
     </SectionShell>
   )

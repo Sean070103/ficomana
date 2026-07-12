@@ -48,7 +48,7 @@ export default function BookingSummarySidebar({ packageInfo, bookingDate, timeSl
           <p className="font-medium text-white/90">{timeSlot || '—'}</p>
         </div>
 
-        {graduation && (graduation.hoodColor || graduation.backgroundColor) && (
+        {graduation && (graduation.togaColor || graduation.backgroundColor || graduation.schoolName) && (
           <div className="pt-2 border-t border-white/10 space-y-2">
             <p className="text-[9px] font-semibold tracking-[0.15em] uppercase text-white/40">Session Details</p>
             {graduation.schoolName && <p className="text-xs text-white/70"><span className="text-white/40">School:</span> {graduation.schoolName}</p>}

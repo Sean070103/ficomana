@@ -114,7 +114,7 @@ export default function AdminDayOperations({ date, blockedSlots, ficoSpotBlocks,
       <div className="flex border-b border-white/10">
         {(
           [
-            { id: 'fico' as const, label: 'FICO spots', hint: ficoHeld > 0 ? `${ficoBookable} open` : '10 open' },
+            { id: 'fico' as const, label: 'FICO spots', hint: ficoHeld > 0 ? `${ficoBookable} open` : `${FICO_DAILY_LIMIT} open` },
             { id: 'mana' as const, label: 'MANA slots', hint: blockedCount > 0 ? `${blockedCount} blocked` : 'All open' },
           ] as const
         ).map((item) => (
@@ -194,7 +194,7 @@ export default function AdminDayOperations({ date, blockedSlots, ficoSpotBlocks,
               </div>
 
               <div className="flex flex-wrap gap-2 justify-center mt-4">
-                {[0, 2, 5, FICO_DAILY_LIMIT].map((n) => (
+                {[0, 1, 2, FICO_DAILY_LIMIT].map((n) => (
                   <button
                     key={n}
                     type="button"

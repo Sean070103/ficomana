@@ -5,7 +5,7 @@ import type { FicoSpotBlock } from '@/lib/fico-spot-blocks'
 import { getFicoBookableLimit } from '@/lib/fico-spot-blocks'
 import { usesMakeupSlots } from '@/lib/booking-packages'
 
-export const FICO_DAILY_LIMIT = 10
+export const FICO_DAILY_LIMIT = 4
 export const MAKEUP_SLOTS_PER_SESSION = 2
 export const ARRIVAL_CUTOFF = '4:00 PM'
 export const ARRIVAL_BUFFER_MINUTES = 15

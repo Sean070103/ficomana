@@ -11,12 +11,14 @@ import {
   UserCheck,
   TrendingUp,
   ArrowRight,
+  Download,
 } from 'lucide-react'
 import { adminPage, adminCard, adminPanel, adminCardHover, adminSpinnerWrap, adminSpinner, adminEmptyState } from '@/lib/admin-ui'
 import AdminBookingSearch from '@/components/admin-booking-search'
 import AdminPageHeader from '@/components/admin-page-header'
 import { useOnAdminDbSync } from '@/components/admin-auto-sync'
 import { useAdminToast } from '@/components/admin-toast-provider'
+import { downloadDayBookingsExcel } from '@/lib/export-day-bookings'
 
 export default function DashboardOverview() {
   const toast = useAdminToast()
@@ -230,11 +232,21 @@ export default function DashboardOverview() {
 
       <div className="grid lg:grid-cols-12 gap-6">
         <div className={`lg:col-span-7 ${adminPanel} p-5 space-y-4`}>
-          <div className="flex justify-between items-center border-b border-white/[0.08] pb-3">
-            <h4 className="text-sm font-semibold text-white/85">Today&apos;s Session Schedule</h4>
-            <span className="text-[10px] bg-primary/15 text-primary font-bold px-2.5 py-1 rounded-full uppercase">
-              {todaysList.length} Active
-            </span>
+          <div className="flex flex-wrap justify-between items-center gap-3 border-b border-white/[0.08] pb-3">
+            <div className="flex items-center gap-3">
+              <h4 className="text-sm font-semibold text-white/85">Today&apos;s Session Schedule</h4>
+              <span className="text-[10px] bg-primary/15 text-primary font-bold px-2.5 py-1 rounded-full uppercase">
+                {todaysList.length} Active
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => downloadDayBookingsExcel(bookings, todayStr)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white/80 hover:text-white hover:border-white/25 transition-colors"
+            >
+              <Download className="w-3 h-3" />
+              Export Excel
+            </button>
           </div>
 
           <div className="divide-y divide-white/[0.06] max-h-[300px] overflow-y-auto">

@@ -24,7 +24,7 @@ export const PACKAGE_SEED_ROWS: PackageSeedRow[] = [
     title: 'FICO PACKAGE',
     price_display: '₱3,000',
     price_amount: 3000,
-    duration: '30 mins (15m shoot / 15m select)',
+    duration: '30 mins',
     description: 'Without Hair and Makeup. Graduation portraits with professional lighting.',
     features: [
       'Free use of Toga & Cap',
@@ -48,7 +48,7 @@ export const PACKAGE_SEED_ROWS: PackageSeedRow[] = [
     title: 'MANA PACKAGE',
     price_display: '₱6,000',
     price_amount: 6000,
-    duration: '2 hours (1.5h makeup / 15m shoot / 15m select)',
+    duration: '2 hours',
     description: 'With Hair and Makeup. Complete graduation experience.',
     features: [
       'Free use of Toga & Cap',
