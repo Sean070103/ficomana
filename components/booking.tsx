@@ -150,17 +150,28 @@ function BookingForm() {
   const [copiedRef, setCopiedRef] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const stepPanelRef = useRef<HTMLDivElement>(null)
+  const prevStepRef = useRef<number | null>(null)
 
   useEffect(() => {
     const panel = stepPanelRef.current
     if (!panel) return
+
+    const isFirstRun = prevStepRef.current === null
+    prevStepRef.current = step
+
+    if (isFirstRun) {
+      const hash = window.location.hash
+      const hasPackage = searchParams.get('package')
+      if (hash !== '#booking' && !hasPackage) return
+    }
+
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur()
     }
     requestAnimationFrame(() => {
       panel.scrollIntoView({ behavior: 'auto', block: 'start' })
     })
-  }, [step])
+  }, [step, searchParams])
 
   useEffect(() => {
     Promise.all([getBookingsForAvailability(), getBlockedSlots(), getFicoSpotBlocks()])
