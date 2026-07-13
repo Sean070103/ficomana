@@ -33,7 +33,6 @@ export default function PaymentVerificationQueue() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [flashId, setFlashId] = useState<string | null>(null)
   
   // Modal states
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
@@ -43,6 +42,15 @@ export default function PaymentVerificationQueue() {
   const [customReason, setCustomReason] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [exiting, setExiting] = useState<{ id: string; type: 'approve' | 'reject' } | null>(null)
+
+  /** Play the card exit animation before removing it from the queue. */
+  const animateCardExit = async (bookingId: string, type: 'approve' | 'reject') => {
+    setExiting({ id: bookingId, type })
+    await new Promise((resolve) => window.setTimeout(resolve, 700))
+    setBookings((prev) => prev.filter((b) => b.id !== bookingId))
+    setExiting(null)
+  }
 
   const fetchQueue = async (silent = false) => {
     if (!silent) setRefreshing(true)
@@ -94,16 +102,15 @@ export default function PaymentVerificationQueue() {
 
       const { emailErrors } = await runAdminTransaction(updatedBooking)
 
-      setBookings((prev) => prev.filter((b) => b.id !== booking.id))
+      setShowReceiptModal(false)
+      setSelectedBooking(null)
+      await animateCardExit(booking.id, 'approve')
 
       try {
         await dismissBookingNotifications(booking.id)
       } catch (err) {
         console.warn('dismissBookingNotifications failed:', err)
       }
-
-      setFlashId(booking.id)
-      window.setTimeout(() => setFlashId(null), 1200)
 
       const emailMsg = formatEmailResult(emailErrors)
       if (emailMsg) {
@@ -112,8 +119,6 @@ export default function PaymentVerificationQueue() {
         toast.success('Payment approved', `${booking.id} confirmed — 1 email sent to customer.`)
       }
 
-      setShowReceiptModal(false)
-      setSelectedBooking(null)
       fetchQueue(true)
     } catch (err) {
       console.error(err)
@@ -133,23 +138,19 @@ export default function PaymentVerificationQueue() {
       paymentStatus: 'Unpaid',
       rejectionReason: finalReason,
       rejectionReasonId: reasonId,
-      ...(forged
-        ? {
-            receiptUrl: undefined,
-            transactionRef: undefined,
-            paymentHistory: [],
-          }
-        : {}),
+      receiptUrl: forged ? '' : booking.receiptUrl,
+      transactionRef: forged ? '' : booking.transactionRef,
+      paymentHistory: forged ? [] : booking.paymentHistory,
     }
 
     const { emailErrors } = await runAdminTransaction(updatedBooking)
 
-    setBookings((prev) => prev.filter((b) => b.id !== booking.id))
     setShowRejectModal(false)
     setShowReceiptModal(false)
     setSelectedBooking(null)
     setCustomReason('')
     setRejectionReason('forged')
+    await animateCardExit(booking.id, 'reject')
 
     try {
       await dismissBookingNotifications(booking.id)
@@ -284,7 +285,7 @@ export default function PaymentVerificationQueue() {
           {visibleBookings.map((booking) => {
             const display = enrichBookingDisplay(booking)
             return (
-            <div key={booking.id} className={`border border-white/10 bg-white/[0.02] flex flex-col justify-between overflow-hidden ${adminCardHover} ${flashId === booking.id ? 'ring-2 ring-green-500/40' : ''} ${isLikelyInvalidReceipt(display.receiptUrl) ? 'ring-1 ring-red-500/40' : ''}`}>
+            <div key={booking.id} className={`border border-white/10 bg-white/[0.02] flex flex-col justify-between overflow-hidden ${adminCardHover} ${exiting?.id === booking.id ? (exiting.type === 'approve' ? 'card-approve-exit' : 'card-reject-exit') : ''} ${isLikelyInvalidReceipt(display.receiptUrl) ? 'ring-1 ring-red-500/40' : ''}`}>
               {/* Receipt Preview Thumbnail */}
               <div 
                 className="h-48 bg-white/[0.05] relative overflow-hidden group cursor-pointer border-b border-white/10"
@@ -337,7 +338,7 @@ export default function PaymentVerificationQueue() {
                     type="button"
                     onClick={() => handleRejectForged(display)}
                     disabled={actionLoading}
-                    className="w-full bg-red-950 hover:bg-red-900 border border-red-500/50 text-red-200 text-[10px] font-bold uppercase tracking-wider py-2 flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
+                    className="btn-reject-fx w-full bg-red-950 hover:bg-red-900 border border-red-500/50 text-red-200 text-[10px] font-bold uppercase tracking-wider py-2 flex items-center justify-center gap-1 disabled:opacity-50"
                   >
                     <AlertCircle className="w-3.5 h-3.5" /> Reject — Forged / Not a receipt
                   </button>
@@ -346,7 +347,7 @@ export default function PaymentVerificationQueue() {
                 <button
                   onClick={() => handleApprove(display)}
                   disabled={actionLoading}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold uppercase tracking-wider py-2 flex items-center justify-center gap-1 transition-colors"
+                  className="btn-approve-fx flex-1 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold uppercase tracking-wider py-2 flex items-center justify-center gap-1"
                 >
                   <Check className="w-3.5 h-3.5" /> Approve
                 </button>
@@ -357,7 +358,7 @@ export default function PaymentVerificationQueue() {
                     setShowRejectModal(true)
                   }}
                   disabled={actionLoading}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold uppercase tracking-wider py-2 flex items-center justify-center gap-1 transition-colors"
+                  className="btn-reject-fx flex-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold uppercase tracking-wider py-2 flex items-center justify-center gap-1"
                 >
                   <X className="w-3.5 h-3.5" /> Reject
                 </button>
@@ -490,7 +491,7 @@ export default function PaymentVerificationQueue() {
                     type="button"
                     onClick={() => handleRejectForged(selectedBooking)}
                     disabled={actionLoading}
-                    className="w-full bg-red-950 hover:bg-red-900 border border-red-500/50 text-red-200 text-xs font-bold uppercase tracking-wider py-3 flex items-center justify-center gap-1"
+                    className="btn-reject-fx w-full bg-red-950 hover:bg-red-900 border border-red-500/50 text-red-200 text-xs font-bold uppercase tracking-wider py-3 flex items-center justify-center gap-1"
                   >
                     <AlertCircle className="w-4 h-4" /> Reject — Forged / Fake Receipt
                   </button>
@@ -499,7 +500,7 @@ export default function PaymentVerificationQueue() {
                   <button
                     onClick={() => handleApprove(selectedBooking)}
                     disabled={actionLoading}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold uppercase tracking-wider py-3 flex items-center justify-center gap-1 transition-colors"
+                    className="btn-approve-fx flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold uppercase tracking-wider py-3 flex items-center justify-center gap-1"
                   >
                     <Check className="w-4 h-4" /> Approve Payment
                   </button>
@@ -511,7 +512,7 @@ export default function PaymentVerificationQueue() {
                       setShowRejectModal(true)
                     }}
                     disabled={actionLoading}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider py-3 flex items-center justify-center gap-1 transition-colors"
+                    className="btn-reject-fx flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider py-3 flex items-center justify-center gap-1"
                   >
                     <X className="w-4 h-4" /> Reject Receipt
                   </button>
@@ -622,7 +623,7 @@ export default function PaymentVerificationQueue() {
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider py-3 flex items-center justify-center gap-1 transition-colors"
+                className="btn-reject-fx flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider py-3 flex items-center justify-center gap-1"
               >
                 {actionLoading ? (
                   <>

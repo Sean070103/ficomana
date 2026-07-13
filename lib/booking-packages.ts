@@ -37,7 +37,7 @@ const graduationPackages: BookingPackage[] = [
     id: 'fico-package',
     category: 'graduation',
     title: 'FICO PACKAGE',
-    price: '₱3,000',
+    price: '₱3,500',
     duration: '30 mins',
     description:
       'Without Hair and Makeup. Perfect for graduation portraits with professional lighting and studio equipment.',
@@ -60,7 +60,7 @@ const graduationPackages: BookingPackage[] = [
     id: 'mana-makeup',
     category: 'graduation',
     title: 'MANA PACKAGE',
-    price: '₱6,000',
+    price: '₱6,500',
     duration: '2 hours',
     description:
       'With Hair and Makeup. A complete graduation experience with styling, shoot, and premium prints.',

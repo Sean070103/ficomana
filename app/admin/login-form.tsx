@@ -44,7 +44,8 @@ export default function AdminLogin() {
         return
       }
 
-      router.push('/admin/dashboard')
+      const redirect = searchParams.get('redirect')
+      router.push(redirect && redirect.startsWith('/') ? redirect : '/admin/dashboard')
       router.refresh()
     } catch {
       setError('Something went wrong. Please try again.')

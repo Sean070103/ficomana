@@ -1,4 +1,5 @@
 import type { Booking } from '@/lib/data-store'
+import type { RawPhotoWorkflowStatus } from '@/lib/booking-display'
 
 export const adminPage = 'space-y-6 font-sans max-w-7xl'
 export const adminTitle = 'text-2xl font-bold tracking-tight text-white'
@@ -57,6 +58,21 @@ export function bookingStatusBadge(status: Booking['bookingStatus']) {
       return 'rounded-md bg-white/10 text-white/50 border border-white/20'
     default:
       return 'rounded-md bg-white/5 text-white/60 border border-white/10'
+  }
+}
+
+export function rawPhotoStatusBadge(status: RawPhotoWorkflowStatus) {
+  switch (status) {
+    case 'approved':
+      return 'rounded-md bg-green-500/15 text-green-400 border border-green-500/30'
+    case 'rejected':
+      return 'rounded-md bg-red-500/15 text-red-400 border border-red-500/30'
+    case 'pending_review':
+      return 'rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30'
+    case 'awaiting_selection':
+      return 'rounded-md bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+    case 'awaiting_gallery':
+      return 'rounded-md bg-white/5 text-white/50 border border-white/10'
   }
 }
 

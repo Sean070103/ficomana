@@ -9,6 +9,8 @@ export const config = {
   matcher: [
     '/admin/:path*',
     '/admin',
+    '/filtering',
+    '/filtering/:path*',
     '/api/bookings',
     '/api/bookings/:path*',
     '/api/notifications',

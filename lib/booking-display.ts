@@ -125,12 +125,54 @@ export function bookingMatchesSearch(booking: Booking, term: string): boolean {
   })
 }
 
+export type RawPhotoWorkflowStatus =
+  | 'awaiting_gallery'
+  | 'awaiting_selection'
+  | 'pending_review'
+  | 'approved'
+  | 'rejected'
+
+const RAW_PHOTO_ACTIVE_STATUSES = new Set<Booking['bookingStatus']>(['Confirmed', 'Completed'])
+
+/** Whether this booking is in the post-shoot raw photo selection workflow. */
+export function isRawPhotoWorkflowBooking(booking: Booking): boolean {
+  if (booking.driveLink || booking.rawPhotoLink || booking.rawPhotoStatus) return true
+  return RAW_PHOTO_ACTIVE_STATUSES.has(booking.bookingStatus)
+}
+
+/** Current step in the raw photo filtering workflow. */
+export function getRawPhotoWorkflowStatus(booking: Booking): RawPhotoWorkflowStatus | null {
+  if (!isRawPhotoWorkflowBooking(booking)) return null
+  if (booking.rawPhotoStatus === 'Approved') return 'approved'
+  if (booking.rawPhotoStatus === 'Rejected') return 'rejected'
+  if (booking.rawPhotoLink || booking.rawPhotoStatus === 'Pending Review') return 'pending_review'
+  if (booking.driveLink) return 'awaiting_selection'
+  if (RAW_PHOTO_ACTIVE_STATUSES.has(booking.bookingStatus)) return 'awaiting_gallery'
+  return null
+}
+
+export function rawPhotoWorkflowLabel(status: RawPhotoWorkflowStatus): string {
+  switch (status) {
+    case 'awaiting_gallery':
+      return 'Awaiting Gallery'
+    case 'awaiting_selection':
+      return 'Awaiting Selection'
+    case 'pending_review':
+      return 'Pending Review'
+    case 'approved':
+      return 'Approved'
+    case 'rejected':
+      return 'Rejected'
+  }
+}
+
 export type BookingFilterOptions = {
   searchTerm?: string
   statusFilter?: string
   paymentFilter?: string
   packageFilter?: string
   dateFilter?: string
+  rawPhotoFilter?: string
 }
 
 export function filterBookings(bookings: Booking[], filters: BookingFilterOptions): Booking[] {
@@ -140,6 +182,7 @@ export function filterBookings(bookings: Booking[], filters: BookingFilterOption
     paymentFilter = 'All',
     packageFilter = 'All',
     dateFilter = '',
+    rawPhotoFilter = 'All',
   } = filters
 
   let result = bookings.map(enrichBookingDisplay)
@@ -158,6 +201,9 @@ export function filterBookings(bookings: Booking[], filters: BookingFilterOption
   }
   if (dateFilter) {
     result = result.filter((booking) => booking.bookingDate === dateFilter)
+  }
+  if (rawPhotoFilter !== 'All') {
+    result = result.filter((booking) => getRawPhotoWorkflowStatus(booking) === rawPhotoFilter)
   }
 
   return result.sort(

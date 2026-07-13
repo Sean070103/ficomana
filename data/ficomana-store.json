@@ -1,4 +1,45 @@
 {
-  "bookings": [],
+  "bookings": [
+    {
+      "id": "FM-820835",
+      "customerName": "Sean Michael Andrew Mendoza",
+      "customerEmail": "mendozaseanmichaelandrewb2345@gmail.com",
+      "customerPhone": "09636533613",
+      "customerFbLink": "test",
+      "customerFbName": "test",
+      "packageId": "mana-makeup",
+      "packageName": "MANA PACKAGE",
+      "bookingDate": "2026-07-24",
+      "bookingTime": "8:00 AM - 10:00 AM · SLOT 1",
+      "slotId": "m-08-10-s1",
+      "arrivalTime": "7:45 AM",
+      "shootTime": "8:00 AM",
+      "isWalkIn": false,
+      "note": "School: test · Course: test · Hood: Pink · Toga: Plain Black Toga · Tassel: Pink · Background: Gray",
+      "schoolName": "test",
+      "course": "test",
+      "hoodColor": "Pink",
+      "togaColor": "Plain Black Toga",
+      "tasselColor": "Pink",
+      "backgroundColor": "Gray",
+      "depositAmount": 500,
+      "price": 6000,
+      "transactionRef": "333333",
+      "bookingStatus": "Completed",
+      "paymentStatus": "Paid Deposit",
+      "createdAt": "2026-07-13T07:09:06.033+00:00",
+      "receiptUrl": "https://ysobvjfqqcerdprmqfxo.supabase.co/storage/v1/object/public/receipts/FM-820835-1783926543995-fico_navbar.png",
+      "paymentHistory": [
+        {
+          "id": "PAY-2588",
+          "amount": 500,
+          "method": "GCash",
+          "type": "Deposit",
+          "transactionRef": "333333",
+          "date": "2026-07-13T07:09:06.033Z"
+        }
+      ]
+    }
+  ],
   "notifications": []
 }

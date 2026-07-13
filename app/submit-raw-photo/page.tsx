@@ -135,10 +135,10 @@ function SubmitRawPhotoForm() {
           </div>
           <h3 className="text-lg font-semibold text-white">Selection Submitted</h3>
           <p className="text-sm text-white/70">
-            Your raw photo Google Drive link for booking <span className="font-mono text-white">{booking?.id}</span> has been submitted to the editors.
+            Your folder with 5 chosen photos for booking <span className="font-mono text-white">{booking?.id}</span> has been submitted to the editors.
           </p>
           <p className="text-xs text-white/40 max-w-sm mx-auto">
-            We will check if it is edited or blurry. You will receive an email confirmation once it is approved or if it needs resubmission.
+            We will check that the photos are original and not blurry. You will receive an email confirmation once your selection is approved or if it needs resubmission.
           </p>
           <div className="flex justify-center gap-3 pt-4">
             <button
@@ -219,7 +219,7 @@ function SubmitRawPhotoForm() {
                 <Image className="w-3.5 h-3.5 text-primary" /> 1. View Your Raw Photos
               </p>
               <p className="text-[11px] text-white/60 leading-relaxed mb-3">
-                Click below to open your Google Drive gallery, browse your photos, and copy the link to the single raw picture you want us to edit.
+                Click below to open your Google Drive gallery and browse your session photos. Pick the <strong className="text-white">5 raw photos</strong> you want us to edit.
               </p>
               <a
                 href={booking.driveLink}
@@ -229,6 +229,14 @@ function SubmitRawPhotoForm() {
               >
                 Open Studio Gallery <ExternalLink className="w-3.5 h-3.5" />
               </a>
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <p className="text-[10px] font-bold text-white uppercase tracking-wider mb-1.5">
+                  2. Create Your Selection Folder
+                </p>
+                <p className="text-[11px] text-white/60 leading-relaxed">
+                  In <strong className="text-white">your own Google Drive</strong>, create a new folder and copy your 5 chosen photos into it. Then right-click the folder, choose <strong className="text-white">Share</strong>, and set access to <strong className="text-white">&ldquo;Anyone with the link&rdquo;</strong>.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -254,20 +262,20 @@ function SubmitRawPhotoForm() {
                     Submission Status: {booking.rawPhotoStatus}
                   </p>
                   {booking.rawPhotoStatus === 'Approved' && (
-                    <p>Your photo selection is approved. Our editors are currently working on your portrait. You will receive an email once it is ready!</p>
+                    <p>Your photo selection is approved. Our editors are currently working on your portraits. You will receive an email once they are ready!</p>
                   )}
                   {booking.rawPhotoStatus === 'Pending Review' && (
-                    <p>Your raw photo link is currently pending review. Our editors will verify that the photo is not blurry and not already edited.</p>
+                    <p>Your folder link is currently pending review. Our editors will verify that the photos are not blurry and not already edited.</p>
                   )}
                   {booking.rawPhotoStatus === 'Rejected' && (
                     <>
-                      <p>Unfortunately, your raw photo selection could not be approved.</p>
+                      <p>Unfortunately, your photo selection could not be approved.</p>
                       {booking.rawPhotoNotes && (
                         <p className="mt-1.5 p-2 bg-red-900/40 border border-red-500/10 rounded font-semibold italic text-[11px]">
                           Reason: {booking.rawPhotoNotes}
                         </p>
                       )}
-                      <p className="mt-2 text-white/50 text-[10px]">Please submit a different raw photo link below.</p>
+                      <p className="mt-2 text-white/50 text-[10px]">Please update your folder (or create a new one) and resubmit the link below.</p>
                     </>
                   )}
                 </div>
@@ -279,21 +287,21 @@ function SubmitRawPhotoForm() {
           {(!booking.rawPhotoStatus || booking.rawPhotoStatus === 'Rejected' || booking.rawPhotoStatus === 'Pending Review') && (
             <form onSubmit={handleSubmit} className={`p-6 sm:p-8 ${cardClass} space-y-4`}>
               <p className="text-[10px] font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1 border-b border-white/10 pb-2">
-                <Upload className="w-3.5 h-3.5 text-primary" /> {booking.rawPhotoStatus === 'Rejected' ? 'Resubmit New Raw Photo Link' : '2. Enter Chosen Raw Photo Link'}
+                <Upload className="w-3.5 h-3.5 text-primary" /> {booking.rawPhotoStatus === 'Rejected' ? 'Resubmit Your Photo Folder Link' : '3. Submit Your Folder Link'}
               </p>
               
               <div>
-                <label className={labelClass}>Google Drive Link to Raw Photo</label>
+                <label className={labelClass}>Google Drive Folder Link (5 Chosen Photos)</label>
                 <input
                   required
                   type="url"
                   value={rawPhotoLink}
                   onChange={(e) => setRawPhotoLink(e.target.value)}
-                  placeholder="https://drive.google.com/file/d/..."
+                  placeholder="https://drive.google.com/drive/folders/..."
                   className={inputClass + ' mt-1.5'}
                 />
                 <p className="text-[10px] text-white/40 mt-1.5 leading-relaxed">
-                  Make sure you link to the specific file in your Google Drive folder, and that the link permissions are shared publicly.
+                  Paste the link to your own Google Drive folder containing your 5 chosen raw photos. Make sure sharing is set to &ldquo;Anyone with the link&rdquo; so our editors can open it.
                 </p>
               </div>
 
@@ -313,7 +321,7 @@ function SubmitRawPhotoForm() {
                   ← Use different booking
                 </button>
                 <button type="submit" disabled={submitting || !rawPhotoLink.trim()} className={btnPrimaryClass}>
-                  {submitting ? 'Submitting...' : booking.rawPhotoStatus === 'Rejected' ? 'Resubmit Raw Photo' : 'Submit Raw Photo'}
+                  {submitting ? 'Submitting...' : booking.rawPhotoStatus === 'Rejected' ? 'Resubmit Folder Link' : 'Submit Folder Link'}
                 </button>
               </div>
             </form>
@@ -344,8 +352,8 @@ export default function SubmitRawPhotoPage() {
       <SectionShell id="submit-raw-photo" className="pt-28 pb-16 flex-1 flex flex-col justify-center">
         <SectionHeader
           eyebrow="Client Portal"
-          title="Submit Chosen Raw Pic"
-          description="If you have already shot with us, look up your booking reference to view your Google Drive raw shots and submit the exact photo you want us to edit."
+          title="Submit Your 5 Chosen Photos"
+          description="If you have already shot with us, look up your booking reference to view your Google Drive raw shots, then submit a folder link with the 5 photos you want us to edit."
           align="center"
         />
         

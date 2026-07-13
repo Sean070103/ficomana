@@ -121,10 +121,6 @@ export function mapModelBookingToDbCore(b: Booking): Record<string, unknown> {
     rejection_reason: b.rejectionReason ?? null,
     created_at: b.createdAt,
     drive_link: b.driveLink ?? null,
-    raw_photo_link: b.rawPhotoLink ?? null,
-    raw_photo_status: b.rawPhotoStatus ?? null,
-    raw_photo_notes: b.rawPhotoNotes ?? null,
-    raw_photo_submitted_at: b.rawPhotoSubmittedAt ?? null,
   }
 }
 
@@ -167,10 +163,16 @@ export function mapModelBookingToDb(b: Booking): Record<string, unknown> {
           : (b.receiptUrl ?? null),
     payment_history: JSON.stringify(b.paymentHistory ?? []),
     drive_link: b.driveLink ?? null,
-    raw_photo_link: b.rawPhotoLink ?? null,
-    raw_photo_status: b.rawPhotoStatus ?? null,
-    raw_photo_notes: b.rawPhotoNotes ?? null,
-    raw_photo_submitted_at: b.rawPhotoSubmittedAt ?? null,
+    // Raw photo columns come from migration 011 — only send them when used so
+    // bookings still save on databases where that migration is not applied yet.
+    ...(b.rawPhotoLink || b.rawPhotoStatus || b.rawPhotoNotes || b.rawPhotoSubmittedAt
+      ? {
+          raw_photo_link: b.rawPhotoLink ?? null,
+          raw_photo_status: b.rawPhotoStatus ?? null,
+          raw_photo_notes: b.rawPhotoNotes ?? null,
+          raw_photo_submitted_at: b.rawPhotoSubmittedAt ?? null,
+        }
+      : {}),
   }
 }
 

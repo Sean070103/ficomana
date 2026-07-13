@@ -22,8 +22,8 @@ export const PACKAGE_SEED_ROWS: PackageSeedRow[] = [
     id: 'fico-package',
     category: 'graduation',
     title: 'FICO PACKAGE',
-    price_display: '₱3,000',
-    price_amount: 3000,
+    price_display: '₱3,500',
+    price_amount: 3500,
     duration: '30 mins',
     description: 'Without Hair and Makeup. Graduation portraits with professional lighting.',
     features: [
@@ -46,8 +46,8 @@ export const PACKAGE_SEED_ROWS: PackageSeedRow[] = [
     id: 'mana-makeup',
     category: 'graduation',
     title: 'MANA PACKAGE',
-    price_display: '₱6,000',
-    price_amount: 6000,
+    price_display: '₱6,500',
+    price_amount: 6500,
     duration: '2 hours',
     description: 'With Hair and Makeup. Complete graduation experience.',
     features: [

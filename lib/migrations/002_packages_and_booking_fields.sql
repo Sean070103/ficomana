@@ -50,8 +50,8 @@ CREATE POLICY "packages_staff_write"
 
 -- ── Seed packages (incl. CREATIVE PACKAGE) ────────────────────────────────────
 INSERT INTO packages (id, category, title, price_display, price_amount, duration, description, features, slot_type, sort_order) VALUES
-  ('fico-package', 'graduation', 'FICO PACKAGE', '₱3,000', 3000, '30 mins (15m shoot / 15m select)', 'Without Hair and Makeup.', '["Free use of Toga & Cap","Professional Photographer","5 Edited/Enhanced Copies"]'::jsonb, 'standard', 1),
-  ('mana-makeup', 'graduation', 'MANA PACKAGE', '₱6,000', 6000, '2 hours (1.5h makeup / 15m shoot / 15m select)', 'With Hair and Makeup.', '["Free use of Toga & Cap","Professional hair & makeup","5 Edited/Enhanced Copies"]'::jsonb, 'makeup', 2)
+  ('fico-package', 'graduation', 'FICO PACKAGE', '₱3,500', 3500, '30 mins (15m shoot / 15m select)', 'Without Hair and Makeup.', '["Free use of Toga & Cap","Professional Photographer","5 Edited/Enhanced Copies"]'::jsonb, 'standard', 1),
+  ('mana-makeup', 'graduation', 'MANA PACKAGE', '₱6,500', 6500, '2 hours (1.5h makeup / 15m shoot / 15m select)', 'With Hair and Makeup.', '["Free use of Toga & Cap","Professional hair & makeup","5 Edited/Enhanced Copies"]'::jsonb, 'makeup', 2)
 ON CONFLICT (id) DO UPDATE SET
   title = EXCLUDED.title,
   price_display = EXCLUDED.price_display,

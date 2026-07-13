@@ -27,10 +27,18 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isAdminLogin = pathname === '/admin'
   const isAdminRoute = pathname.startsWith('/admin')
+  const isFilteringRoute = pathname === '/filtering' || pathname.startsWith('/filtering/')
 
   if (isAdminRoute && !isAdminLogin && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/admin'
+    return NextResponse.redirect(url)
+  }
+
+  if (isFilteringRoute && !user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/admin'
+    url.search = '?redirect=/filtering'
     return NextResponse.redirect(url)
   }
 

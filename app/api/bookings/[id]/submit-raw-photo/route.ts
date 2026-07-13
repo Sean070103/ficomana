@@ -22,7 +22,7 @@ export async function POST(
     const rawPhotoLink = body.rawPhotoLink?.trim()
 
     if (!email || !rawPhotoLink) {
-      return NextResponse.json({ error: 'Email and raw photo Google Drive link are required.' }, { status: 400 })
+      return NextResponse.json({ error: 'Email and your Google Drive folder link are required.' }, { status: 400 })
     }
 
     // Basic GDrive link validation
@@ -60,7 +60,7 @@ export async function POST(
       rawPhotoSubmittedAt: new Date().toISOString(),
     }
 
-    const notificationMessage = `Customer ${booking.customerName} submitted a raw photo GDrive link for booking ${booking.id}.`
+    const notificationMessage = `Customer ${booking.customerName} submitted their folder of 5 chosen photos for booking ${booking.id}.`
 
     if (isSupabaseConfigured()) {
       const admin = getSupabaseAdmin()
@@ -72,7 +72,7 @@ export async function POST(
           return NextResponse.json({
             id: saved.id,
             rawPhotoStatus: saved.rawPhotoStatus,
-            message: 'Raw photo Google Drive link submitted successfully. Our editors will review it shortly.',
+            message: 'Your folder with 5 chosen photos was submitted successfully. Our editors will review it shortly.',
           })
         }
       }
@@ -84,7 +84,7 @@ export async function POST(
     return NextResponse.json({
       id: saved.id,
       rawPhotoStatus: saved.rawPhotoStatus,
-      message: 'Raw photo Google Drive link submitted successfully. Our editors will review it shortly.',
+      message: 'Your folder with 5 chosen photos was submitted successfully. Our editors will review it shortly.',
     })
   } catch (error) {
     console.error('POST /api/bookings/[id]/submit-raw-photo', error)

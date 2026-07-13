@@ -11,6 +11,7 @@ import { GraduationSessionDetails } from '@/components/graduation-session-detail
 import { parsePackagePrice, usesMakeupSlots, isWalkInEligiblePackage, BOOKING_PACKAGE_CATEGORY_LABELS, type BookingPackage, type BookingPackageCategory } from '@/lib/booking-packages'
 import {
   MANA_SESSION_BLOCKS,
+  ALL_MANA_SLOTS,
   FICO_ARRIVAL_LABEL,
   FICO_BOOKING_TIME_LABEL,
   formatSlotBookingTime,

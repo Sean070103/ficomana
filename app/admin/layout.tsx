@@ -35,6 +35,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [showNotifDrawer, setShowNotifDrawer] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [pendingVerifications, setPendingVerifications] = useState(0)
+  const [pendingRawPhotoReviews, setPendingRawPhotoReviews] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -61,6 +62,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setUnreadCount(notifs.filter((n) => !n.isRead).length)
       const bookings = await getBookings()
       setPendingVerifications(bookings.filter((b) => b.bookingStatus === 'Pending Verification').length)
+      setPendingRawPhotoReviews(
+        bookings.filter((b) => !!b.rawPhotoLink && (b.rawPhotoStatus || 'Pending Review') === 'Pending Review').length,
+      )
     } catch (err) {
       console.error(err)
     }
@@ -115,6 +119,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       badge: pendingVerifications > 0 ? pendingVerifications : undefined,
     },
     { label: 'Bookings List', href: '/admin/bookings', icon: List },
+    {
+      label: 'Filtering Queue',
+      href: '/filtering',
+      icon: Image,
+      badge: pendingRawPhotoReviews > 0 ? pendingRawPhotoReviews : undefined,
+      external: true,
+    },
     { label: 'Session Calendar', href: '/admin/calendar', icon: CalendarDays },
     { label: 'System Email Logs', href: '/admin/emails', icon: FileText },
   ]
@@ -141,14 +152,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[11px] font-semibold tracking-wide transition-all duration-200 ${
-                  isActive ? adminNavActive : adminNavIdle
-                }`}
-              >
+            const linkClass = `flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[11px] font-semibold tracking-wide transition-all duration-200 ${
+              isActive ? adminNavActive : adminNavIdle
+            }`
+            const linkContent = (
+              <>
                 <div className="flex items-center gap-3">
                   <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : 'text-white/45'}`} />
                   <span>{item.label}</span>
@@ -162,6 +170,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     {item.badge}
                   </span>
                 )}
+              </>
+            )
+
+            return item.external ? (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={linkClass}
+              >
+                {linkContent}
+              </a>
+            ) : (
+              <Link key={item.href} href={item.href} className={linkClass}>
+                {linkContent}
               </Link>
             )
           })}
@@ -253,9 +277,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             <div className="flex gap-2">
                               {n.bookingId && (
                                 <Link
-                                  href={`/admin/bookings?search=${encodeURIComponent(n.bookingId)}`}
+                                  href={
+                                    n.type.startsWith('RAW_PHOTO')
+                                      ? `/filtering?search=${encodeURIComponent(n.bookingId)}`
+                                      : `/admin/bookings?search=${encodeURIComponent(n.bookingId)}`
+                                  }
                                   onClick={() => setShowNotifDrawer(false)}
                                   className="text-[10px] text-primary font-semibold hover:underline"
+                                  {...(n.type.startsWith('RAW_PHOTO') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                                 >
                                   View
                                 </Link>
@@ -295,15 +324,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[11px] font-semibold ${
-                    isActive ? adminNavActive : adminNavIdle
-                  }`}
-                >
+              const linkClass = `flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[11px] font-semibold ${
+                isActive ? adminNavActive : adminNavIdle
+              }`
+              const linkContent = (
+                <>
                   <div className="flex items-center gap-3">
                     <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : ''}`} />
                     <span>{item.label}</span>
@@ -313,6 +338,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       {item.badge}
                     </span>
                   )}
+                </>
+              )
+
+              return item.external ? (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={linkClass}
+                >
+                  {linkContent}
+                </a>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={linkClass}
+                >
+                  {linkContent}
                 </Link>
               )
             })}

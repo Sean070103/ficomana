@@ -26,13 +26,13 @@ const packages = [
     id: 'fico-package',
     name: 'FICO PACKAGE',
     subtitle: 'Without Hair and Makeup',
-    price: 'Php 3,000',
+    price: 'Php 3,500',
   },
   {
     id: 'mana-makeup',
     name: 'MANA PACKAGE',
     subtitle: 'With Hair and Makeup',
-    price: 'Php 6,000',
+    price: 'Php 6,500',
   },
 ]
 

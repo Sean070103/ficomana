@@ -49,11 +49,12 @@ export async function saveBookingToDb(client: SupabaseClient, booking: Booking):
   let { data, error } = await attempt(mapModelBookingToDb(booking))
 
   if (error) {
-    console.error('saveBookingToDb (full):', error.message)
+    console.error('saveBookingToDb (full):', error.message, error.details, error.hint)
     const retry = await attempt(mapModelBookingToDbCore(booking))
     if (retry.error) {
-      console.error('saveBookingToDb (core):', retry.error.message)
-      return null
+      console.error('saveBookingToDb (core):', retry.error.message, retry.error.details, retry.error.hint)
+      // Throw to surface the actual error message to the API response
+      throw new Error(`Database save failed: ${error.message}`)
     }
     data = retry.data
   }
