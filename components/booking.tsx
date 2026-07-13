@@ -128,13 +128,13 @@ function BookingForm() {
   const [togaColor, setTogaColor] = useState('Plain Black Toga')
   const [tasselColor, setTasselColor] = useState('Pink')
   const [backgroundColor, setBackgroundColor] = useState('Gray')
-  const [paymentMethod, setPaymentMethod] = useState<'GCash' | 'BPI'>('GCash')
+  const [paymentMethod] = useState<'BPI'>('BPI')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [transactionRef, setTransactionRef] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [bookingId, setBookingId] = useState('')
   const [submittedSummary, setSubmittedSummary] = useState<{
-    paymentMethod: 'GCash' | 'BPI'
+    paymentMethod: 'BPI'
     transactionRef: string
     depositAmount: number
     packageName: string
@@ -403,7 +403,7 @@ function BookingForm() {
       <SectionHeader
         eyebrow="Booking Portal"
         title="Reserve Your Session"
-        description="Select your session, choose a slot on our interactive calendar, upload your GCash deposit receipt, and await verification."
+        description="Select your session, choose a slot on our interactive calendar, pay the ₱500 deposit via BPI, upload your receipt, and await verification."
         align="center"
       />
 
@@ -903,25 +903,26 @@ function BookingForm() {
                     {isGraduationPackage ? '5. Deposit' : '4. Deposit'} — PHP 500
                   </h3>
                   <p className="text-sm text-white/70 mt-1 lg:text-left text-center">
-                    Upload a clear screenshot of your {paymentMethod} payment receipt (not a studio photo).
+                    Scan the BPI QR below to pay ₱500, then upload a clear screenshot of your BPI payment receipt (not a studio photo).
                   </p>
                 </div>
-                <div className="flex gap-2 justify-center lg:justify-start">
-                  {(['GCash', 'BPI'] as const).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setPaymentMethod(m)}
-                      className={`px-6 py-2 text-xs uppercase border rounded-sm font-semibold ${
-                        paymentMethod === m ? 'border-primary bg-primary text-primary-foreground' : 'border-white/10 text-white/60 hover:border-white/30'
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  ))}
+                <div className="border border-white/10 bg-white/[0.03] p-4 sm:p-5 text-center">
+                  <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-white/50 mb-3">BPI Deposit — ₱500</p>
+                  <div className="relative mx-auto w-full max-w-[240px] aspect-square bg-white rounded-sm overflow-hidden">
+                    <Image
+                      src="/bpi_qr.jpg"
+                      alt="BPI payment QR code for FICO MANA deposit"
+                      fill
+                      className="object-contain"
+                      sizes="240px"
+                    />
+                  </div>
+                  <p className="text-[10px] text-white/40 mt-3 leading-relaxed">
+                    Pay exactly ₱500, then enter your BPI reference number and upload the payment screenshot below.
+                  </p>
                 </div>
                 <div>
-                  <label className={labelClass}>GCash / BPI Transaction Reference *</label>
+                  <label className={labelClass}>BPI Transaction Reference *</label>
                   <input
                     required
                     value={transactionRef}
@@ -980,7 +981,7 @@ function BookingForm() {
                     <p className="font-semibold text-white">₱{(submittedSummary?.depositAmount ?? 500).toFixed(2)}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-white/40">GCash / BPI Transaction Reference</p>
+                    <p className="text-white/40">BPI Transaction Reference</p>
                     <p className="font-mono font-bold text-white text-base mt-0.5">
                       {submittedSummary?.transactionRef || transactionRef.trim() || '—'}
                     </p>

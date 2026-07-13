@@ -61,7 +61,7 @@ function depositPayment(booking: any, payment?: PaymentRecord): PaymentRecord {
     history.find((p) => p.type === 'Deposit') ?? {
       id: 'PAY-DEP',
       amount: Number(booking.depositAmount ?? 0),
-      method: 'GCash',
+      method: 'BPI',
       type: 'Deposit',
       transactionRef: booking.transactionRef ? String(booking.transactionRef) : undefined,
       date: String(booking.createdAt ?? new Date().toISOString()),

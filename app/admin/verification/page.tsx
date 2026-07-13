@@ -86,7 +86,7 @@ export default function PaymentVerificationQueue() {
         history.push({
           id: 'PAY-' + Math.floor(1000 + Math.random() * 9000),
           amount: booking.depositAmount,
-          method: 'GCash',
+          method: 'BPI',
           type: 'Deposit',
           transactionRef: booking.transactionRef,
           date: new Date().toISOString(),

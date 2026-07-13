@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Image from 'next/image'
 import { AlertCircle, Check, RefreshCw, Upload } from 'lucide-react'
 import SectionHeader from '@/components/section-header'
 import SectionShell from '@/components/section-shell'
@@ -33,7 +34,7 @@ function BookingResubmitForm() {
   const [lookupError, setLookupError] = useState('')
   const [booking, setBooking] = useState<PublicResubmitBooking | null>(null)
 
-  const [paymentMethod, setPaymentMethod] = useState<'GCash' | 'BPI'>('GCash')
+  const paymentMethod = 'BPI' as const
   const [transactionRef, setTransactionRef] = useState('')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -185,36 +186,35 @@ function BookingResubmitForm() {
                   </p>
                   {isForgedRejection('', booking.rejectionReason) && (
                     <p className="text-[10px] text-white/70 mt-2 leading-relaxed">
-                      Upload a genuine GCash or BPI screenshot from your transaction history — not a studio photo or sample image.
+                      Upload a genuine BPI payment screenshot from your transaction history — not a studio photo or sample image.
                     </p>
                   )}
                 </div>
               )}
             </div>
 
-            <div className="flex gap-2 justify-center flex-wrap">
-              {(['GCash', 'BPI'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setPaymentMethod(m)}
-                  className={`px-5 py-2 text-xs uppercase border rounded-sm font-semibold ${
-                    paymentMethod === m
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-white/10 text-white/60 hover:border-white/30'
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
+            <div className="border border-white/10 bg-white/[0.03] p-4 sm:p-5 text-center">
+              <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-white/50 mb-3">BPI Deposit — ₱{booking.depositAmount.toFixed(0)}</p>
+              <div className="relative mx-auto w-full max-w-[220px] aspect-square bg-white rounded-sm overflow-hidden">
+                <Image
+                  src="/bpi_qr.jpg"
+                  alt="BPI payment QR code for FICO MANA deposit"
+                  fill
+                  className="object-contain"
+                  sizes="220px"
+                />
+              </div>
+              <p className="text-[10px] text-white/40 mt-3 leading-relaxed">
+                Scan to pay, then upload your BPI payment screenshot below.
+              </p>
             </div>
 
             <div>
-              <label className={labelClass}>Transaction Reference (optional)</label>
+              <label className={labelClass}>BPI Transaction Reference (optional)</label>
               <input
                 value={transactionRef}
                 onChange={(e) => setTransactionRef(e.target.value)}
-                placeholder="GCash / bank reference number"
+                placeholder="BPI reference number"
                 className={inputClass + ' mt-1.5'}
               />
             </div>
@@ -227,7 +227,7 @@ function BookingResubmitForm() {
               <p className="text-sm text-white/70">
                 {receiptFile?.name ||
                   (booking.rejectionReason && isForgedRejection('', booking.rejectionReason)
-                    ? 'Upload genuine GCash/BPI screenshot *'
+                    ? 'Upload genuine BPI payment screenshot *'
                     : 'Click to upload new receipt *')}
               </p>
               <p className="text-[10px] text-white/40 mt-1">JPG, PNG, or PDF · Max 5 MB</p>
