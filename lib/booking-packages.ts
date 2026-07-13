@@ -12,6 +12,19 @@ export type BookingPackage = {
   features: string[]
   slotType: 'makeup' | 'standard'
   badge?: string
+  note?: string
+}
+
+const WALK_IN_INELIGIBLE = /walk-in clients are not eligible/i
+
+export function isWalkInEligiblePackage(pkg: Pick<BookingPackage, 'description' | 'note'>): boolean {
+  return !WALK_IN_INELIGIBLE.test(pkg.description) && !WALK_IN_INELIGIBLE.test(pkg.note ?? '')
+}
+
+export const BOOKING_PACKAGE_CATEGORY_LABELS: Record<BookingPackageCategory, string> = {
+  graduation: 'Graduation',
+  'self-portrait': 'Self Portrait',
+  creative: 'Creative',
 }
 
 function durationFromIncludes(includes: string[]): string {
@@ -102,6 +115,7 @@ const selfPortraitPackages: BookingPackage[] = [...ficoPackages, ...manaPackages
   features: pkg.includes,
   slotType: /hair and makeup/i.test(pkg.title) ? ('makeup' as const) : ('standard' as const),
   badge: pkg.badge,
+  note: pkg.note,
 }))
 
 export const bookingPackages: BookingPackage[] = [...graduationPackages, ...selfPortraitPackages.filter((p) => p.category !== 'creative'), ...creativeBookingPackages]

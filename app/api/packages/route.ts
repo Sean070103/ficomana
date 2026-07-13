@@ -33,6 +33,7 @@ export async function GET(request: Request) {
           description: p.description,
           features: p.features,
           slotType: p.slotType,
+          note: p.note,
         }))
         return NextResponse.json(bookable)
       }

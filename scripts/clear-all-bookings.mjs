@@ -1,69 +1,45 @@
 /**
- * Wipe all bookings, notifications, and email logs from Supabase + local JSON.
+ * Clear local transactional data for client handoff.
+ * Supabase must be cleared manually in the SQL Editor (see output below).
+ *
  * Usage: node scripts/clear-all-bookings.mjs
  */
-import { createClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 
-function loadEnv() {
-  try {
-    const raw = readFileSync(resolve(process.cwd(), '.env.local'), 'utf8')
-    for (const line of raw.split('\n')) {
-      const m = line.match(/^([^#=]+)=(.*)$/)
-      if (m) process.env[m[1].trim()] = m[2].trim()
-    }
-  } catch {
-    /* no .env.local */
-  }
+function clearLocalJson(relativePath, value) {
+  const filePath = resolve(process.cwd(), relativePath)
+  writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`)
+  console.log(`  ${relativePath}: cleared`)
 }
 
-loadEnv()
+const MANUAL_SUPABASE_SQL = `
+-- Run in Supabase Dashboard → SQL Editor
+DELETE FROM email_logs;
+DELETE FROM notifications;
+DELETE FROM receipts;
+DELETE FROM payments;
+DELETE FROM bookings;
+DELETE FROM blocked_slots;
+DELETE FROM fico_spot_blocks;
+DELETE FROM blocked_days;
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+-- Optional: clear uploaded receipt files
+-- Storage → receipts bucket → delete all files
+`.trim()
 
-if (!url || !key) {
-  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
-  process.exit(1)
-}
+console.log('IMPORTANT: Stop the dev server (pnpm dev) before clearing Supabase.')
+console.log('The admin console auto-syncs every 8s and the old code re-inserted')
+console.log('bookings from data/ficomana-store.json after a TRUNCATE.\n')
 
-const db = createClient(url, key, { auth: { persistSession: false } })
+console.log('Clearing local JSON (prevents stale cache)…')
+clearLocalJson('data/ficomana-store.json', { bookings: [], notifications: [] })
+clearLocalJson('data/email-logs.json', [])
+clearLocalJson('data/blocked-slots.json', [])
+clearLocalJson('data/fico-spot-blocks.json', [])
 
-async function deleteAll(table, idCol = 'id') {
-  const { data, error } = await db.from(table).select(idCol)
-  if (error) {
-    console.error(`  ${table}: fetch ERROR —`, error.message)
-    return 0
-  }
-  const rows = data ?? []
-  let deleted = 0
-  for (const row of rows) {
-    const id = row[idCol]
-    const { error: delErr } = await db.from(table).delete().eq(idCol, id)
-    if (delErr) console.error(`  ${table} ${id}:`, delErr.message)
-    else deleted++
-  }
-  console.log(`  ${table}: deleted ${deleted} rows`)
-  return deleted
-}
-
-console.log('Clearing Supabase booking data…')
-
-// Bookings first — cascades receipts, payments, linked notifications/email_logs
-await deleteAll('bookings', 'id')
-// Orphans
-await deleteAll('notifications', 'id')
-await deleteAll('email_logs', 'id')
-
-const { count: bookingsLeft } = await db.from('bookings').select('*', { count: 'exact', head: true })
-const { count: notifsLeft } = await db.from('notifications').select('*', { count: 'exact', head: true })
-
-writeFileSync(
-  resolve(process.cwd(), 'data', 'ficomana-store.json'),
-  JSON.stringify({ bookings: [], notifications: [] }, null, 2) + '\n',
-)
-writeFileSync(resolve(process.cwd(), 'data', 'email-logs.json'), '[]\n')
-
-console.log(`\nDone. Bookings: ${bookingsLeft ?? 0}, Notifications: ${notifsLeft ?? 0}`)
-console.log('Local data/ficomana-store.json and data/email-logs.json cleared.')
+console.log('\nLocal data cleared.')
+console.log('Supabase was NOT touched by this script.')
+console.log('\nClear Supabase manually:\n')
+console.log(MANUAL_SUPABASE_SQL)
+console.log('\nKept: packages catalog, staff auth accounts')

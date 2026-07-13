@@ -3,7 +3,6 @@ import { listBookings } from '@/lib/server-store'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
 import { toAvailability } from '@/lib/auth-api'
-import { mergeBookingsLists } from '@/lib/supabase-store'
 import type { Booking } from '@/lib/data-store'
 
 function mapDbBookingToAvailability(b: Record<string, unknown>) {
@@ -29,44 +28,21 @@ function bookingToAvailability(b: Booking) {
 /** Public endpoint — returns only fields needed for slot/calendar availability. */
 export async function GET() {
   try {
-    const fileBookings = await listBookings()
-
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('bookings')
-        .select('id, booking_date, slot_id, package_id, booking_status')
-        .order('created_at', { ascending: false })
-
-      if (!error && data) {
-        const fromDb = data.map(mapDbBookingToAvailability)
-        const fromFile = fileBookings.map(bookingToAvailability)
-        const merged = mergeBookingsLists(
-          fromDb.map((a) => ({
-            id: a.id,
-            customerName: '',
-            customerEmail: '',
-            customerPhone: '',
-            customerFbLink: '',
-            customerFbName: '',
-            packageId: a.packageId,
-            packageName: '',
-            bookingDate: a.bookingDate,
-            bookingTime: '',
-            slotId: a.slotId,
-            depositAmount: 0,
-            price: 0,
-            bookingStatus: a.bookingStatus as Booking['bookingStatus'],
-            paymentStatus: 'Unpaid',
-            createdAt: '',
-            paymentHistory: [],
-          })),
-          fileBookings,
-        )
-        return NextResponse.json(merged.map(bookingToAvailability))
-      }
+    if (!isSupabaseConfigured()) {
+      const fileBookings = await listBookings()
+      return NextResponse.json(fileBookings.map(bookingToAvailability))
     }
 
-    return NextResponse.json(fileBookings.map(bookingToAvailability))
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('id, booking_date, slot_id, package_id, booking_status')
+      .order('created_at', { ascending: false })
+
+    if (error || !data) {
+      return NextResponse.json([])
+    }
+
+    return NextResponse.json(data.map(mapDbBookingToAvailability))
   } catch (error) {
     console.error('GET /api/bookings/availability', error)
     return NextResponse.json({ error: 'Failed to load availability' }, { status: 500 })

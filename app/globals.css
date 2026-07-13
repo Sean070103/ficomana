@@ -186,6 +186,12 @@
     color: #f4f4f8;
   }
 
+  .admin-select optgroup {
+    background-color: #1a1a1a;
+    color: #ffffff;
+    font-weight: 600;
+  }
+
   input[type='date'] {
     color-scheme: dark;
   }

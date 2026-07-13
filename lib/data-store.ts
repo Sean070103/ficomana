@@ -47,12 +47,24 @@ export interface Booking {
   receiptUrl?: string
   paymentHistory: PaymentRecord[]
   driveLink?: string
+  rawPhotoLink?: string
+  rawPhotoStatus?: 'Pending Review' | 'Approved' | 'Rejected'
+  rawPhotoNotes?: string
+  rawPhotoSubmittedAt?: string
 }
 
 export interface Notification {
   id: string
   bookingId: string
-  type: 'NEW_BOOKING' | 'RECEIPT_UPLOAD' | 'CANCELLED' | 'RESUBMITTED' | 'PAYMENT_REJECTED'
+  type:
+    | 'NEW_BOOKING'
+    | 'RECEIPT_UPLOAD'
+    | 'CANCELLED'
+    | 'RESUBMITTED'
+    | 'PAYMENT_REJECTED'
+    | 'RAW_PHOTO_UPLOAD'
+    | 'RAW_PHOTO_APPROVED'
+    | 'RAW_PHOTO_REJECTED'
   message: string
   isRead: boolean
   createdAt: string

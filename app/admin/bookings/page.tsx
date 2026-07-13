@@ -8,9 +8,9 @@ import { useAdminToast } from '@/components/admin-toast-provider'
 import AdminPageHeader from '@/components/admin-page-header'
 import { useOnAdminDbSync } from '@/components/admin-auto-sync'
 import { GraduationSessionDetails } from '@/components/graduation-session-details'
-import { parsePackagePrice, usesMakeupSlots, type BookingPackage } from '@/lib/booking-packages'
+import { parsePackagePrice, usesMakeupSlots, isWalkInEligiblePackage, BOOKING_PACKAGE_CATEGORY_LABELS, type BookingPackage, type BookingPackageCategory } from '@/lib/booking-packages'
 import {
-  ALL_MANA_SLOTS,
+  MANA_SESSION_BLOCKS,
   FICO_ARRIVAL_LABEL,
   FICO_BOOKING_TIME_LABEL,
   formatSlotBookingTime,
@@ -97,13 +97,13 @@ function BookingsManagement() {
   const [walkInPhone, setWalkInPhone] = useState('')
   const [walkInDate, setWalkInDate] = useState('')
   const [walkInPackage, setWalkInPackage] = useState('fico-package')
+  const [walkInCategory, setWalkInCategory] = useState<BookingPackageCategory>('graduation')
   const [walkInSlotId, setWalkInSlotId] = useState('')
   const [walkInSaving, setWalkInSaving] = useState(false)
   const [allPackages, setAllPackages] = useState<BookingPackage[]>([])
 
-  const walkInPackages = allPackages.filter(
-    (pkg) => !/walk-in clients are not eligible/i.test(pkg.description),
-  )
+  const walkInPackages = allPackages.filter(isWalkInEligiblePackage)
+  const walkInPackagesInCategory = walkInPackages.filter((pkg) => pkg.category === walkInCategory)
   const walkInNeedsSlot = usesMakeupSlots(walkInPackage)
   const selectedWalkInPackage = walkInPackages.find((pkg) => pkg.id === walkInPackage)
 
@@ -131,14 +131,21 @@ function BookingsManagement() {
     fetchBookings(true)
     getBookingPackages().then((pkgs) => {
       setAllPackages(pkgs)
-      const eligible = pkgs.filter(
-        (pkg) => !/walk-in clients are not eligible/i.test(pkg.description),
-      )
+      const eligible = pkgs.filter(isWalkInEligiblePackage)
       if (eligible.length > 0 && !eligible.some((pkg) => pkg.id === walkInPackage)) {
         setWalkInPackage(eligible[0].id)
+        setWalkInCategory(eligible[0].category)
       }
     })
   }, [])
+
+  useEffect(() => {
+    if (walkInPackagesInCategory.length === 0) return
+    if (!walkInPackagesInCategory.some((pkg) => pkg.id === walkInPackage)) {
+      setWalkInPackage(walkInPackagesInCategory[0].id)
+      setWalkInSlotId('')
+    }
+  }, [walkInCategory, walkInPackagesInCategory, walkInPackage])
 
   useOnAdminDbSync(() => fetchBookings(true))
 
@@ -452,49 +459,75 @@ function BookingsManagement() {
             <input required value={walkInName} onChange={(e) => setWalkInName(e.target.value)} placeholder="Client name" className={adminInput} />
             <input required value={walkInPhone} onChange={(e) => setWalkInPhone(e.target.value)} placeholder="Phone" className={adminInput} />
             <input required type="date" value={walkInDate} onChange={(e) => setWalkInDate(e.target.value)} className={adminInput} />
-            <select
-              value={walkInPackage}
-              onChange={(e) => {
-                setWalkInPackage(e.target.value)
-                setWalkInSlotId('')
-              }}
-              className={`${adminInput} sm:col-span-2 lg:col-span-4`}
-            >
-              {(['graduation', 'self-portrait', 'creative'] as const).map((category) => {
-                const packages = walkInPackages.filter((pkg) => pkg.category === category)
-                if (packages.length === 0) return null
-                const label =
-                  category === 'graduation'
-                    ? 'Graduation'
-                    : category === 'self-portrait'
-                      ? 'Self Portrait'
-                      : 'Creative'
-                return (
-                  <optgroup key={category} label={label}>
-                    {packages.map((pkg) => (
-                      <option key={pkg.id} value={pkg.id}>
-                        {pkg.title} — {pkg.price}
-                        {pkg.slotType === 'makeup' ? ' · pick slot' : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                )
-              })}
-            </select>
-            {walkInNeedsSlot && (
+            <div className="sm:col-span-2 lg:col-span-4 space-y-2">
+              <span className={adminLabel}>Package category</span>
+              <div className="flex flex-wrap gap-2">
+                {(['graduation', 'self-portrait', 'creative'] as const).map((category) => {
+                  const count = walkInPackages.filter((pkg) => pkg.category === category).length
+                  if (count === 0) return null
+                  return (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => {
+                        setWalkInCategory(category)
+                        setWalkInSlotId('')
+                      }}
+                      className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider border transition-colors ${
+                        walkInCategory === category
+                          ? 'border-primary bg-primary text-white'
+                          : 'border-white/15 text-white/60 hover:border-white/30 hover:text-white'
+                      }`}
+                    >
+                      {BOOKING_PACKAGE_CATEGORY_LABELS[category]} ({count})
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
+              <span className={adminLabel}>Package</span>
               <select
-                required
-                value={walkInSlotId}
-                onChange={(e) => setWalkInSlotId(e.target.value)}
-                className={`${adminInput} sm:col-span-2 lg:col-span-4`}
+                value={walkInPackage}
+                onChange={(e) => {
+                  setWalkInPackage(e.target.value)
+                  setWalkInSlotId('')
+                }}
+                className={adminSelect}
               >
-                <option value="">Select makeup session slot</option>
-                {ALL_MANA_SLOTS.map((slot) => (
-                  <option key={slot.id} value={slot.id}>
-                    {slot.blockLabel} · {slot.slotLabel}
-                  </option>
-                ))}
+                {walkInPackagesInCategory.length === 0 ? (
+                  <option value="">No walk-in packages in this category</option>
+                ) : (
+                  walkInPackagesInCategory.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.title} — {pkg.price}
+                      {pkg.slotType === 'makeup' ? ' · pick slot' : ''}
+                    </option>
+                  ))
+                )}
               </select>
+            </div>
+            {walkInNeedsSlot && (
+              <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
+                <span className={adminLabel}>Makeup session slot</span>
+                <select
+                  required
+                  value={walkInSlotId}
+                  onChange={(e) => setWalkInSlotId(e.target.value)}
+                  className={adminSelect}
+                >
+                  <option value="">Select makeup session slot</option>
+                  {MANA_SESSION_BLOCKS.map((block) => (
+                    <optgroup key={block.sessionId} label={block.timeLabel}>
+                      {block.slots.map((slot) => (
+                        <option key={slot.id} value={slot.id}>
+                          {slot.slotLabel} · arrive {slot.arrivalTime}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
             )}
             <button type="submit" disabled={walkInSaving} className={`${adminBtnPrimary} p-3 sm:col-span-2 lg:col-span-4 disabled:cursor-not-allowed active:scale-95 transition-transform`}>
               {walkInSaving ? 'Saving...' : 'Save Walk-in'}

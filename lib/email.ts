@@ -1,7 +1,7 @@
 import { persistEmailLog } from './server-email-log'
 import { getServerEmailTemplate, renderTemplate } from './email-templates'
 import { LATE_FEE_POLICY } from './booking-slots'
-import { resubmitBookingUrl } from './site-url'
+import { resubmitBookingUrl, submitRawPhotoUrl } from './site-url'
 import { isForgedRejection } from './rejection-reasons'
 import {
   getResendClient,
@@ -12,7 +12,7 @@ import {
 
 export { getResendDiagnostics, isResendConfigured }
 
-function templateVars(booking: Record<string, unknown>) {
+function templateVars(booking: any) {
   return {
     customerName: String(booking.customerName ?? ''),
     bookingId: String(booking.id ?? ''),
@@ -46,15 +46,15 @@ function formatMoney(amount: number) {
   return `₱${amount.toFixed(2)}`
 }
 
-function totalPaid(booking: Record<string, unknown>) {
+function totalPaid(booking: any) {
   return ((booking.paymentHistory as PaymentRecord[]) || []).reduce((s, p) => s + p.amount, 0)
 }
 
-function remainingBalance(booking: Record<string, unknown>) {
+function remainingBalance(booking: any) {
   return Math.max(0, Number(booking.price ?? 0) - totalPaid(booking))
 }
 
-function depositPayment(booking: Record<string, unknown>, payment?: PaymentRecord): PaymentRecord {
+function depositPayment(booking: any, payment?: PaymentRecord): PaymentRecord {
   if (payment) return payment
   const history = (booking.paymentHistory as PaymentRecord[]) || []
   return (
@@ -69,7 +69,7 @@ function depositPayment(booking: Record<string, unknown>, payment?: PaymentRecor
   )
 }
 
-function sessionDetailsTable(booking: Record<string, unknown>) {
+function sessionDetailsTable(booking: any) {
   const arrival = String(booking.arrivalTime ?? booking.bookingTime ?? '')
   const shoot = String(booking.shootTime ?? booking.bookingTime ?? '')
   return `
@@ -110,7 +110,7 @@ function receiptNumber(bookingId: string, paymentId: string) {
   return `FM-RCP-${bookingId.replace('FM-', '')}-${paymentId.replace('PAY-', '')}`
 }
 
-function paymentDetailsTable(booking: Record<string, unknown>, payment: PaymentRecord) {
+function paymentDetailsTable(booking: any, payment: PaymentRecord) {
   const price = Number(booking.price ?? 0)
   const paid = totalPaid(booking)
   const remaining = Math.max(0, price - paid)
@@ -800,3 +800,53 @@ export async function sendBookingReminderEmail(booking: Record<string, unknown>)
     html: body,
   })
 }
+
+export async function sendRawPhotoApprovedEmail(booking: any) {
+  const subject = `Raw Photo Selection Approved - Booking: ${booking.id}`
+  const html = brandedEmail(
+    'Raw Photo Selection Approved',
+    `
+      <p>Hello <strong>${booking.customerName}</strong>,</p>
+      <p>Great news! Your chosen raw photo selection for booking reference <strong>${booking.id}</strong> has been approved for editing.</p>
+      <p>Our editor side has received the link, and they are now processing your photo. We will send you another email with a Google Drive download link once the final edited version is ready.</p>
+      <div style="background-color: #EEF0FF; padding: 15px; border-left: 4px solid #0500D0; margin: 20px 0; font-size: 13px;">
+        <strong>Details:</strong><br/>
+        Booking Code: ${booking.id}<br/>
+        Package: ${booking.packageName}<br/>
+        Raw Photo Link: <a href="${booking.rawPhotoLink}" target="_blank" style="color: #0500D0; word-break: break-all;">Open Submitted Link</a>
+      </div>
+      <p style="font-size: 12px; color: #5A5A8A;">No action is required from you. Thank you for choosing FICO MANA!</p>
+    `
+  )
+  return sendEmail({ bookingId: booking.id, to: booking.customerEmail, subject, html })
+}
+
+export async function sendRawPhotoRejectedEmail(booking: any, reason: string, customDetails?: string) {
+  const subject = `Action Required: Raw Photo Selection Rejected - Booking: ${booking.id}`
+  const url = submitRawPhotoUrl(booking.id)
+  const html = brandedEmail(
+    'Raw Photo Selection Rejected',
+    `
+      <p>Hello <strong>${booking.customerName}</strong>,</p>
+      <p>We reviewed your submitted raw photo Google Drive link for booking reference <strong>${booking.id}</strong>, and unfortunately, it was rejected by our editors.</p>
+      
+      <div style="background-color: #FEF2F2; border-left: 4px solid #DC2626; padding: 15px; margin: 20px 0; font-size: 13px; color: #991B1B;">
+        <p style="margin: 0; font-weight: bold;">Rejection Reason:</p>
+        <p style="margin: 5px 0 0 0; font-style: italic;">${reason}</p>
+        ${customDetails ? `<p style="margin: 5px 0 0 0; font-size: 12px; color: #7F1D1D;"><strong>Editor Notes:</strong> ${customDetails}</p>` : ''}
+      </div>
+
+      <p>Please select a different raw photo that meets our studio guidelines (make sure it is <strong>not blurry</strong> and <strong>not already edited/filtered</strong>), and resubmit your link.</p>
+
+      <div style="margin: 25px 0; text-align: center;">
+        <a href="${url}" target="_blank" rel="noopener noreferrer" style="background-color: #0500D0; color: white; padding: 12px 25px; text-decoration: none; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; display: inline-block;">
+          Resubmit Raw Photo Link
+        </a>
+      </div>
+
+      <p style="font-size: 12px; color: #5A5A8A;">If you have any questions, please feel free to reply to this email or contact us at +63 49 576 5176.</p>
+    `
+  )
+  return sendEmail({ bookingId: booking.id, to: booking.customerEmail, subject, html })
+}
+

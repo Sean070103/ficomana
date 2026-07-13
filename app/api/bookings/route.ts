@@ -10,7 +10,6 @@ import {
   getBookingFromDb,
   listBookingsFromDb,
   saveBookingToDb,
-  mergeBookingsLists,
   addNotificationToDb,
 } from '@/lib/supabase-store'
 import { validateBookingAvailability } from '@/lib/booking-validate'
@@ -38,8 +37,9 @@ function pickDbClient(isExisting: boolean) {
 }
 
 async function loadAvailabilityBookings(): Promise<Booking[]> {
-  const fileBookings = await listBookings()
-  if (!isSupabaseConfigured()) return fileBookings
+  if (!isSupabaseConfigured()) {
+    return listBookings()
+  }
 
   const admin = getSupabaseAdmin() ?? supabase
   const { data, error } = await admin
@@ -47,9 +47,9 @@ async function loadAvailabilityBookings(): Promise<Booking[]> {
     .select('id, booking_date, slot_id, package_id, booking_status, booking_time')
     .order('created_at', { ascending: false })
 
-  if (error || !data) return fileBookings
+  if (error || !data) return []
 
-  const fromDb: Booking[] = data.map((b) => ({
+  return data.map((b) => ({
     id: String(b.id),
     customerName: '',
     customerEmail: '',
@@ -68,8 +68,6 @@ async function loadAvailabilityBookings(): Promise<Booking[]> {
     createdAt: '',
     paymentHistory: [],
   }))
-
-  return mergeBookingsLists(fromDb, fileBookings)
 }
 
 async function notifyNewBooking(booking: Booking) {

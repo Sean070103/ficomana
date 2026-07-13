@@ -74,6 +74,10 @@ export function mapDbBookingToModel(b: DbBookingRow): Booking {
     receiptUrl,
     paymentHistory,
     driveLink: b.drive_link ? String(b.drive_link) : undefined,
+    rawPhotoLink: b.raw_photo_link ? String(b.raw_photo_link) : undefined,
+    rawPhotoStatus: b.raw_photo_status ? (b.raw_photo_status as Booking['rawPhotoStatus']) : undefined,
+    rawPhotoNotes: b.raw_photo_notes ? String(b.raw_photo_notes) : undefined,
+    rawPhotoSubmittedAt: b.raw_photo_submitted_at ? String(b.raw_photo_submitted_at) : undefined,
   }
 }
 
@@ -117,6 +121,10 @@ export function mapModelBookingToDbCore(b: Booking): Record<string, unknown> {
     rejection_reason: b.rejectionReason ?? null,
     created_at: b.createdAt,
     drive_link: b.driveLink ?? null,
+    raw_photo_link: b.rawPhotoLink ?? null,
+    raw_photo_status: b.rawPhotoStatus ?? null,
+    raw_photo_notes: b.rawPhotoNotes ?? null,
+    raw_photo_submitted_at: b.rawPhotoSubmittedAt ?? null,
   }
 }
 
@@ -159,6 +167,10 @@ export function mapModelBookingToDb(b: Booking): Record<string, unknown> {
           : (b.receiptUrl ?? null),
     payment_history: JSON.stringify(b.paymentHistory ?? []),
     drive_link: b.driveLink ?? null,
+    raw_photo_link: b.rawPhotoLink ?? null,
+    raw_photo_status: b.rawPhotoStatus ?? null,
+    raw_photo_notes: b.rawPhotoNotes ?? null,
+    raw_photo_submitted_at: b.rawPhotoSubmittedAt ?? null,
   }
 }
 

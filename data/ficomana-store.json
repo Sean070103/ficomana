@@ -1,45 +1,4 @@
 {
-  "bookings": [
-    {
-      "id": "FM-370090",
-      "customerName": "tes",
-      "customerEmail": "mendozaseanmichaelandrewb2345@gmail.com",
-      "customerPhone": "09636533613",
-      "customerFbLink": "test",
-      "customerFbName": "test ",
-      "packageId": "mana-makeup",
-      "packageName": "MANA PACKAGE",
-      "bookingDate": "2026-07-18",
-      "bookingTime": "1:00 PM - 3:00 PM · SLOT 1",
-      "slotId": "m-13-15-s1",
-      "arrivalTime": "12:45 PM",
-      "shootTime": "1:00 PM",
-      "isWalkIn": false,
-      "note": "School: test  · Course: test · Hood: Light Blue · Toga: Plain Green Toga · Tassel: Gold · Background: Gray",
-      "schoolName": "test ",
-      "course": "test",
-      "hoodColor": "Light Blue",
-      "togaColor": "Plain Green Toga",
-      "tasselColor": "Gold",
-      "backgroundColor": "Gray",
-      "depositAmount": 500,
-      "price": 6000,
-      "transactionRef": "33333333",
-      "bookingStatus": "Pending Verification",
-      "paymentStatus": "Pending Verification",
-      "createdAt": "2026-07-11T03:27:09.543Z",
-      "receiptUrl": "https://ysobvjfqqcerdprmqfxo.supabase.co/storage/v1/object/public/receipts/FM-370090-1783740428061-booking_model1.jpg",
-      "paymentHistory": [
-        {
-          "id": "PAY-3718",
-          "amount": 500,
-          "method": "GCash",
-          "type": "Deposit",
-          "transactionRef": "33333333",
-          "date": "2026-07-11T03:27:09.545Z"
-        }
-      ]
-    }
-  ],
+  "bookings": [],
   "notifications": []
 }

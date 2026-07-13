@@ -14,6 +14,7 @@ import {
   X,
   RefreshCw,
   FileText,
+  Image,
 } from 'lucide-react'
 import { getNotifications, getBookings, markNotificationRead, Notification } from '@/lib/data-store'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
