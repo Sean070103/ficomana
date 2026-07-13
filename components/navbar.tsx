@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { ChevronDown, Menu as MenuIcon } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -29,7 +30,7 @@ const navItems: NavItem[] = [
   {
     label: 'Explore',
     links: [
-      { href: '/#gallery', label: 'Gallery' },
+      { href: '/gallery', label: 'Gallery' },
       { href: '/#reels', label: 'Reels' },
     ],
   },
@@ -155,8 +156,22 @@ function NavDropdownMenu({
 }
 
 export default function Navbar() {
+  const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
   const [open, setOpen] = useState(false)
+
+  const goHome = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    setOpen(false)
+    if (pathname === '/') {
+      e.preventDefault()
+      const home = document.getElementById('home')
+      if (home) {
+        home.scrollIntoView({ behavior: 'smooth' })
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    }
+  }
 
   useEffect(() => {
     const handleScroll = () => {
@@ -171,7 +186,7 @@ export default function Navbar() {
     cn(
       'font-semibold uppercase transition-colors duration-300 ease-out',
       mobile
-        ? 'text-sm tracking-[0.15em] text-white hover:text-white py-3 border-b border-border/60 w-full text-left'
+        ? 'text-sm tracking-[0.15em] text-white/85 hover:text-white py-3 border-b border-white/[0.08] w-full text-left'
         : 'text-[10px] tracking-[0.2em]',
       !mobile &&
         (isScrolled
@@ -201,7 +216,15 @@ export default function Navbar() {
       style={{ fontFamily: 'var(--font-sans)' }}
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4">
-        <Link href="/#home" className="flex items-center shrink-0 py-1">
+        <Link
+          href="/"
+          onClick={goHome}
+          className={cn(
+            'flex items-center shrink-0 py-1 cursor-pointer transition-opacity duration-300 hover:opacity-90',
+            open && 'opacity-35',
+          )}
+          aria-label="FICO MANA — Home"
+        >
           <Image
             src="/fico_navbar.png?v=3"
             alt="Fico Mana studio"
@@ -239,25 +262,29 @@ export default function Navbar() {
                   variant="outline"
                   size="icon-sm"
                   className={cn(
-                    'md:hidden rounded-none border',
+                    'md:hidden rounded-none border transition-all duration-300',
                     open && 'hidden',
                     isScrolled
-                      ? 'border-border bg-background text-foreground'
-                      : 'border-white/40 bg-white/10 text-white hover:bg-white/20',
+                      ? 'border-white/25 bg-white/[0.06] text-white hover:bg-white/12 hover:border-white/40'
+                      : 'border-white/35 bg-black/25 text-white hover:bg-black/40 hover:border-white/55 backdrop-blur-sm',
                   )}
                 />
               }
             >
-              <MenuIcon className="size-4" />
+              <MenuIcon className="size-4" strokeWidth={2.25} />
               <span className="sr-only">Open menu</span>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[min(100vw-2rem,20rem)] sm:max-w-xs">
-              <SheetHeader>
-                <SheetTitle className="text-left text-xs tracking-[0.2em] uppercase">
-                  Menu
+            <SheetContent
+              side="right"
+              overlayClassName="bg-black/80 backdrop-blur-md supports-backdrop-filter:backdrop-blur-md"
+              className="w-[min(100vw-2rem,20rem)] sm:max-w-xs border-l border-white/10 bg-gradient-to-b from-[#1c1c1c] via-[#141414] to-black text-white shadow-[-12px_0_40px_rgba(0,0,0,0.55)] gap-0 p-0"
+            >
+              <SheetHeader className="shrink-0 border-b border-white/[0.08] px-4 pt-4 pb-4">
+                <SheetTitle className="text-left text-[10px] tracking-[0.28em] uppercase text-white/75 font-semibold">
+                  Navigation
                 </SheetTitle>
               </SheetHeader>
-              <nav className="flex flex-col px-4">
+              <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4">
                 <AnimatePresence>
                   {open &&
                     navItems.map((item, index) => (
@@ -273,8 +300,8 @@ export default function Navbar() {
                         }}
                       >
                         {isDropdown(item) ? (
-                          <div className="flex flex-col border-b border-border/60 pb-2 mb-1">
-                            <p className="text-[9px] font-bold tracking-[0.22em] uppercase text-white pt-3 pb-2">
+                          <div className="flex flex-col border-b border-white/[0.08] pb-2 mb-1">
+                            <p className="text-[10px] font-bold tracking-[0.22em] uppercase text-white pt-3 pb-2">
                               {item.label}
                             </p>
                             {item.links.map((link) => (
@@ -285,7 +312,7 @@ export default function Navbar() {
                                     href={link.href}
                                     className={cn(
                                       linkClass(true),
-                                      'pl-3 border-l-2 border-transparent hover:border-white/50 whitespace-nowrap',
+                                      'pl-3 border-l-2 border-transparent hover:border-primary/70 hover:bg-white/[0.04] whitespace-nowrap',
                                     )}
                                   />
                                 }
@@ -296,7 +323,12 @@ export default function Navbar() {
                           </div>
                         ) : (
                           <SheetClose
-                            render={<Link href={item.href} className={linkClass(true)} />}
+                            render={
+                              <Link
+                                href={item.href}
+                                className={cn(linkClass(true), 'hover:bg-white/[0.04]')}
+                              />
+                            }
                           >
                             {item.label}
                           </SheetClose>
@@ -305,19 +337,17 @@ export default function Navbar() {
                     ))}
                 </AnimatePresence>
               </nav>
-              <div className="px-4 pt-4 mt-auto">
+              <div className="shrink-0 border-t border-white/[0.08] bg-black px-4 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))]">
                 <SheetClose
                   render={
                     <Link
                       href="/#booking"
-                      className={cn(
-                        'w-full rounded-none text-xs sm:text-sm tracking-[0.2em] uppercase h-12 bg-white text-black hover:bg-white/90',
-                      )}
-                    />
+                      className="flex w-full items-center justify-center rounded-none bg-white px-4 py-3 text-sm font-bold tracking-[0.16em] uppercase text-black transition-colors hover:bg-white/90"
+                    >
+                      Book Session
+                    </Link>
                   }
-                >
-                  Book Session
-                </SheetClose>
+                />
               </div>
             </SheetContent>
           </Sheet>

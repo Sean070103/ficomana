@@ -89,7 +89,7 @@ export default function Hero() {
               Reserve Your Session
             </Button>
             <Link
-              href="/#gallery"
+              href="/gallery"
               className="pl-12 text-[10px] font-bold tracking-[0.2em] uppercase text-white hover:text-white/75 transition-colors"
               style={{ fontFamily: 'var(--font-sans)' }}
             >
@@ -146,7 +146,7 @@ export default function Hero() {
             </Button>
             <Button
               nativeButton={false}
-              render={<Link href="/#gallery" />}
+              render={<Link href="/gallery" />}
               variant="outline"
               className={cn(
                 buttonVariants({ variant: 'outline', size: 'lg' }),

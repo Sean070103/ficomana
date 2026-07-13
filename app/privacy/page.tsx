@@ -1,6 +1,13 @@
 import Link from 'next/link'
 import Navbar from '@/components/navbar'
 import Footer from '@/components/footer'
+import { createPageMetadata } from '@/lib/site-metadata'
+
+export const metadata = createPageMetadata({
+  title: 'Privacy Policy',
+  description: 'How FICO MANA Studio collects, uses, and protects your personal information.',
+  path: '/privacy',
+})
 
 export default function PrivacyPage() {
   return (

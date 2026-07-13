@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Image from 'next/image'
 import { AlertCircle, Check, RefreshCw, Upload } from 'lucide-react'
 import SectionHeader from '@/components/section-header'
 import SectionShell from '@/components/section-shell'
@@ -13,6 +12,7 @@ import {
   type PublicResubmitBooking,
 } from '@/lib/data-store'
 import { isForgedRejection } from '@/lib/rejection-reasons'
+import BpiQrDisplay from '@/components/bpi-qr-display'
 
 const inputClass =
   'w-full border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30'
@@ -193,21 +193,10 @@ function BookingResubmitForm() {
               )}
             </div>
 
-            <div className="border border-white/10 bg-white/[0.03] p-4 sm:p-5 text-center">
-              <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-white/50 mb-3">BPI Deposit — ₱{booking.depositAmount.toFixed(0)}</p>
-              <div className="relative mx-auto w-full max-w-[220px] aspect-square bg-white rounded-sm overflow-hidden">
-                <Image
-                  src="/bpi_qr.jpg"
-                  alt="BPI payment QR code for FICO MANA deposit"
-                  fill
-                  className="object-contain"
-                  sizes="220px"
-                />
-              </div>
-              <p className="text-[10px] text-white/40 mt-3 leading-relaxed">
-                Scan to pay, then upload your BPI payment screenshot below.
-              </p>
-            </div>
+            <BpiQrDisplay
+              depositLabel={`₱${booking.depositAmount.toFixed(0)}`}
+              hint="Scan to pay, then upload your BPI payment screenshot below."
+            />
 
             <div>
               <label className={labelClass}>BPI Transaction Reference (optional)</label>

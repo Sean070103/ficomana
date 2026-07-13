@@ -1,6 +1,13 @@
 import Link from 'next/link'
 import Navbar from '@/components/navbar'
 import Footer from '@/components/footer'
+import { createPageMetadata } from '@/lib/site-metadata'
+
+export const metadata = createPageMetadata({
+  title: 'Terms of Service',
+  description: 'Terms of service for booking and sessions at FICO MANA Studio.',
+  path: '/terms',
+})
 
 export default function TermsPage() {
   return (

@@ -1,12 +1,14 @@
 import Navbar from '@/components/navbar'
 import SelfPortraitPackages from '@/components/self-portrait-packages'
 import Footer from '@/components/footer'
+import { createPageMetadata } from '@/lib/site-metadata'
 
-export const metadata = {
-  title: 'FICO & MANA Packages | FICO MANA Studio',
+export const metadata = createPageMetadata({
+  title: 'FICO & MANA Packages',
   description:
-    'Self portrait packages for solo, duo, family, and barkada sessions at FICO MANA Studio.',
-}
+    'Self portrait packages for solo, duo, family, and barkada sessions at FICO MANA Studio in Cabuyao, Laguna.',
+  path: '/packages',
+})
 
 export default function PackagesPage() {
   return (

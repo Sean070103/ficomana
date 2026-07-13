@@ -9,6 +9,7 @@ import SectionShell from '@/components/section-shell'
 import BookingSlotPicker from '@/components/booking-slot-picker'
 import BookingGraduationPreview from '@/components/booking-graduation-preview'
 import BookingSummarySidebar from '@/components/booking-summary'
+import BpiQrDisplay from '@/components/bpi-qr-display'
 import { saveBooking, uploadReceipt, getBookingsForAvailability, getBooking, getBookingPackages, getBlockedSlots, getFicoSpotBlocks } from '@/lib/data-store'
 import { getBlockedSlot, type BlockedSlot } from '@/lib/blocked-slots'
 import { getFicoBookableLimit, getFicoSpotBlock, type FicoSpotBlock } from '@/lib/fico-spot-blocks'
@@ -906,21 +907,10 @@ function BookingForm() {
                     Scan the BPI QR below to pay ₱500, then upload a clear screenshot of your BPI payment receipt (not a studio photo).
                   </p>
                 </div>
-                <div className="border border-white/10 bg-white/[0.03] p-4 sm:p-5 text-center">
-                  <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-white/50 mb-3">BPI Deposit — ₱500</p>
-                  <div className="relative mx-auto w-full max-w-[240px] aspect-square bg-white rounded-sm overflow-hidden">
-                    <Image
-                      src="/bpi_qr.jpg"
-                      alt="BPI payment QR code for FICO MANA deposit"
-                      fill
-                      className="object-contain"
-                      sizes="240px"
-                    />
-                  </div>
-                  <p className="text-[10px] text-white/40 mt-3 leading-relaxed">
-                    Pay exactly ₱500, then enter your BPI reference number and upload the payment screenshot below.
-                  </p>
-                </div>
+                <BpiQrDisplay
+                  depositLabel="₱500"
+                  hint="Pay exactly ₱500, then enter your BPI reference number and upload the payment screenshot below."
+                />
                 <div>
                   <label className={labelClass}>BPI Transaction Reference *</label>
                   <input
