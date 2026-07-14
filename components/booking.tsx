@@ -125,10 +125,6 @@ function BookingForm() {
   const [note, setNote] = useState('')
   const [schoolName, setSchoolName] = useState('')
   const [course, setCourse] = useState('')
-  const [hoodColor, setHoodColor] = useState('Pink')
-  const [togaColor, setTogaColor] = useState('Plain Black Toga')
-  const [tasselColor, setTasselColor] = useState('Pink')
-  const [backgroundColor, setBackgroundColor] = useState('Gray')
   const [paymentMethod] = useState<'BPI'>('BPI')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [transactionRef, setTransactionRef] = useState('')
@@ -255,10 +251,6 @@ function BookingForm() {
       setFormError('Please enter your school name and course.')
       return false
     }
-    if (!hoodColor || !togaColor || !tasselColor || !backgroundColor) {
-      setFormError('Please select hood, toga, tassel, and background.')
-      return false
-    }
     setFormError('')
     return true
   }
@@ -273,7 +265,7 @@ function BookingForm() {
   }
 
   const graduationSummary = isGraduationPackage
-    ? { schoolName, course, hoodColor, togaColor, tasselColor, backgroundColor }
+    ? { schoolName, course }
     : undefined
 
   const submitBooking = async (e: React.FormEvent) => {
@@ -315,17 +307,7 @@ function BookingForm() {
       const slot = isMakeupPackage ? getSlotById(selectedSlotId) : undefined
       const receiptUrl = await uploadReceipt(id, receiptFile, email)
       const graduationNote = isGraduationPackage
-        ? [
-            note,
-            `School: ${schoolName}`,
-            `Course: ${course}`,
-            `Hood: ${hoodColor}`,
-            `Toga: ${togaColor}`,
-            `Tassel: ${tasselColor}`,
-            `Background: ${backgroundColor}`,
-          ]
-            .filter(Boolean)
-            .join(' · ')
+        ? [note, `School: ${schoolName}`, `Course: ${course}`].filter(Boolean).join(' · ')
         : note
 
       const booking = {
@@ -345,10 +327,6 @@ function BookingForm() {
         note: graduationNote || undefined,
         schoolName: isGraduationPackage ? schoolName : undefined,
         course: isGraduationPackage ? course : undefined,
-        hoodColor: isGraduationPackage ? hoodColor : undefined,
-        togaColor: isGraduationPackage ? togaColor : undefined,
-        tasselColor: isGraduationPackage ? tasselColor : undefined,
-        backgroundColor: isGraduationPackage ? backgroundColor : undefined,
         depositAmount: 500,
         price: parsePackagePrice(selectedSession.price),
         transactionRef: transactionRef.trim(),
@@ -390,10 +368,6 @@ function BookingForm() {
     setNote('')
     setSchoolName('')
     setCourse('')
-    setHoodColor('Pink')
-    setTogaColor('Plain Black Toga')
-    setTasselColor('Pink')
-    setBackgroundColor('Gray')
     setReceiptFile(null)
     setTransactionRef('')
     setSubmittedSummary(null)
@@ -675,7 +649,7 @@ function BookingForm() {
             <div className="text-center space-y-1">
               <h3 className="text-lg font-semibold text-white">3. Details</h3>
               <p className="text-sm text-white/70">
-                Select your hood, toga, and tassel colors for the studio. The preview photo stays as shown.
+                Enter your school and course. Below are the hood, toga, tassel, and background colors available in our shop — no need to choose online.
               </p>
             </div>
 
@@ -697,73 +671,50 @@ function BookingForm() {
                 </div>
 
                 <div>
-                  <p className={labelClass + ' mb-3'}>Hood Color</p>
+                  <p className={labelClass + ' mb-1'}>Available Hood Colors</p>
+                  <p className="text-[11px] text-white/50 mb-3">Available in our shop — bring your school’s hood color or pick on session day.</p>
                   <div className="grid grid-cols-2 min-[420px]:grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2">
-                    {HOOD_COLOR_GRID.map((color) => {
-                      const selected = hoodColor === color
-                      return (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => setHoodColor(color)}
-                          style={selected ? { background: colorToPreviewFill(color) } : undefined}
-                          className={`py-2.5 px-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide border transition-colors ${
-                            selected
-                              ? `border-white ring-2 ring-white/70 ${colorSwatchTextClass(color)}`
-                              : 'bg-black border-white/20 text-white hover:border-white/40'
-                          }`}
-                        >
-                          {color}
-                        </button>
-                      )
-                    })}
+                    {HOOD_COLOR_GRID.map((color) => (
+                      <div
+                        key={color}
+                        style={{ background: colorToPreviewFill(color) }}
+                        className={`py-2.5 px-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide border border-white/25 text-center ${colorSwatchTextClass(color)}`}
+                      >
+                        {color}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-4">
                   <div>
-                    <p className={labelClass + ' mb-2'}>Toga</p>
+                    <p className={labelClass + ' mb-1'}>Available Togas</p>
+                    <p className="text-[11px] text-white/50 mb-2">Stocked at the studio</p>
                     <div className="flex flex-col gap-2">
-                      {TOGA_COLORS.map((c) => {
-                        const selected = togaColor === c
-                        const fill = colorToPreviewFill(c)
-                        return (
-                        <button
+                      {TOGA_COLORS.map((c) => (
+                        <div
                           key={c}
-                          type="button"
-                          onClick={() => setTogaColor(c)}
-                          style={selected ? { background: fill } : undefined}
-                          className={`py-2 text-[10px] uppercase border rounded-sm ${
-                            selected
-                              ? `border-white ring-2 ring-white/70 font-semibold ${colorSwatchTextClass(c)}`
-                              : 'border-white/10 text-white/60 hover:border-white/30'
-                          }`}
+                          style={{ background: colorToPreviewFill(c) }}
+                          className={`py-2 text-[10px] uppercase border border-white/25 rounded-sm text-center font-semibold ${colorSwatchTextClass(c)}`}
                         >
                           {c}
-                        </button>
-                      )})}
+                        </div>
+                      ))}
                     </div>
                   </div>
                   <div>
-                    <p className={labelClass + ' mb-2'}>Tassel</p>
+                    <p className={labelClass + ' mb-1'}>Available Tassels</p>
+                    <p className="text-[11px] text-white/50 mb-2">Stocked at the studio</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {TASSEL_COLORS.map((c) => {
-                        const selected = tasselColor === c
-                        return (
-                        <button
+                      {TASSEL_COLORS.map((c) => (
+                        <div
                           key={c}
-                          type="button"
-                          onClick={() => setTasselColor(c)}
-                          style={selected ? { background: colorToPreviewFill(c) } : undefined}
-                          className={`px-2.5 py-1.5 text-[9px] uppercase border rounded-sm ${
-                            selected
-                              ? `border-white ring-2 ring-white/70 ${colorSwatchTextClass(c)}`
-                              : 'border-white/10 text-white/60 hover:border-white/30'
-                          }`}
+                          style={{ background: colorToPreviewFill(c) }}
+                          className={`px-2.5 py-1.5 text-[9px] uppercase border border-white/25 rounded-sm ${colorSwatchTextClass(c)}`}
                         >
                           {c}
-                        </button>
-                      )})}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -776,24 +727,21 @@ function BookingForm() {
                 <BookingGraduationPreview />
 
                 <div>
-                  <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-white mb-3">
-                    Background Color Available
+                  <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-white mb-1">
+                    Available Background Colors
                   </p>
+                  <p className="text-[11px] text-white/50 mb-3">Studio backgrounds you can use on shoot day</p>
                   <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-3">
                     {STUDIO_BACKGROUNDS.map((bg) => (
-                      <button
+                      <div
                         key={bg.id}
-                        type="button"
-                        onClick={() => setBackgroundColor(bg.label)}
-                        className={`relative aspect-square sm:w-20 sm:h-20 md:w-24 md:h-24 overflow-hidden border-2 transition-all ${
-                          backgroundColor === bg.label ? 'border-primary ring-2 ring-primary/40' : 'border-white/20 hover:border-white/40'
-                        }`}
+                        className="relative aspect-square sm:w-20 sm:h-20 md:w-24 md:h-24 overflow-hidden border-2 border-white/20"
                       >
                         <Image src={bg.image} alt={bg.label} fill className="object-cover" />
                         <span className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[8px] uppercase py-0.5 text-center">
                           {bg.label}
                         </span>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </div>
