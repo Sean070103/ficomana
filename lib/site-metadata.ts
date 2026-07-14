@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
+import { getSiteUrl } from '@/lib/site-url'
 
-export const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ficomana.studio'
+export const siteUrl = getSiteUrl()
 export const siteName = 'FICO MANA'
 
 export const siteDescription =
