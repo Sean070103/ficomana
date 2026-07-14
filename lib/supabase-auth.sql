@@ -1,18 +1,12 @@
 -- Supabase Auth + RLS for FICO MANA admin
 -- Run in Supabase SQL Editor after creating staff users in Authentication → Users
 
--- Bookings: public can create; staff (authenticated) can read/update
+-- Bookings: public creates via Next.js API + service role only (no anon INSERT/SELECT).
+-- Staff (authenticated) can read/update. Keep Auth public signup OFF.
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "bookings_anon_insert" ON bookings;
-CREATE POLICY "bookings_anon_insert"
-  ON bookings FOR INSERT TO anon
-  WITH CHECK (true);
-
 DROP POLICY IF EXISTS "bookings_anon_select_availability" ON bookings;
-CREATE POLICY "bookings_anon_select_availability"
-  ON bookings FOR SELECT TO anon
-  USING (true);
 
 DROP POLICY IF EXISTS "bookings_staff_all" ON bookings;
 CREATE POLICY "bookings_staff_all"

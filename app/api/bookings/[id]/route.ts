@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server'
 import { getBookingById, upsertBooking } from '@/lib/server-store'
 import type { Booking } from '@/lib/data-store'
 import { isSupabaseConfigured } from '@/lib/supabase/env'
-import { supabase } from '@/lib/supabase'
 import { requireStaffAuth } from '@/lib/auth-api'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { getBookingFromDb, saveBookingToDb } from '@/lib/supabase-store'
 
 export async function GET(
@@ -15,10 +14,13 @@ export async function GET(
     const { id } = await params
     const { user, error: authError } = await requireStaffAuth()
     const isStaff = !!user && !authError
-    const db = isStaff ? await createSupabaseServerClient() : supabase
 
     if (isSupabaseConfigured()) {
-      const booking = await getBookingFromDb(db, id)
+      const admin = getSupabaseAdmin()
+      if (!admin) {
+        return NextResponse.json({ error: 'Database admin client unavailable.' }, { status: 500 })
+      }
+      const booking = await getBookingFromDb(admin, id)
       if (booking) {
         if (isStaff) return NextResponse.json(booking)
         return NextResponse.json({
@@ -63,8 +65,11 @@ export async function PUT(
     }
 
     if (isSupabaseConfigured()) {
-      const db = await createSupabaseServerClient()
-      const saved = await saveBookingToDb(db, booking)
+      const admin = getSupabaseAdmin()
+      if (!admin) {
+        return NextResponse.json({ error: 'Database admin client unavailable.' }, { status: 500 })
+      }
+      const saved = await saveBookingToDb(admin, booking)
       if (saved) {
         await upsertBooking(saved)
         return NextResponse.json(saved)

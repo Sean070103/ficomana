@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server'
 import { listBookings, upsertBooking, getBookingById, addServerNotification } from '@/lib/server-store'
 import type { Booking, PaymentRecord } from '@/lib/data-store'
 import { isSupabaseConfigured } from '@/lib/supabase/env'
-import { supabase } from '@/lib/supabase'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { requireStaffAuth } from '@/lib/auth-api'
 import {
@@ -32,16 +30,14 @@ function bookingEmailPayload(result: Booking, booking: Booking) {
   return customerEmail ? { ...result, customerEmail } : result
 }
 
-function pickDbClient(isExisting: boolean) {
-  return isExisting ? createSupabaseServerClient() : Promise.resolve(getSupabaseAdmin() ?? supabase)
-}
-
 async function loadAvailabilityBookings(): Promise<Booking[]> {
   if (!isSupabaseConfigured()) {
     return listBookings()
   }
 
-  const admin = getSupabaseAdmin() ?? supabase
+  const admin = getSupabaseAdmin()
+  if (!admin) return []
+
   const { data, error } = await admin
     .from('bookings')
     .select('id, booking_date, slot_id, package_id, booking_status, booking_time')
@@ -108,17 +104,23 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const booking = (await request.json()) as Booking
+    const incoming = (await request.json()) as Booking
 
     let isExisting = false
     let priorBookingStatus: Booking['bookingStatus'] | undefined
     if (isSupabaseConfigured()) {
-      const admin = getSupabaseAdmin() ?? supabase
-      const existing = await getBookingFromDb(admin, booking.id)
+      const admin = getSupabaseAdmin()
+      if (!admin) {
+        return NextResponse.json(
+          { error: 'Database admin client unavailable. Set SUPABASE_SERVICE_ROLE_KEY.' },
+          { status: 500 },
+        )
+      }
+      const existing = await getBookingFromDb(admin, incoming.id)
       isExisting = !!existing
       priorBookingStatus = existing?.bookingStatus
     } else {
-      const existing = await getBookingById(booking.id)
+      const existing = await getBookingById(incoming.id)
       isExisting = !!existing
       priorBookingStatus = existing?.bookingStatus
     }
@@ -127,6 +129,36 @@ export async function POST(request: Request) {
       const { error: authError } = await requireStaffAuth()
       if (authError) return authError
     }
+
+    // Public creates: never trust client privilege fields (status, staff notes, etc.)
+    const booking: Booking = isExisting
+      ? incoming
+      : {
+          ...incoming,
+          bookingStatus: 'Pending Verification',
+          paymentStatus: 'Pending Verification',
+          rejectionReason: undefined,
+          rejectionReasonId: undefined,
+          staffNotes: undefined,
+          driveLink: undefined,
+          rawPhotoLink: undefined,
+          rawPhotoStatus: undefined,
+          rawPhotoNotes: undefined,
+          rawPhotoSubmittedAt: undefined,
+          editedPhotoLink: undefined,
+          editedPhotoDeliveredAt: undefined,
+          depositAmount: 500,
+          paymentHistory: [
+            {
+              id: 'PAY-' + Math.floor(1000 + Math.random() * 9000),
+              amount: 500,
+              method: incoming.paymentHistory?.[0]?.method || 'BPI',
+              type: 'Deposit',
+              transactionRef: incoming.transactionRef || incoming.paymentHistory?.[0]?.transactionRef,
+              date: new Date().toISOString(),
+            },
+          ],
+        }
 
     const availabilityPool = await loadAvailabilityBookings()
     const blockedSlots = await listBlockedSlots()
@@ -140,8 +172,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: validation.error }, { status: 409 })
     }
 
-    const db = getSupabaseAdmin() ?? (await pickDbClient(isExisting))
-    const supabaseResult = await saveBookingToDb(db, booking)
+    const db = getSupabaseAdmin()
+    if (isSupabaseConfigured() && !db) {
+      return NextResponse.json(
+        { error: 'Database admin client unavailable. Set SUPABASE_SERVICE_ROLE_KEY.' },
+        { status: 500 },
+      )
+    }
+    const supabaseResult = db ? await saveBookingToDb(db, booking) : null
 
     // File store is best-effort (read-only on Vercel)
     try {

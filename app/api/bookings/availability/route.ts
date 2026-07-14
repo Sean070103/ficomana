@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { listBookings } from '@/lib/server-store'
 import { isSupabaseConfigured } from '@/lib/supabase'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { toAvailability } from '@/lib/auth-api'
 import type { Booking } from '@/lib/data-store'
 import { getSlotId } from '@/lib/booking-slots'
@@ -62,7 +62,12 @@ export async function GET() {
       return NextResponse.json(fileBookings.map(bookingToAvailability))
     }
 
-    const { data, error } = await supabase
+    const admin = getSupabaseAdmin()
+    if (!admin) {
+      return NextResponse.json({ error: 'Database admin client unavailable.' }, { status: 500 })
+    }
+
+    const { data, error } = await admin
       .from('bookings')
       .select('id, booking_date, slot_id, booking_time, package_id, booking_status')
       .order('created_at', { ascending: false })

@@ -2,7 +2,6 @@ import type { Booking } from '@/lib/data-store'
 import { resolveBookingReference } from '@/lib/booking-id'
 import { getBookingById } from '@/lib/server-store'
 import { isSupabaseConfigured } from '@/lib/supabase/env'
-import { supabase } from '@/lib/supabase'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { getBookingFromDb } from '@/lib/supabase-store'
 
@@ -14,13 +13,15 @@ export function emailsMatch(a: string, b: string): boolean {
   return normalizeEmail(a) === normalizeEmail(b)
 }
 
-/** Load a booking from Supabase (admin/anon) or file store fallback. */
+/** Load a booking from Supabase (service role) or file store fallback. */
 export async function loadBookingById(id: string): Promise<Booking | null> {
   const resolvedId = resolveBookingReference(id)
   if (isSupabaseConfigured()) {
-    const admin = getSupabaseAdmin() ?? supabase
-    const fromDb = await getBookingFromDb(admin, resolvedId)
-    if (fromDb) return fromDb
+    const admin = getSupabaseAdmin()
+    if (admin) {
+      const fromDb = await getBookingFromDb(admin, resolvedId)
+      if (fromDb) return fromDb
+    }
   }
   return getBookingById(resolvedId)
 }
