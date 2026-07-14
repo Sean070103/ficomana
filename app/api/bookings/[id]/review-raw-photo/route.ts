@@ -2,11 +2,10 @@ import { NextResponse } from 'next/server'
 import type { Booking } from '@/lib/data-store'
 import { requireStaffAuth } from '@/lib/auth-api'
 import { loadBookingById } from '@/lib/booking-load'
-import { upsertBooking } from '@/lib/server-store'
+import { upsertBooking, addServerNotification } from '@/lib/server-store'
 import { isSupabaseConfigured } from '@/lib/supabase/env'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { saveBookingToDb, addNotificationToDb } from '@/lib/supabase-store'
-import { addServerNotification } from '@/lib/server-store'
 import { sendRawPhotoApprovedEmail, sendRawPhotoRejectedEmail } from '@/lib/email'
 
 type Body = {
@@ -30,7 +29,10 @@ export async function POST(
     const notes = body.notes?.trim()
 
     if (!action || (action === 'Reject' && !reason)) {
-      return NextResponse.json({ error: 'Action and rejection reason (if rejecting) are required.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Action and rejection reason (if rejecting) are required.' },
+        { status: 400 },
+      )
     }
 
     const booking = await loadBookingById(id)
@@ -38,47 +40,90 @@ export async function POST(
       return NextResponse.json({ error: 'Booking not found.' }, { status: 404 })
     }
 
+    const rawPhotoStatus: Booking['rawPhotoStatus'] =
+      action === 'Approve' ? 'Approved' : 'Rejected'
+    const rawPhotoNotes = notes || reason || ''
+
     const updatedBooking: Booking = {
       ...booking,
-      rawPhotoStatus: action === 'Approve' ? 'Approved' : 'Rejected',
-      rawPhotoNotes: notes || reason || '',
+      rawPhotoStatus,
+      rawPhotoNotes,
     }
 
     const notificationType = action === 'Approve' ? 'RAW_PHOTO_APPROVED' : 'RAW_PHOTO_REJECTED'
-    const notificationMessage = action === 'Approve'
-      ? `Raw photo selection for booking ${booking.id} was APPROVED by editors.`
-      : `Raw photo selection for booking ${booking.id} was REJECTED by editors (Reason: ${reason}).`
+    const notificationMessage =
+      action === 'Approve'
+        ? `Raw photo selection for booking ${booking.id} was APPROVED by editors.`
+        : `Raw photo selection for booking ${booking.id} was REJECTED by editors (Reason: ${reason}).`
+
+    let saved: Booking = updatedBooking
+
+    if (isSupabaseConfigured()) {
+      const admin = getSupabaseAdmin()
+      if (!admin) {
+        return NextResponse.json({ error: 'Database admin client unavailable.' }, { status: 500 })
+      }
+
+      const patch = {
+        raw_photo_status: rawPhotoStatus,
+        raw_photo_notes: rawPhotoNotes || null,
+      }
+
+      const { data, error } = await admin
+        .from('bookings')
+        .update(patch)
+        .eq('id', booking.id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('raw photo review DB update failed:', error.message)
+        try {
+          const viaUpsert = await saveBookingToDb(admin, updatedBooking)
+          if (!viaUpsert) {
+            return NextResponse.json(
+              {
+                error: `Database save failed: ${error.message}. Run migration 011_raw_photo_filtering.sql in Supabase.`,
+              },
+              { status: 500 },
+            )
+          }
+          saved = viaUpsert
+        } catch (saveErr) {
+          const msg = saveErr instanceof Error ? saveErr.message : error.message
+          return NextResponse.json(
+            {
+              error: `${msg}. Run migration 011_raw_photo_filtering.sql in Supabase if columns are missing.`,
+            },
+            { status: 500 },
+          )
+        }
+      } else {
+        saved = {
+          ...updatedBooking,
+          rawPhotoStatus: (data?.raw_photo_status as Booking['rawPhotoStatus']) || rawPhotoStatus,
+          rawPhotoNotes: data?.raw_photo_notes ? String(data.raw_photo_notes) : rawPhotoNotes,
+        }
+      }
+
+      await upsertBooking(saved)
+      await addNotificationToDb(admin, booking.id, notificationType, notificationMessage)
+    } else {
+      saved = await upsertBooking(updatedBooking)
+      await addServerNotification(booking.id, notificationType, notificationMessage)
+    }
 
     const emailErrors: string[] = []
-
-    // Attempt to send the email
     try {
       if (action === 'Approve') {
-        await sendRawPhotoApprovedEmail(updatedBooking)
+        await sendRawPhotoApprovedEmail(saved)
       } else {
-        await sendRawPhotoRejectedEmail(updatedBooking, reason!, notes)
+        await sendRawPhotoRejectedEmail(saved, reason!, notes)
       }
     } catch (err) {
       console.error('Failed to send raw photo status email:', err)
       emailErrors.push(err instanceof Error ? err.message : 'Failed to send notification email.')
     }
-
-    if (isSupabaseConfigured()) {
-      const db = await createSupabaseServerClient()
-      const saved = await saveBookingToDb(db, updatedBooking)
-      if (saved) {
-        await upsertBooking(saved)
-        await addNotificationToDb(db, booking.id, notificationType, notificationMessage)
-        return NextResponse.json({
-          ...saved,
-          emailErrors: emailErrors.length > 0 ? emailErrors : undefined,
-          message: `Raw photo selection successfully ${action === 'Approve' ? 'approved' : 'rejected'}.`,
-        })
-      }
-    }
-
-    const saved = await upsertBooking(updatedBooking)
-    await addServerNotification(booking.id, notificationType, notificationMessage)
 
     return NextResponse.json({
       ...saved,
@@ -87,6 +132,7 @@ export async function POST(
     })
   } catch (error) {
     console.error('POST /api/bookings/[id]/review-raw-photo', error)
-    return NextResponse.json({ error: 'Failed to process raw photo review.' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Failed to process raw photo review.'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
