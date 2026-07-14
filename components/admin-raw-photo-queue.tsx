@@ -44,7 +44,14 @@ const RAW_REJECTION_MESSAGES: Record<RawRejectionReason, string> = {
   other: 'Other (details provided below)',
 }
 
-export default function AdminRawPhotoQueue({ initialSearch = '' }: { initialSearch?: string }) {
+export default function AdminRawPhotoQueue({
+  initialSearch = '',
+  embedded = false,
+}: {
+  initialSearch?: string
+  /** When true, hide the page header (used inside Filtering Dashboard tabs). */
+  embedded?: boolean
+}) {
   const toast = useAdminToast()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
@@ -190,19 +197,37 @@ export default function AdminRawPhotoQueue({ initialSearch = '' }: { initialSear
 
   return (
     <div className="space-y-6">
-      <AdminPageHeader
-        title="Raw Photo Filtering"
-        subtitle="Review client photo selections — each client submits a Drive folder with their 5 chosen raw photos. Approve for editing or reject with feedback."
-        onRefresh={() => fetchQueue()}
-        refreshing={refreshing}
-      >
-        <Link
-          href="/admin/bookings"
-          className="inline-flex items-center gap-1.5 border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-colors"
+      {!embedded && (
+        <AdminPageHeader
+          title="Raw Photo Filtering"
+          subtitle="Review client photo selections — each client submits a Drive folder with their 5 chosen raw photos. Approve for editing or reject with feedback."
+          onRefresh={() => fetchQueue()}
+          refreshing={refreshing}
         >
-          <List className="w-3.5 h-3.5" /> All Bookings
-        </Link>
-      </AdminPageHeader>
+          <Link
+            href="/admin/bookings"
+            className="inline-flex items-center gap-1.5 border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-colors"
+          >
+            <List className="w-3.5 h-3.5" /> All Bookings
+          </Link>
+        </AdminPageHeader>
+      )}
+
+      {embedded && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-white/50">
+            Review client 5-pick folders — approve for editing or reject with feedback.
+          </p>
+          <button
+            type="button"
+            onClick={() => fetchQueue()}
+            disabled={refreshing}
+            className="text-[10px] font-bold uppercase tracking-wider text-primary hover:underline disabled:opacity-50"
+          >
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
+      )}
 
       <div className="flex border-b border-white/10 gap-2 overflow-x-auto">
         {(['Pending Review', 'Approved', 'Rejected', 'All'] as FilteringTab[]).map((tab) => {

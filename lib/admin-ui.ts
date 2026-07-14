@@ -65,6 +65,8 @@ export function rawPhotoStatusBadge(status: RawPhotoWorkflowStatus) {
   switch (status) {
     case 'approved':
       return 'rounded-md bg-green-500/15 text-green-400 border border-green-500/30'
+    case 'delivered':
+      return 'rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
     case 'rejected':
       return 'rounded-md bg-red-500/15 text-red-400 border border-red-500/30'
     case 'pending_review':
@@ -110,6 +112,7 @@ export function notificationTypeBadge(type: string) {
     case 'RAW_PHOTO_REJECTED':
       return 'text-red-400'
     case 'RAW_PHOTO_APPROVED':
+    case 'EDITED_PHOTOS_READY':
       return 'text-green-400'
     case 'RAW_PHOTO_UPLOAD':
       return 'text-cyan-400'

@@ -5,6 +5,7 @@ import { upsertBooking, addServerNotification } from '@/lib/server-store'
 import { isSupabaseConfigured } from '@/lib/supabase/env'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { saveBookingToDb, addNotificationToDb } from '@/lib/supabase-store'
+import { sendRawPhotoSubmittedEmails } from '@/lib/email'
 
 type Body = {
   email?: string
@@ -69,6 +70,11 @@ export async function POST(
         if (saved) {
           await upsertBooking(saved)
           await addNotificationToDb(admin, booking.id, 'RAW_PHOTO_UPLOAD', notificationMessage)
+          try {
+            await sendRawPhotoSubmittedEmails(saved)
+          } catch (emailErr) {
+            console.error('sendRawPhotoSubmittedEmails failed:', emailErr)
+          }
           return NextResponse.json({
             id: saved.id,
             rawPhotoStatus: saved.rawPhotoStatus,
@@ -80,6 +86,11 @@ export async function POST(
 
     const saved = await upsertBooking(updatedBooking)
     await addServerNotification(booking.id, 'RAW_PHOTO_UPLOAD', notificationMessage)
+    try {
+      await sendRawPhotoSubmittedEmails(saved)
+    } catch (emailErr) {
+      console.error('sendRawPhotoSubmittedEmails failed:', emailErr)
+    }
 
     return NextResponse.json({
       id: saved.id,

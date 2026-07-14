@@ -33,7 +33,7 @@ import {
   getSlotById,
   isDateFullForPackage,
   isFicoDateFull,
-  isSlotTaken as checkSlotTaken,
+  isMakeupSlotFull,
 } from '@/lib/booking-slots'
 import { generateBookingId } from '@/lib/booking-id'
 
@@ -225,16 +225,16 @@ function BookingForm() {
     selectedSession
       ? isDateFullForPackage(allBookings, dateKeyForDay(day), selectedSession.id, ficoSpotBlocks)
       : false
-  const isSlotBooked = (slotId: string) =>
-    dateKey ? checkSlotTaken(allBookings, dateKey, slotId) : false
+  const isSlotFull = (slotId: string) =>
+    dateKey ? isMakeupSlotFull(allBookings, dateKey, slotId) : false
   const isSlotBlocked = (slotId: string) =>
     dateKey ? !!getBlockedSlot(blockedSlots, dateKey, slotId) : false
   const isSlotUnavailableForPicker = (slotId: string) =>
-    isSlotBooked(slotId) || isSlotBlocked(slotId)
+    isSlotFull(slotId) || isSlotBlocked(slotId)
   const canProceedDate =
     !!selectedDate &&
     (isMakeupPackage
-      ? !!selectedSlotId && !isSlotBlocked(selectedSlotId) && !isSlotBooked(selectedSlotId)
+      ? !!selectedSlotId && !isSlotBlocked(selectedSlotId) && !isSlotFull(selectedSlotId)
       : (ficoRemaining ?? 0) > 0)
 
   const cells: (number | null)[] = []
@@ -299,8 +299,8 @@ function BookingForm() {
         setFormError('This date is fully booked. Please choose another date.')
         return
       }
-      if (isMakeupPackage && selectedSlotId && checkSlotTaken(latest, dk, selectedSlotId)) {
-        setFormError('This session slot was just taken. Please pick another slot.')
+      if (isMakeupPackage && selectedSlotId && isMakeupSlotFull(latest, dk, selectedSlotId)) {
+        setFormError('This session slot is now full. Please pick another slot.')
         return
       }
       const id = generateBookingId(latest.map((b) => b.id))
@@ -619,7 +619,7 @@ function BookingForm() {
                           const s = getSlotById(id)
                           if (s) setSelectedTimeSlot(formatSlotBookingTime(s))
                         }}
-                        isSlotBooked={isSlotBooked}
+                        isSlotFull={isSlotFull}
                         isSlotBlocked={isSlotBlocked}
                       />
                     </div>

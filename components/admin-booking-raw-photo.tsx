@@ -47,7 +47,8 @@ export default function AdminBookingRawPhoto({ booking }: { booking: Booking }) 
         </h4>
         {submitted && isPendingRawPhotoReview(booking) && (
           <Link
-            href="/admin/filtering"
+            href={`/filtering?tab=queue&search=${encodeURIComponent(booking.id)}`}
+            target="_blank"
             className="text-[9px] font-bold uppercase tracking-wider text-primary hover:underline"
           >
             Review in queue →
@@ -63,7 +64,7 @@ export default function AdminBookingRawPhoto({ booking }: { booking: Booking }) 
 
       {canSubmit && (
         <div className="space-y-2">
-          <p className="text-[11px] text-white/45">Send this link so the client can pick their raw photo:</p>
+          <p className="text-[11px] text-white/45">Send this link so the client can submit name + Drive folder:</p>
           <div className="flex gap-2">
             <input
               readOnly

@@ -279,7 +279,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 <Link
                                   href={
                                     n.type.startsWith('RAW_PHOTO')
-                                      ? `/filtering?search=${encodeURIComponent(n.bookingId)}`
+                                      ? `/filtering?tab=queue&search=${encodeURIComponent(n.bookingId)}`
                                       : `/admin/bookings?search=${encodeURIComponent(n.bookingId)}`
                                   }
                                   onClick={() => setShowNotifDrawer(false)}

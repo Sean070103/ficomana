@@ -14,6 +14,7 @@ export type BookingAvailability = {
   id: string
   bookingDate: string
   slotId?: string
+  bookingTime?: string
   packageId: string
   bookingStatus: string
 }
@@ -22,6 +23,7 @@ export function toAvailability(booking: {
   id: string
   bookingDate: string
   slotId?: string
+  bookingTime?: string
   packageId: string
   bookingStatus: string
 }): BookingAvailability {
@@ -29,6 +31,7 @@ export function toAvailability(booking: {
     id: booking.id,
     bookingDate: booking.bookingDate,
     slotId: booking.slotId,
+    bookingTime: booking.bookingTime,
     packageId: booking.packageId,
     bookingStatus: booking.bookingStatus,
   }

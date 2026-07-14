@@ -51,6 +51,9 @@ export interface Booking {
   rawPhotoStatus?: 'Pending Review' | 'Approved' | 'Rejected'
   rawPhotoNotes?: string
   rawPhotoSubmittedAt?: string
+  /** Final edited photos Drive folder — sent to client by editor. */
+  editedPhotoLink?: string
+  editedPhotoDeliveredAt?: string
 }
 
 export interface Notification {
@@ -65,6 +68,7 @@ export interface Notification {
     | 'RAW_PHOTO_UPLOAD'
     | 'RAW_PHOTO_APPROVED'
     | 'RAW_PHOTO_REJECTED'
+    | 'EDITED_PHOTOS_READY'
   message: string
   isRead: boolean
   createdAt: string
@@ -153,6 +157,7 @@ export async function getBookingsForAvailability(): Promise<Booking[]> {
         id: string
         bookingDate: string
         slotId?: string
+        bookingTime?: string
         packageId: string
         bookingStatus: Booking['bookingStatus']
       }>
@@ -166,7 +171,7 @@ export async function getBookingsForAvailability(): Promise<Booking[]> {
         packageId: a.packageId,
         packageName: '',
         bookingDate: a.bookingDate,
-        bookingTime: '',
+        bookingTime: a.bookingTime || '',
         slotId: a.slotId,
         depositAmount: 0,
         price: 0,

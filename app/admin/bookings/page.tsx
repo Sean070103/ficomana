@@ -8,6 +8,7 @@ import { useAdminToast } from '@/components/admin-toast-provider'
 import AdminPageHeader from '@/components/admin-page-header'
 import { useOnAdminDbSync } from '@/components/admin-auto-sync'
 import { GraduationSessionDetails } from '@/components/graduation-session-details'
+import AdminBookingRawPhoto from '@/components/admin-booking-raw-photo'
 import { parsePackagePrice, usesMakeupSlots, isWalkInEligiblePackage, BOOKING_PACKAGE_CATEGORY_LABELS, type BookingPackage, type BookingPackageCategory } from '@/lib/booking-packages'
 import {
   MANA_SESSION_BLOCKS,
@@ -19,6 +20,7 @@ import {
 } from '@/lib/booking-slots'
 import { generateBookingId } from '@/lib/booking-id'
 import { enrichBookingDisplay, filterBookings } from '@/lib/booking-display'
+import { isPlaceholderCustomerEmail } from '@/lib/customer-email'
 import AdminReceiptActions from '@/components/admin-receipt-actions'
 import { 
   Search, 
@@ -87,6 +89,15 @@ function BookingsManagement() {
   const [chargeRebookingFee, setChargeRebookingFee] = useState(false)
   const [editDriveLink, setEditDriveLink] = useState('')
   const [saveLoading, setSaveLoading] = useState(false)
+  const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [completeDriveLink, setCompleteDriveLink] = useState('')
+  const [completeSendEmail, setCompleteSendEmail] = useState(true)
+  const [completeClientName, setCompleteClientName] = useState('')
+  const [completeClientEmail, setCompleteClientEmail] = useState('')
+  const [editContactName, setEditContactName] = useState('')
+  const [editContactEmail, setEditContactEmail] = useState('')
+  const [editContactPhone, setEditContactPhone] = useState('')
+  const [editingContact, setEditingContact] = useState(false)
 
   // In-studio Payment states
   const [studioPayMethod, setStudioPayMethod] = useState<'Cash' | 'GCash' | 'Card' | 'Maya' | 'Bank Transfer'>('Cash')
@@ -240,6 +251,14 @@ function BookingsManagement() {
     setChargeRebookingFee(false)
     setEditDriveLink(booking.driveLink || '')
     setIsEditing(false)
+    setEditingContact(false)
+    setEditContactName(booking.customerName || '')
+    setEditContactEmail(
+      isPlaceholderCustomerEmail(booking.customerEmail) ? '' : booking.customerEmail || '',
+    )
+    setEditContactPhone(
+      !booking.customerPhone || booking.customerPhone === '0000000000' ? '' : booking.customerPhone,
+    )
 
     const paidSum = (booking.paymentHistory || []).reduce((acc, pay) => acc + pay.amount, 0)
     setStudioPayAmount(booking.price - paidSum)
@@ -380,20 +399,22 @@ function BookingsManagement() {
   }
 
   const handleUpdateStatus = async (booking: Booking, status: Booking['bookingStatus']) => {
+    if (status === 'Completed') {
+      setCompleteDriveLink(booking.driveLink || '')
+      setCompleteSendEmail(true)
+      setCompleteClientName(booking.customerName || '')
+      setCompleteClientEmail(
+        isPlaceholderCustomerEmail(booking.customerEmail) ? '' : booking.customerEmail || '',
+      )
+      setShowCompleteModal(true)
+      return
+    }
+
     if (!window.confirm(`Update ${booking.id} to ${status}?`)) return
 
     setSaveLoading(true)
     try {
-      const paidSum = (booking.paymentHistory || []).reduce((acc, pay) => acc + pay.amount, 0)
-      let payStatus = booking.paymentStatus
-
-      if (status === 'Completed') {
-        payStatus = paidSum >= booking.price ? 'Paid Full' : booking.paymentStatus
-      } else if (status === 'Cancelled') {
-        payStatus = 'Refunded'
-      } else if (status === 'No Show') {
-        payStatus = booking.paymentStatus
-      }
+      const payStatus = status === 'Cancelled' ? 'Refunded' : booking.paymentStatus
 
       const updatedBooking: Booking = {
         ...booking,
@@ -420,6 +441,118 @@ function BookingsManagement() {
     } catch (err) {
       console.error(err)
       toast.error('Status update failed', err instanceof Error ? err.message : 'Could not save.')
+    } finally {
+      setSaveLoading(false)
+    }
+  }
+
+  const handleSaveContact = async () => {
+    if (!selectedBooking) return
+    const name = editContactName.trim()
+    const email = editContactEmail.trim()
+    const phone = editContactPhone.trim()
+
+    if (!name) {
+      toast.warning('Name required', 'Enter the client full name.')
+      return
+    }
+    if (!email || !email.includes('@') || isPlaceholderCustomerEmail(email)) {
+      toast.warning('Valid email required', 'Enter the client email so gallery and edit links can be sent.')
+      return
+    }
+
+    setSaveLoading(true)
+    try {
+      const updatedBooking: Booking = {
+        ...selectedBooking,
+        customerName: name,
+        customerEmail: email,
+        customerPhone: phone || selectedBooking.customerPhone,
+        customerFbName: selectedBooking.customerFbName || name,
+      }
+      const { saved } = await runAdminTransaction(updatedBooking, [])
+      setSelectedBooking(saved)
+      setEditingContact(false)
+      fetchBookings(true)
+      toast.success('Contact updated', `${saved.id} name & email saved.`)
+    } catch (err) {
+      console.error(err)
+      toast.error('Save failed', err instanceof Error ? err.message : 'Could not save contact.')
+    } finally {
+      setSaveLoading(false)
+    }
+  }
+
+  const handleConfirmComplete = async (opts: { sendEmail: boolean }) => {
+    if (!selectedBooking) return
+
+    const driveLink = completeDriveLink.trim()
+    const clientName = completeClientName.trim()
+    const clientEmail = completeClientEmail.trim()
+
+    if (!clientName) {
+      toast.warning('Name required', 'Enter the client full name.')
+      return
+    }
+
+    if (opts.sendEmail) {
+      if (!driveLink) {
+        toast.warning('Drive link required', 'Paste the Google Drive gallery link to email the client.')
+        return
+      }
+      if (!driveLink.startsWith('https://drive.google.com/')) {
+        toast.warning('Invalid link', 'Use a Google Drive link (https://drive.google.com/...).')
+        return
+      }
+      if (!clientEmail || !clientEmail.includes('@') || isPlaceholderCustomerEmail(clientEmail)) {
+        toast.warning('Client email required', 'Enter the client email to send the raw gallery link.')
+        return
+      }
+    }
+
+    setSaveLoading(true)
+    try {
+      const paidSum = (selectedBooking.paymentHistory || []).reduce((acc, pay) => acc + pay.amount, 0)
+      const updatedBooking: Booking = {
+        ...selectedBooking,
+        customerName: clientName,
+        customerEmail: clientEmail || selectedBooking.customerEmail,
+        customerFbName: selectedBooking.customerFbName || clientName,
+        bookingStatus: 'Completed',
+        paymentStatus: paidSum >= selectedBooking.price ? 'Paid Full' : selectedBooking.paymentStatus,
+        driveLink: driveLink || selectedBooking.driveLink || undefined,
+      }
+
+      const emails =
+        opts.sendEmail && driveLink
+          ? [{ action: 'gallery_link' as const, booking: updatedBooking, driveLink }]
+          : []
+
+      const { saved, emailErrors } = await runAdminTransaction(updatedBooking, emails)
+
+      setSelectedBooking(saved)
+      setEditDriveLink(saved.driveLink || '')
+      setEditContactName(saved.customerName)
+      setEditContactEmail(
+        isPlaceholderCustomerEmail(saved.customerEmail) ? '' : saved.customerEmail,
+      )
+      setShowCompleteModal(false)
+      fetchBookings(true)
+
+      const emailMsg = formatEmailResult(emailErrors)
+      if (emailMsg) {
+        toast.warning('Completed — email issue', emailMsg)
+      } else if (opts.sendEmail && driveLink) {
+        toast.success(
+          'Session completed',
+          `${saved.id} marked complete · gallery emailed to ${saved.customerEmail}.`,
+        )
+      } else {
+        toast.success('Session completed', `${saved.id} marked complete (no gallery email sent).`)
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Complete failed', err instanceof Error ? err.message : 'Could not save.')
     } finally {
       setSaveLoading(false)
     }
@@ -719,39 +852,130 @@ function BookingsManagement() {
             {/* Content Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Contact Info Card */}
-              <div className="border border-white/10 p-4 space-y-2">
-                <h4 className="text-[10px] font-bold tracking-widest text-white/40 uppercase border-b border-white/10 pb-1.5">
-                  Contact Information
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-xs">
-                  <div className="min-w-0">
-                     <p className="text-white/40 font-medium">Email Address</p>
-                     <p className="font-semibold mt-0.5 break-all">{selectedBooking.customerEmail}</p>
-                  </div>
-                  <div className="min-w-0">
-                     <p className="text-white/40 font-medium">Phone Number</p>
-                     <p className="font-semibold mt-0.5 break-words">{selectedBooking.customerPhone}</p>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-white/40 font-medium">Facebook Name</p>
-                    <p className="font-semibold mt-0.5 break-words">{selectedBooking.customerFbName || 'N/A'}</p>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-white/40 font-medium">Facebook Profile</p>
-                    {selectedBooking.customerFbLink ? (
-                      <a 
-                        href={selectedBooking.customerFbLink} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-primary hover:underline font-bold mt-0.5 inline-flex items-center gap-1.5 break-all"
-                      >
-                        View Profile <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-                      </a>
-                    ) : (
-                      <p className="text-white/50 italic mt-0.5">No link provided</p>
-                    )}
-                  </div>
+              <div className="border border-white/10 p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-white/10 pb-1.5 gap-2">
+                  <h4 className="text-[10px] font-bold tracking-widest text-white/40 uppercase">
+                    Contact Information
+                  </h4>
+                  {!editingContact ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditingContact(true)}
+                      className="text-[10px] text-primary font-bold uppercase tracking-wider hover:underline"
+                    >
+                      Edit contact
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingContact(false)
+                        setEditContactName(selectedBooking.customerName || '')
+                        setEditContactEmail(
+                          isPlaceholderCustomerEmail(selectedBooking.customerEmail)
+                            ? ''
+                            : selectedBooking.customerEmail || '',
+                        )
+                        setEditContactPhone(
+                          !selectedBooking.customerPhone || selectedBooking.customerPhone === '0000000000'
+                            ? ''
+                            : selectedBooking.customerPhone,
+                        )
+                      }}
+                      className="text-[10px] text-red-400 font-bold uppercase tracking-wider hover:underline"
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </div>
+
+                {editingContact ? (
+                  <div className="space-y-3">
+                    {isPlaceholderCustomerEmail(selectedBooking.customerEmail) && (
+                      <p className="text-[11px] text-amber-300/90 leading-relaxed border border-amber-500/20 bg-amber-500/10 p-2.5">
+                        This booking has no real email yet (imported). Add name + email so you can send the
+                        raw gallery Drive link to the client.
+                      </p>
+                    )}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-white/45 uppercase">Full Name</label>
+                      <input
+                        value={editContactName}
+                        onChange={(e) => setEditContactName(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-white/45 uppercase">Email</label>
+                      <input
+                        type="email"
+                        value={editContactEmail}
+                        onChange={(e) => setEditContactEmail(e.target.value)}
+                        placeholder="client@email.com"
+                        className="w-full bg-black/40 border border-white/10 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-white/45 uppercase">Phone (optional)</label>
+                      <input
+                        value={editContactPhone}
+                        onChange={(e) => setEditContactPhone(e.target.value)}
+                        placeholder="09XXXXXXXXX"
+                        className="w-full bg-black/40 border border-white/10 p-2 text-xs font-semibold focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={saveLoading}
+                      onClick={handleSaveContact}
+                      className="bg-primary text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2.5 hover:bg-[#03008F] disabled:opacity-50"
+                    >
+                      Save Contact
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                    <div className="min-w-0 sm:col-span-2">
+                      <p className="text-white/40 font-medium">Full Name</p>
+                      <p className="font-semibold mt-0.5 break-words">{selectedBooking.customerName}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white/40 font-medium">Email Address</p>
+                      <p className="font-semibold mt-0.5 break-all">
+                        {isPlaceholderCustomerEmail(selectedBooking.customerEmail)
+                          ? <span className="text-amber-300">No email on file</span>
+                          : selectedBooking.customerEmail}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white/40 font-medium">Phone Number</p>
+                      <p className="font-semibold mt-0.5 break-words">
+                        {!selectedBooking.customerPhone || selectedBooking.customerPhone === '0000000000'
+                          ? <span className="text-white/45">N/A</span>
+                          : selectedBooking.customerPhone}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white/40 font-medium">Facebook Name</p>
+                      <p className="font-semibold mt-0.5 break-words">{selectedBooking.customerFbName || 'N/A'}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white/40 font-medium">Facebook Profile</p>
+                      {selectedBooking.customerFbLink ? (
+                        <a
+                          href={selectedBooking.customerFbLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline font-bold mt-0.5 inline-flex items-center gap-1.5 break-all"
+                        >
+                          View Profile <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+                        </a>
+                      ) : (
+                        <p className="text-white/50 italic mt-0.5">No link provided</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Booking Info Card */}
@@ -867,6 +1091,10 @@ function BookingsManagement() {
                       )}
                     </>
                   )}
+
+                  <div className="col-span-2">
+                    <AdminBookingRawPhoto booking={selectedBooking} />
+                  </div>
 
                   <GraduationSessionDetails booking={selectedBooking} />
 
@@ -1088,6 +1316,118 @@ function BookingsManagement() {
                   <XCircle className="w-3.5 h-3.5" /> Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Complete + Gallery Link Modal */}
+      {showCompleteModal && selectedBooking && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+          <div className="border border-white/10 bg-[#222222] shadow-2xl max-w-md w-full p-6 md:p-8 space-y-5">
+            <div className="flex justify-between items-start border-b border-white/10 pb-3">
+              <div>
+                <h3 className="font-bold text-white text-lg">Complete Session</h3>
+                <p className="text-[10px] text-white/40 font-mono mt-0.5">{selectedBooking.id}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCompleteModal(false)}
+                className="p-1 hover:bg-white/[0.05] rounded text-white/40"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-white/60 leading-relaxed">
+              Paste the Google Drive folder of this client&apos;s raw gallery. Confirm name + email so we can
+              email them the link and the page to submit their 5 chosen photos.
+            </p>
+
+            <div className="space-y-2">
+              <label htmlFor="completeName" className="text-[10px] font-bold tracking-widest text-white/45 uppercase">
+                Client Full Name
+              </label>
+              <input
+                id="completeName"
+                value={completeClientName}
+                onChange={(e) => setCompleteClientName(e.target.value)}
+                placeholder="Full name"
+                className="w-full bg-black/40 border border-white/10 p-3 text-xs font-semibold focus:border-primary focus:outline-none text-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="completeEmail" className="text-[10px] font-bold tracking-widest text-white/45 uppercase">
+                Client Email
+              </label>
+              <input
+                id="completeEmail"
+                type="email"
+                value={completeClientEmail}
+                onChange={(e) => setCompleteClientEmail(e.target.value)}
+                placeholder="client@email.com"
+                className="w-full bg-black/40 border border-white/10 p-3 text-xs font-semibold focus:border-primary focus:outline-none text-white"
+              />
+              <p className="text-[10px] text-white/40">
+                Required to email the raw gallery. Saved on the booking for filtering / editor later.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="completeDrive" className="text-[10px] font-bold tracking-widest text-white/45 uppercase">
+                Google Drive Gallery Link (raw files)
+              </label>
+              <input
+                id="completeDrive"
+                type="url"
+                value={completeDriveLink}
+                onChange={(e) => setCompleteDriveLink(e.target.value)}
+                placeholder="https://drive.google.com/drive/folders/..."
+                className="w-full bg-black/40 border border-white/10 p-3 text-xs font-semibold focus:border-primary focus:outline-none text-white"
+              />
+              <p className="text-[10px] text-white/40">
+                Share the folder as <strong className="text-white/60">Anyone with the link</strong> (Viewer).
+              </p>
+            </div>
+
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={completeSendEmail}
+                onChange={(e) => setCompleteSendEmail(e.target.checked)}
+                className="mt-0.5 w-3.5 h-3.5 text-primary border-white/20"
+              />
+              <span className="text-[11px] text-white/70 leading-snug">
+                Email gallery link + submit page to the client email above
+              </span>
+            </label>
+
+            <div className="flex flex-col gap-2 border-t border-white/10 pt-4">
+              <button
+                type="button"
+                disabled={saveLoading}
+                onClick={() => handleConfirmComplete({ sendEmail: completeSendEmail })}
+                className="w-full bg-green-600 hover:bg-green-700 text-white text-xs font-bold uppercase tracking-wider py-3 disabled:opacity-50"
+              >
+                {completeSendEmail ? 'Complete & Email Client' : 'Complete Session'}
+              </button>
+              {completeSendEmail && (
+                <button
+                  type="button"
+                  disabled={saveLoading}
+                  onClick={() => handleConfirmComplete({ sendEmail: false })}
+                  className="w-full border border-white/10 text-white/70 hover:text-white hover:bg-white/[0.04] text-[10px] font-bold uppercase tracking-wider py-2.5 disabled:opacity-50"
+                >
+                  Complete without email
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowCompleteModal(false)}
+                className="w-full text-white/40 hover:text-white/70 text-[10px] font-bold uppercase tracking-wider py-2"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

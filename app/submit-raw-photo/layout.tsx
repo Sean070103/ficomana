@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 import { createPageMetadata } from '@/lib/site-metadata'
 
 export const metadata: Metadata = createPageMetadata({
-  title: 'Submit Raw Photos',
+  title: 'Submit Photo Selection',
   description:
-    'Submit your five chosen raw photos from your FICO MANA session for professional editing.',
+    'Enter your name and Google Drive folder link with your 5 chosen photos for FICO MANA filtering.',
   path: '/submit-raw-photo',
   noIndex: true,
 })

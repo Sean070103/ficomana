@@ -6,24 +6,25 @@ import { MANA_SESSION_BLOCKS, type SessionSlot } from '@/lib/booking-slots'
 type Props = {
   selectedSlotId: string
   onSelect: (slotId: string) => void
-  isSlotBooked: (slotId: string) => boolean
+  isSlotFull: (slotId: string) => boolean
   isSlotBlocked?: (slotId: string) => boolean
 }
 
 function SlotButton({
   slot,
   selected,
-  taken,
+  full,
   blocked,
   onSelect,
 }: {
   slot: SessionSlot
   selected: boolean
-  taken: boolean
+  full: boolean
   blocked: boolean
   onSelect: () => void
 }) {
-  const unavailable = taken || blocked
+  const unavailable = full || blocked
+
   return (
     <button
       type="button"
@@ -36,7 +37,7 @@ function SlotButton({
           !unavailable &&
           'border-white/12 bg-white/[0.03] text-white hover:border-white/40 hover:bg-white/5',
         unavailable && 'border-white/5 bg-white/[0.02] text-white/35 cursor-not-allowed',
-        blocked && !taken && 'border-amber-500/20 bg-amber-500/5',
+        blocked && !full && 'border-amber-500/20 bg-amber-500/5',
       )}
     >
       <span className="text-[9px] sm:text-[10px] font-bold tracking-[0.12em] uppercase leading-none">
@@ -48,16 +49,21 @@ function SlotButton({
       <span
         className={cn(
           'text-[7px] uppercase tracking-wider font-semibold leading-none mt-0.5',
-          blocked && !taken ? 'text-amber-400/80' : taken ? 'text-white/50' : selected ? 'text-white' : 'text-white/80',
+          blocked && !full ? 'text-amber-400/80' : full ? 'text-white/50' : selected ? 'text-white' : 'text-white/80',
         )}
       >
-        {blocked && !taken ? 'Blocked' : taken ? 'Booked' : selected ? 'Selected' : 'Open'}
+        {blocked && !full ? 'Blocked' : full ? 'Full' : selected ? 'Selected' : 'Open'}
       </span>
     </button>
   )
 }
 
-export default function BookingSlotPicker({ selectedSlotId, onSelect, isSlotBooked, isSlotBlocked }: Props) {
+export default function BookingSlotPicker({
+  selectedSlotId,
+  onSelect,
+  isSlotFull,
+  isSlotBlocked,
+}: Props) {
   return (
     <div className="flex flex-col min-h-0">
       <div className="min-w-[260px] sm:min-w-0">
@@ -74,45 +80,46 @@ export default function BookingSlotPicker({ selectedSlotId, onSelect, isSlotBook
         </div>
 
         <div className="space-y-1.5">
-            {MANA_SESSION_BLOCKS.map((block) => {
-              const sessionFull = block.slots.every(
-                (slot) => isSlotBooked(slot.id) || !!isSlotBlocked?.(slot.id),
-              )
-              return (
-                <div
-                  key={block.sessionId}
-                  className={cn(
-                    'grid grid-cols-[minmax(0,1.15fr)_1fr_1fr] gap-1 sm:gap-1.5 items-stretch',
-                    sessionFull && 'opacity-60',
-                  )}
-                >
-                  <div className="flex flex-col justify-center px-1 sm:px-1.5 py-2 border border-white/8 bg-white/[0.02]">
-                    <p className="text-[8px] sm:text-[9px] font-medium leading-snug text-white/75 tracking-wide">
-                      {block.timeLabel.replace(' - ', ' – ')}
+          {MANA_SESSION_BLOCKS.map((block) => {
+            const sessionFull = block.slots.every(
+              (slot) => isSlotFull(slot.id) || !!isSlotBlocked?.(slot.id),
+            )
+
+            return (
+              <div
+                key={block.sessionId}
+                className={cn(
+                  'grid grid-cols-[minmax(0,1.15fr)_1fr_1fr] gap-1 sm:gap-1.5 items-stretch',
+                  sessionFull && 'opacity-60',
+                )}
+              >
+                <div className="flex flex-col justify-center px-1 sm:px-1.5 py-2 border border-white/8 bg-white/[0.02]">
+                  <p className="text-[8px] sm:text-[9px] font-medium leading-snug text-white/75 tracking-wide">
+                    {block.timeLabel.replace(' - ', ' – ')}
+                  </p>
+                  {sessionFull && (
+                    <p className="text-[7px] uppercase tracking-wider text-white/50 mt-1 font-semibold">
+                      Session full
                     </p>
-                    {sessionFull && (
-                      <p className="text-[7px] uppercase tracking-wider text-white/50 mt-1 font-semibold">
-                        Session full
-                      </p>
-                    )}
-                  </div>
-                  {block.slots.map((slot) => (
-                    <SlotButton
-                      key={slot.id}
-                      slot={slot}
-                      selected={selectedSlotId === slot.id}
-                      taken={isSlotBooked(slot.id)}
-                      blocked={!!isSlotBlocked?.(slot.id)}
-                      onSelect={() => onSelect(slot.id)}
-                    />
-                  ))}
+                  )}
                 </div>
-              )
-            })}
+                {block.slots.map((slot) => (
+                  <SlotButton
+                    key={slot.id}
+                    slot={slot}
+                    selected={selectedSlotId === slot.id}
+                    full={isSlotFull(slot.id)}
+                    blocked={!!isSlotBlocked?.(slot.id)}
+                    onSelect={() => onSelect(slot.id)}
+                  />
+                ))}
+              </div>
+            )
+          })}
         </div>
 
         <p className="text-[9px] text-white/40 leading-snug border-t border-white/8 pt-3 mt-3">
-          With makeup · 2 slots per 2-hour session · Arrive 15 min early
+          With makeup · 1 booking per slot · Arrive 15 min early
         </p>
       </div>
     </div>

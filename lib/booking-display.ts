@@ -130,19 +130,23 @@ export type RawPhotoWorkflowStatus =
   | 'awaiting_selection'
   | 'pending_review'
   | 'approved'
+  | 'delivered'
   | 'rejected'
 
 const RAW_PHOTO_ACTIVE_STATUSES = new Set<Booking['bookingStatus']>(['Confirmed', 'Completed'])
 
 /** Whether this booking is in the post-shoot raw photo selection workflow. */
 export function isRawPhotoWorkflowBooking(booking: Booking): boolean {
-  if (booking.driveLink || booking.rawPhotoLink || booking.rawPhotoStatus) return true
+  if (booking.driveLink || booking.rawPhotoLink || booking.rawPhotoStatus || booking.editedPhotoLink) {
+    return true
+  }
   return RAW_PHOTO_ACTIVE_STATUSES.has(booking.bookingStatus)
 }
 
 /** Current step in the raw photo filtering workflow. */
 export function getRawPhotoWorkflowStatus(booking: Booking): RawPhotoWorkflowStatus | null {
   if (!isRawPhotoWorkflowBooking(booking)) return null
+  if (booking.editedPhotoLink) return 'delivered'
   if (booking.rawPhotoStatus === 'Approved') return 'approved'
   if (booking.rawPhotoStatus === 'Rejected') return 'rejected'
   if (booking.rawPhotoLink || booking.rawPhotoStatus === 'Pending Review') return 'pending_review'
@@ -160,7 +164,9 @@ export function rawPhotoWorkflowLabel(status: RawPhotoWorkflowStatus): string {
     case 'pending_review':
       return 'Pending Review'
     case 'approved':
-      return 'Approved'
+      return 'Ready to Edit'
+    case 'delivered':
+      return 'Edited Delivered'
     case 'rejected':
       return 'Rejected'
   }

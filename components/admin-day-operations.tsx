@@ -2,17 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import { Ban, CheckCircle2, Loader2, Minus, Plus } from 'lucide-react'
-import { FICO_DAILY_LIMIT, MANA_SESSION_BLOCKS } from '@/lib/booking-slots'
+import {
+  FICO_DAILY_LIMIT,
+  MANA_SESSION_BLOCKS,
+  getFicoBookingCount,
+  getMakeupSlotBookingCount,
+  isMakeupSlotFull,
+} from '@/lib/booking-slots'
 import type { BlockedSlot } from '@/lib/blocked-slots'
 import { getBlockedSlot } from '@/lib/blocked-slots'
 import { getFicoSpotBlock, type FicoSpotBlock } from '@/lib/fico-spot-blocks'
-import { blockSlot, setFicoSpotBlock, unblockSlot } from '@/lib/data-store'
+import { blockSlot, setFicoSpotBlock, unblockSlot, type Booking } from '@/lib/data-store'
 import { adminBtnGhost, adminBtnPrimary, adminInput, adminPanel } from '@/lib/admin-ui'
 import { useAdminToast } from '@/components/admin-toast-provider'
 import { cn } from '@/lib/utils'
 
 type Props = {
   date: string
+  bookings: Booking[]
   blockedSlots: BlockedSlot[]
   ficoSpotBlocks: FicoSpotBlock[]
   onChanged: () => void
@@ -20,7 +27,7 @@ type Props = {
 
 type Tab = 'fico' | 'mana'
 
-export default function AdminDayOperations({ date, blockedSlots, ficoSpotBlocks, onChanged }: Props) {
+export default function AdminDayOperations({ date, bookings, blockedSlots, ficoSpotBlocks, onChanged }: Props) {
   const toast = useAdminToast()
   const [tab, setTab] = useState<Tab>('fico')
   const [savingId, setSavingId] = useState<string | null>(null)
@@ -31,6 +38,7 @@ export default function AdminDayOperations({ date, blockedSlots, ficoSpotBlocks,
 
   const ficoHold = getFicoSpotBlock(ficoSpotBlocks, date)
   const ficoHeld = ficoHold?.spotsBlocked ?? 0
+  const ficoBooked = getFicoBookingCount(bookings, date)
   const ficoBookable = FICO_DAILY_LIMIT - ficoHeld
   const ficoDirty = ficoSpotsDraft !== ficoHeld
 
@@ -114,8 +122,8 @@ export default function AdminDayOperations({ date, blockedSlots, ficoSpotBlocks,
       <div className="flex border-b border-white/10">
         {(
           [
-            { id: 'fico' as const, label: 'FICO spots', hint: ficoHeld > 0 ? `${ficoBookable} open` : `${FICO_DAILY_LIMIT} open` },
-            { id: 'mana' as const, label: 'MANA slots', hint: blockedCount > 0 ? `${blockedCount} blocked` : 'All open' },
+            { id: 'fico' as const, label: 'FICO spots', hint: `${ficoBooked}/${FICO_DAILY_LIMIT} booked · ${ficoBookable} hold room` },
+            { id: 'mana' as const, label: 'MANA slots', hint: blockedCount > 0 ? `${blockedCount} blocked` : 'Shows client bookings' },
           ] as const
         ).map((item) => (
           <button
@@ -253,7 +261,8 @@ export default function AdminDayOperations({ date, blockedSlots, ficoSpotBlocks,
         ) : (
           <div className="space-y-4">
             <p className="text-xs text-white/50 leading-relaxed">
-              Tap to block a session slot. Other slots and FICO packages stay available.
+              Client bookings occupy each Slot 1 / Slot 2 (no double booking).
+              Tap Block only for extra studio holds.
             </p>
 
             {MANA_SESSION_BLOCKS.map((block) => (
@@ -262,20 +271,31 @@ export default function AdminDayOperations({ date, blockedSlots, ficoSpotBlocks,
                 <div className="rounded-xl border border-white/10 overflow-hidden divide-y divide-white/[0.06]">
                   {block.slots.map((slot) => {
                     const blocked = getBlockedSlot(blockedSlots, date, slot.id)
+                    const booked = getMakeupSlotBookingCount(bookings, date, slot.id)
+                    const full = isMakeupSlotFull(bookings, date, slot.id)
                     const saving = savingId === slot.id
                     return (
                       <div
                         key={slot.id}
                         className={cn(
                           'flex items-center justify-between gap-3 px-4 py-3',
-                          blocked ? 'bg-amber-500/[0.07]' : 'bg-white/[0.02]',
+                          blocked
+                            ? 'bg-amber-500/[0.07]'
+                            : full
+                              ? 'bg-red-500/[0.07]'
+                              : booked > 0
+                                ? 'bg-primary/[0.06]'
+                                : 'bg-white/[0.02]',
                         )}
                       >
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-white">{slot.slotLabel}</p>
-                          {blocked?.reason && blocked.reason !== 'Slot unavailable' && (
-                            <p className="text-[11px] text-white/45 truncate mt-0.5">{blocked.reason}</p>
-                          )}
+                          <p className="text-[11px] text-white/45 mt-0.5">
+                            {booked > 0 ? 'Client booked' : 'Available'}
+                            {blocked?.reason && blocked.reason !== 'Slot unavailable'
+                              ? ` · ${blocked.reason}`
+                              : ''}
+                          </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <span
@@ -283,10 +303,14 @@ export default function AdminDayOperations({ date, blockedSlots, ficoSpotBlocks,
                               'text-[10px] font-semibold uppercase px-2 py-0.5 rounded',
                               blocked
                                 ? 'bg-amber-500/20 text-amber-300'
-                                : 'bg-emerald-500/15 text-emerald-400',
+                                : full
+                                  ? 'bg-red-500/20 text-red-300'
+                                  : booked > 0
+                                    ? 'bg-primary/20 text-primary'
+                                    : 'bg-emerald-500/15 text-emerald-400',
                             )}
                           >
-                            {blocked ? 'Blocked' : 'Open'}
+                            {blocked ? 'Blocked' : full ? 'Full' : booked > 0 ? 'Booked' : 'Open'}
                           </span>
                           {blocked ? (
                             <button
@@ -308,7 +332,7 @@ export default function AdminDayOperations({ date, blockedSlots, ficoSpotBlocks,
                             <button
                               type="button"
                               onClick={() => handleBlock(slot.id)}
-                              disabled={saving}
+                              disabled={saving || full}
                               className="px-3 py-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-[10px] font-bold uppercase tracking-wider text-amber-200 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
                             >
                               {saving ? (

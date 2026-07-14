@@ -9,9 +9,11 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { AdminToastProvider } from '@/components/admin-toast-provider'
 import { AdminAutoSyncProvider } from '@/components/admin-auto-sync'
 import AdminSyncStatus from '@/components/admin-sync-status'
-import AdminRawPhotoQueue from '@/components/admin-raw-photo-queue'
+import FilteringDashboard, { type FilteringDashTab } from '@/components/filtering-dashboard'
 
-/** Standalone raw photo filtering dashboard — separate from the admin booking console. */
+const VALID_TABS = new Set<FilteringDashTab>(['overview', 'queue', 'calendar', 'editor'])
+
+/** Standalone filtering ops dashboard — connected to bookings, with review / calendar / editor. */
 export default function FilteringDashboardPage() {
   return (
     <Suspense
@@ -21,15 +23,17 @@ export default function FilteringDashboardPage() {
         </div>
       }
     >
-      <FilteringDashboard />
+      <FilteringDashboardShell />
     </Suspense>
   )
 }
 
-function FilteringDashboard() {
+function FilteringDashboardShell() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialSearch = searchParams.get('search')?.trim() ?? ''
+  const tabParam = searchParams.get('tab')?.trim() as FilteringDashTab | null
+  const initialTab = tabParam && VALID_TABS.has(tabParam) ? tabParam : undefined
   const [loading, setLoading] = useState(true)
   const [staffUser, setStaffUser] = useState<SupabaseUser | null>(null)
 
@@ -117,7 +121,7 @@ function FilteringDashboard() {
           <main className="relative flex-1 p-5 md:p-8">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(5,0,208,0.12),transparent)]" />
             <div className="relative max-w-7xl mx-auto">
-              <AdminRawPhotoQueue initialSearch={initialSearch} />
+              <FilteringDashboard initialSearch={initialSearch} initialTab={initialTab} />
             </div>
           </main>
         </div>

@@ -84,7 +84,7 @@ export async function POST(request: Request) {
         break
       case 'gallery_link':
         if (!driveLink) return NextResponse.json({ error: 'Drive link required' }, { status: 400 })
-        await sendGalleryLinkEmail(booking, driveLink)
+        result = await sendGalleryLinkEmail(booking, driveLink)
         break
       default:
         return NextResponse.json({ error: 'Unknown email action' }, { status: 400 })

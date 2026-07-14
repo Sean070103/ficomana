@@ -83,6 +83,7 @@ export default function AdminCalendarPage() {
             <>
               <AdminDayOperations
                 date={selectedDate}
+                bookings={bookings}
                 blockedSlots={blockedSlots}
                 ficoSpotBlocks={ficoSpotBlocks}
                 onChanged={() => fetchData(true)}
