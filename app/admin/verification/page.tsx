@@ -325,7 +325,7 @@ export default function PaymentVerificationQueue() {
                   <div className="col-span-2 border-t border-white/10 pt-3">
                     <div className="flex justify-between items-center text-[11px]">
                       <span className="text-white/40 font-medium">Deposit Amount:</span>
-                      <span className="font-bold text-[#0500D0]">₱{booking.depositAmount.toFixed(2)}</span>
+                      <span className="font-bold text-[#8FA0FF]">₱{booking.depositAmount.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -435,7 +435,7 @@ export default function PaymentVerificationQueue() {
                         href={selectedBooking.customerFbLink} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="text-[#0500D0] hover:underline font-semibold inline-flex items-center gap-1 mt-0.5 break-all"
+                        className="text-[#C4CEFF] hover:underline hover:text-white font-semibold inline-flex items-center gap-1 mt-0.5 break-all"
                       >
                         Visit Profile <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                       </a>
@@ -445,7 +445,7 @@ export default function PaymentVerificationQueue() {
                   </div>
                   <div>
                     <p className="text-white/40 font-medium text-[8px] uppercase tracking-wider">Package / Session</p>
-                    <p className="font-semibold text-[#0500D0]">{selectedBooking.packageName}</p>
+                    <p className="font-semibold text-[#C4CEFF]">{selectedBooking.packageName}</p>
                   </div>
                   <div>
                     <p className="text-white/40 font-medium text-[8px] uppercase tracking-wider">Date & Time</p>

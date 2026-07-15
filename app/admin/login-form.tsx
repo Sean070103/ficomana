@@ -55,13 +55,13 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col justify-center items-center px-6 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(5,0,208,0.15)_0%,_transparent_60%)] pointer-events-none" />
+    <div className="admin-console min-h-screen bg-black text-white flex flex-col justify-center items-center px-6 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(143,160,255,0.18)_0%,_transparent_60%)] pointer-events-none" />
 
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-8 md:p-10 relative z-10 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
         <div className="text-center space-y-2 mb-8">
           <h1 className="font-serif text-3xl font-bold tracking-tight text-white">FICO MANA</h1>
-          <p className="text-[10px] font-bold tracking-[0.25em] text-primary uppercase">Staff Console</p>
+          <p className="text-[10px] font-bold tracking-[0.25em] text-[#C4CEFF] uppercase">Staff Console</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-5">
@@ -72,7 +72,7 @@ export default function AdminLogin() {
           )}
 
           <div className="space-y-2">
-            <label htmlFor="email" className="text-[10px] font-semibold tracking-widest text-primary uppercase">
+            <label htmlFor="email" className="text-[10px] font-semibold tracking-widest text-[#C4CEFF] uppercase">
               Staff Email
             </label>
             <div className="relative">
@@ -92,7 +92,7 @@ export default function AdminLogin() {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="password" className="text-[10px] font-semibold tracking-widest text-primary uppercase">
+            <label htmlFor="password" className="text-[10px] font-semibold tracking-widest text-[#C4CEFF] uppercase">
               Password
             </label>
             <div className="relative">

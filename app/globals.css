@@ -340,3 +340,12 @@
 .gallery-marquee-track.is-paused {
   animation-play-state: paused;
 }
+
+/* Admin / filtering: softer blue accents on dark UI (not deep #0500D0) */
+.admin-console {
+  --primary: #8fa0ff;
+  --accent: #8fa0ff;
+  --brand-blue: #8fa0ff;
+  --ring: #a5b4fc;
+  --sidebar-primary: #8fa0ff;
+}

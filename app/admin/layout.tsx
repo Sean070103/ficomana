@@ -133,7 +133,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <AdminToastProvider>
     <AdminAutoSyncProvider enabled={isLoggedIn && !isLoginPage}>
-    <div className="min-h-screen bg-[#222222] text-white flex">
+    <div className="admin-console min-h-screen bg-[#222222] text-white flex">
       {/* Sidebar — desktop */}
       <aside className="hidden md:flex md:w-[260px] bg-[#222222] border-r border-white/[0.08] flex-col flex-shrink-0 relative">
         <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-primary/20 to-transparent pointer-events-none" />
@@ -142,7 +142,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <h1 className="font-serif text-xl font-bold tracking-tight text-white group-hover:text-white/90 transition-colors">
               FICO MANA
             </h1>
-            <p className="text-[9px] font-semibold tracking-[0.28em] text-primary/90 uppercase mt-1">
+            <p className="text-[9px] font-semibold tracking-[0.28em] text-[#C4CEFF] uppercase mt-1">
               Studio Console
             </p>
           </Link>
@@ -158,7 +158,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             const linkContent = (
               <>
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : 'text-white/45'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#C4CEFF]' : 'text-white/45'}`} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge !== undefined && (
@@ -194,7 +194,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-3 m-3 rounded-xl border border-white/[0.08] bg-white/[0.02] flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-bold text-primary">{staffInitial}</span>
+              <span className="text-xs font-bold text-[#C4CEFF]">{staffInitial}</span>
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-white truncate max-w-[130px]">{staffLabel}</p>
@@ -283,7 +283,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                       : `/admin/bookings?search=${encodeURIComponent(n.bookingId)}`
                                   }
                                   onClick={() => setShowNotifDrawer(false)}
-                                  className="text-[10px] text-primary font-semibold hover:underline"
+                                  className="text-[10px] text-[#C4CEFF] font-semibold hover:underline hover:text-white"
                                   {...(n.type.startsWith('RAW_PHOTO') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                                 >
                                   View
@@ -292,7 +292,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                               {!n.isRead && (
                                 <button
                                   onClick={() => handleMarkRead(n.id)}
-                                  className="text-[10px] text-primary font-semibold hover:underline"
+                                  className="text-[10px] text-[#C4CEFF] font-semibold hover:underline hover:text-white"
                                 >
                                   Mark read
                                 </button>
@@ -309,7 +309,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
 
             <div className="hidden sm:flex items-center gap-2.5 border-l border-white/10 pl-3">
-              <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 text-primary font-bold flex items-center justify-center text-xs">
+              <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 text-[#C4CEFF] font-bold flex items-center justify-center text-xs">
                 {staffInitial}
               </div>
               <span className="text-xs font-medium text-white/60 hidden lg:block truncate max-w-[160px]">

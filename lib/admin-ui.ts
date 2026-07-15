@@ -12,8 +12,8 @@ export const adminInput =
   'w-full rounded-lg bg-white/[0.06] border border-white/20 text-white placeholder:text-white/35 px-3 py-2.5 text-sm focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors'
 export const adminSelect =
   'admin-select w-full rounded-lg bg-[#222222] border border-white/10 text-white p-3.5 text-xs font-semibold focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20 [color-scheme:dark] transition-colors'
-export const adminLabel = 'text-[10px] font-bold tracking-widest text-primary/90 uppercase'
-export const adminSectionLabel = 'text-[10px] font-bold tracking-widest text-white/45 uppercase'
+export const adminLabel = 'text-[10px] font-bold tracking-widest text-[#C4CEFF] uppercase'
+export const adminSectionLabel = 'text-[10px] font-bold tracking-widest text-white/55 uppercase'
 export const adminBtnPrimary =
   'rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-[#1a14e8] active:scale-[0.99] transition-all disabled:opacity-50 disabled:pointer-events-none'
 export const adminBtnGhost =
@@ -104,7 +104,7 @@ export function emailStatusBadge(status: 'SENT' | 'FAILED') {
 export function notificationTypeBadge(type: string) {
   switch (type) {
     case 'NEW_BOOKING':
-      return 'text-primary'
+      return 'text-[#B8C4FF]'
     case 'RECEIPT_UPLOAD':
     case 'RESUBMITTED':
       return 'text-amber-400'

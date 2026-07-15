@@ -1,6 +1,46 @@
 {
   "bookings": [
     {
+      "id": "FM-100002",
+      "customerName": "Cielo Ortiz",
+      "customerEmail": "cieloalmirezz@gmail.com",
+      "customerPhone": "09701284392",
+      "customerFbLink": "",
+      "customerFbName": "Cielo Ortiz",
+      "packageId": "mana-makeup",
+      "packageName": "MANA PACKAGE",
+      "bookingDate": "2026-07-15",
+      "bookingTime": "8:00 AM - 9:30 AM · SLOT 2",
+      "slotId": "m-0800-0930-s2",
+      "arrivalTime": "7:45 AM",
+      "shootTime": "8:00 AM - 9:30 AM",
+      "isWalkIn": false,
+      "note": "Imported from legacy system · Original time: 8:30 AM",
+      "depositAmount": 500,
+      "price": 6000,
+      "bookingStatus": "Completed",
+      "paymentStatus": "Paid Full",
+      "createdAt": "2026-07-03T23:45:16+00:00",
+      "paymentHistory": [
+        {
+          "id": "dep-FM-100002",
+          "amount": 500,
+          "method": "BPI",
+          "type": "Deposit",
+          "date": "2026-07-03T23:45:16.000Z"
+        },
+        {
+          "id": "PAY-6845",
+          "amount": 5500,
+          "method": "Cash",
+          "type": "Balance Payment",
+          "date": "2026-07-15T03:09:33.596Z"
+        }
+      ],
+      "driveLink": "https://drive.google.com/drive/folders/1qSyFdfkD__lz1_9XM96JhWeNgrNoVmkE?usp=sharing",
+      "rawPhotoStatus": "Pending Review"
+    },
+    {
       "id": "FM-275655",
       "customerName": "Sean Michael Andrew Mendoza",
       "customerEmail": "mendozaseanmichaelandrewb2345@gmail.com",

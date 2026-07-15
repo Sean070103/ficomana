@@ -81,12 +81,12 @@ function FilteringDashboardShell() {
   return (
     <AdminToastProvider>
       <AdminAutoSyncProvider enabled>
-        <div className="min-h-screen bg-[#222222] text-white flex flex-col">
+        <div className="admin-console min-h-screen bg-[#222222] text-white flex flex-col">
           <header className="bg-[#222222]/80 backdrop-blur-xl border-b border-white/[0.08] h-16 flex items-center justify-between px-5 md:px-8 sticky top-0 z-20">
             <div className="flex items-center gap-6">
               <div>
                 <h1 className="font-serif text-lg font-bold tracking-tight text-white leading-none">FICO MANA</h1>
-                <p className="text-[8px] font-semibold tracking-[0.28em] text-primary/90 uppercase mt-1">
+                <p className="text-[8px] font-semibold tracking-[0.28em] text-[#C4CEFF] uppercase mt-1">
                   Filtering Dashboard
                 </p>
               </div>
@@ -101,7 +101,7 @@ function FilteringDashboardShell() {
             <div className="flex items-center gap-3">
               <AdminSyncStatus />
               <div className="flex items-center gap-2.5 border-l border-white/10 pl-3">
-                <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 text-primary font-bold flex items-center justify-center text-xs">
+                <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 text-[#C4CEFF] font-bold flex items-center justify-center text-xs">
                   {staffInitial}
                 </div>
                 <span className="text-xs font-medium text-white/60 hidden lg:block truncate max-w-[160px]">
