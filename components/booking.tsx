@@ -857,15 +857,14 @@ function BookingForm() {
                 </div>
                 <BpiQrDisplay
                   depositLabel="₱500"
-                  hint="Pay exactly ₱500, then enter your BPI reference number and upload the payment screenshot below."
+                  hint="Pay exactly ₱500, then upload a clear screenshot of your BPI payment receipt below."
                 />
                 <div>
-                  <label className={labelClass}>BPI Transaction Reference *</label>
+                  <label className={labelClass}>BPI Transaction Reference (optional)</label>
                   <input
-                    required
                     value={transactionRef}
                     onChange={(e) => setTransactionRef(e.target.value)}
-                    placeholder="e.g. 1234567890"
+                    placeholder="e.g. 1234567890 — if shown on your receipt"
                     className={inputClass + ' mt-1.5 font-mono'}
                   />
                 </div>
@@ -884,7 +883,7 @@ function BookingForm() {
               <button type="button" onClick={() => setStep(4)} className={btnBackClass}>
                 Back
               </button>
-              <button type="submit" disabled={!receiptFile || !transactionRef.trim() || isSubmitting} className={btnPrimaryClass}>
+              <button type="submit" disabled={!receiptFile || isSubmitting} className={btnPrimaryClass}>
                 {isSubmitting ? 'Submitting...' : 'Submit Booking'}
               </button>
             </div>
@@ -921,21 +920,23 @@ function BookingForm() {
                   <div className="col-span-2">
                     <p className="text-white/40">BPI Transaction Reference</p>
                     <p className="font-mono font-bold text-white text-base mt-0.5">
-                      {submittedSummary?.transactionRef || transactionRef.trim() || '—'}
+                      {submittedSummary?.transactionRef || transactionRef.trim() || 'Not provided'}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const ref = submittedSummary?.transactionRef || transactionRef.trim()
-                        if (ref) {
-                          navigator.clipboard.writeText(ref)
-                          setCopiedRef(true)
-                        }
-                      }}
-                      className="text-[10px] text-white mt-2 inline-flex items-center gap-1"
-                    >
-                      <Copy className="w-3 h-3" /> {copiedRef ? 'Copied!' : 'Copy transaction ref'}
-                    </button>
+                    {(submittedSummary?.transactionRef || transactionRef.trim()) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const ref = submittedSummary?.transactionRef || transactionRef.trim()
+                          if (ref) {
+                            navigator.clipboard.writeText(ref)
+                            setCopiedRef(true)
+                          }
+                        }}
+                        className="text-[10px] text-white mt-2 inline-flex items-center gap-1"
+                      >
+                        <Copy className="w-3 h-3" /> {copiedRef ? 'Copied!' : 'Copy transaction ref'}
+                      </button>
+                    )}
                   </div>
                   {(submittedSummary?.packageName || selectedSession) && (
                     <div className="col-span-2">

@@ -768,17 +768,17 @@ export async function sendBookingRescheduledEmail(booking: any, rebookingFee: nu
 
 export async function sendGalleryLinkEmail(booking: any, driveLink: string) {
   const submitUrl = submitRawPhotoUrl(booking.id)
-  const subject = `Your Raw Photos Are Ready — How to Submit Your 5 Picks - Booking: ${booking.id}`
+  const subject = `Your Raw Photos Are Ready — How to Submit Your 5 Enhanced Photos - Booking: ${booking.id}`
   const html = brandedEmail(
     'Your Raw Photos Are Ready',
     `
       <p>Hello <strong>${booking.customerName}</strong>,</p>
-      <p>Your session raw photos are uploaded. Please follow the steps below carefully so your 5 chosen photos reach our filtering team.</p>
+      <p>Your session raw photos are ready. Please follow the steps below carefully so your 5 chosen photos reach our filtering team.</p>
 
       <div style="background-color: #EEF0FF; padding: 20px; border: 1px solid #D4D8F0; margin: 25px 0;">
-        <p style="font-size: 14px; font-weight: bold; margin: 0 0 12px; color: #0500D0; text-align: center;">Step 1 — Open your full gallery</p>
-        <p style="font-size: 12px; color: #5A5A8A; margin: 0 0 14px; text-align: center; line-height: 1.6;">
-          Browse all your session photos in Google Drive.
+        <p style="font-size: 14px; font-weight: bold; margin: 0 0 10px; color: #0500D0;">Step 1 — Access Your Raw Photos</p>
+        <p style="font-size: 12px; color: #5A5A8A; margin: 0 0 14px; line-height: 1.6;">
+          Click the Google Drive link below to access all of your session&apos;s raw photos.
         </p>
         <p style="text-align: center; margin: 0 0 22px;">
           <a href="${driveLink}" target="_blank" rel="noopener noreferrer" style="background-color: #0500D0; color: white; padding: 12px 25px; text-decoration: none; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; display: inline-block;">
@@ -786,32 +786,36 @@ export async function sendGalleryLinkEmail(booking: any, driveLink: string) {
           </a>
         </p>
 
-        <p style="font-size: 14px; font-weight: bold; margin: 0 0 10px; color: #0500D0;">Step 2 — Create a folder with only 5 photos</p>
+        <p style="font-size: 14px; font-weight: bold; margin: 0 0 10px; color: #0500D0;">Step 2 — Select Your 5 Enhanced Photos</p>
+        <p style="font-size: 12px; color: #5A5A8A; margin: 0 0 10px; line-height: 1.6;">
+          Inside the Google Drive folder, choose the <strong>5 photos</strong> you would like to have professionally enhanced.
+        </p>
+        <ul style="font-size: 12px; color: #5A5A8A; line-height: 1.7; margin: 0 0 18px; padding-left: 18px;">
+          <li>Drag your selected <strong>5 original raw photos</strong> into the folder named <strong>&quot;5 Enhanced Photos.&quot;</strong></li>
+          <li><strong>Do not download</strong> the photos — simply drag and drop them into the folder.</li>
+          <li>Please <strong>do not</strong> submit cropped, filtered, edited, or screenshot versions. Only the original raw photos will be accepted.</li>
+        </ul>
+
+        <p style="font-size: 14px; font-weight: bold; margin: 0 0 10px; color: #0500D0;">Step 3 — Complete the Printing Template</p>
+        <p style="font-size: 12px; color: #5A5A8A; margin: 0 0 8px; line-height: 1.6;">
+          Inside the <strong>5 Enhanced Photos</strong> folder:
+        </p>
         <ol style="font-size: 12px; color: #5A5A8A; line-height: 1.7; margin: 0 0 18px; padding-left: 18px;">
-          <li>In <strong>your own Google Drive</strong>, click <strong>New → New folder</strong>.</li>
-          <li>Name it something clear (example: <em>${booking.id} - My 5 Picks</em>).</li>
-          <li>Copy or upload <strong>exactly 5</strong> original raw photos into that folder.</li>
-          <li>Do <strong>not</strong> submit cropped, filtered, or already-edited photos.</li>
+          <li>Fill out the <strong>Printing Template</strong> that we provided to you during your studio session by writing the filename of each selected photo in the designated spaces.</li>
+          <li>Take a clear photo of the completed template.</li>
+          <li>Upload a clear photo of the completed Printing Template inside the <strong>&quot;5 Enhanced Photos&quot;</strong> folder.</li>
         </ol>
 
-        <p style="font-size: 14px; font-weight: bold; margin: 0 0 10px; color: #0500D0;">Step 3 — Make the folder shareable</p>
-        <ol style="font-size: 12px; color: #5A5A8A; line-height: 1.7; margin: 0 0 18px; padding-left: 18px;">
-          <li>Right-click the folder → <strong>Share</strong>.</li>
-          <li>Under General access, choose <strong>Anyone with the link</strong>.</li>
-          <li>Role can stay <strong>Viewer</strong>.</li>
-          <li>Click <strong>Copy link</strong>.</li>
-        </ol>
-
-        <p style="font-size: 14px; font-weight: bold; margin: 0 0 10px; color: #0500D0;">Step 4 — Submit on our website</p>
+        <p style="font-size: 14px; font-weight: bold; margin: 0 0 10px; color: #0500D0;">Step 4 — Submit Through Our Website</p>
         <ol style="font-size: 12px; color: #5A5A8A; line-height: 1.7; margin: 0 0 16px; padding-left: 18px;">
-          <li>Open the submit page below.</li>
-          <li>Enter your <strong>full name</strong> (same name used when booking).</li>
-          <li>Paste your <strong>Google Drive folder link</strong>.</li>
-          <li>Click <strong>Submit to Filtering</strong>.</li>
+          <li>Open the submission page using the link below.</li>
+          <li>Enter your <strong>full name</strong> (the same name used during booking).</li>
+          <li>Paste the Google Drive link to your <strong>&quot;5 Enhanced Photos&quot;</strong> folder.</li>
+          <li>Click <strong>Submit for Filtering</strong> to complete your submission.</li>
         </ol>
         <p style="text-align: center; margin: 0;">
           <a href="${submitUrl}" target="_blank" rel="noopener noreferrer" style="background-color: #111111; color: white; padding: 12px 25px; text-decoration: none; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; display: inline-block; border: 2px solid #0500D0;">
-            Submit Name + Drive Link
+            Submit for Filtering
           </a>
         </p>
       </div>
@@ -819,8 +823,8 @@ export async function sendGalleryLinkEmail(booking: any, driveLink: string) {
       <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 14px; margin: 0 0 18px; font-size: 12px; color: #475569; line-height: 1.6;">
         <strong style="color: #0F172A;">Important</strong><br/>
         • Use original unedited files only<br/>
-        • Folder must contain 5 photos<br/>
-        • Sharing must be &quot;Anyone with the link&quot; or editors cannot open it<br/>
+        • Place exactly 5 raw photos in the &quot;5 Enhanced Photos&quot; folder<br/>
+        • Include a clear photo of your completed Printing Template<br/>
         • Booking reference: <strong>${booking.id}</strong>
       </div>
 

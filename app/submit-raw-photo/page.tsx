@@ -92,10 +92,10 @@ function SubmitSelectionForm() {
         <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center mx-auto border border-primary/30">
           <Check className="w-7 h-7 text-white" />
         </div>
-        <h3 className="text-lg font-semibold text-white">Submitted to Filtering</h3>
+        <h3 className="text-lg font-semibold text-white">Submitted for Filtering</h3>
         <p className="text-sm text-white/70 leading-relaxed">
-          Thanks, <span className="text-white font-medium">{done.customerName}</span>. Your Drive folder is now in our
-          filtering queue for booking{' '}
+          Thanks, <span className="text-white font-medium">{done.customerName}</span>. Your{' '}
+          <span className="text-white/90">5 Enhanced Photos</span> folder is now in our filtering queue for booking{' '}
           <span className="font-mono text-white">{done.id}</span>.
         </p>
         <p className="text-xs text-white/40">
@@ -128,10 +128,10 @@ function SubmitSelectionForm() {
             <Upload className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-white">Send your 5 photo picks</p>
+            <p className="text-sm font-semibold text-white">Submit your 5 Enhanced Photos</p>
             <p className="text-[11px] text-white/45 mt-1 leading-relaxed">
-              Put your 5 chosen raw photos in a Google Drive folder, set sharing to{' '}
-              <strong className="text-white/70">Anyone with the link</strong>, then paste the link below with your name.
+              Paste the Google Drive link to your <strong className="text-white/70">5 Enhanced Photos</strong> folder
+              (with your 5 original raw photos and a photo of the completed Printing Template), then enter your full name.
             </p>
           </div>
         </div>
@@ -149,7 +149,7 @@ function SubmitSelectionForm() {
         </div>
 
         <div>
-          <label className={labelClass}>Google Drive Folder Link</label>
+          <label className={labelClass}>Google Drive Link — “5 Enhanced Photos” Folder</label>
           <input
             required
             type="url"
@@ -159,7 +159,7 @@ function SubmitSelectionForm() {
             className={inputClass + ' mt-1.5'}
           />
           <p className="text-[10px] text-white/40 mt-1.5 leading-relaxed">
-            Folder should contain only your 5 chosen raw photos (original files, not edited).
+            Must be the link to your &quot;5 Enhanced Photos&quot; folder (5 original raw photos + Printing Template photo).
           </p>
         </div>
 
@@ -220,7 +220,7 @@ function SubmitSelectionForm() {
           disabled={submitting || !name.trim() || !driveLink.trim()}
           className={btnPrimaryClass}
         >
-          {submitting ? 'Submitting…' : 'Submit to Filtering'}
+          {submitting ? 'Submitting…' : 'Submit for Filtering'}
         </button>
       </form>
     </div>
@@ -235,8 +235,8 @@ export default function SubmitRawPhotoPage() {
       <SectionShell id="submit-raw-photo" className="pt-28 pb-16 flex-1 flex flex-col justify-center">
         <SectionHeader
           eyebrow="Photo Selection"
-          title="Submit Your Drive Folder"
-          description="Enter your name and the Google Drive link to your 5 chosen photos. It goes straight into our filtering queue for editors."
+          title="Submit for Filtering"
+          description="Enter your full name and the Google Drive link to your “5 Enhanced Photos” folder. It goes straight into our filtering queue."
           align="center"
         />
 
