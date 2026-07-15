@@ -78,6 +78,7 @@ export function mapDbBookingToModel(b: DbBookingRow): Booking {
     rawPhotoStatus: b.raw_photo_status ? (b.raw_photo_status as Booking['rawPhotoStatus']) : undefined,
     rawPhotoNotes: b.raw_photo_notes ? String(b.raw_photo_notes) : undefined,
     rawPhotoSubmittedAt: b.raw_photo_submitted_at ? String(b.raw_photo_submitted_at) : undefined,
+    rawPhotoApprovedAt: b.raw_photo_approved_at ? String(b.raw_photo_approved_at) : undefined,
     editedPhotoLink: b.edited_photo_link ? String(b.edited_photo_link) : undefined,
     editedPhotoDeliveredAt: b.edited_photo_delivered_at
       ? String(b.edited_photo_delivered_at)
@@ -168,12 +169,17 @@ export function mapModelBookingToDb(b: Booking): Record<string, unknown> {
     payment_history: JSON.stringify(b.paymentHistory ?? []),
     drive_link: b.driveLink ?? null,
     // Raw photo / edited delivery columns — only send when used (migration-safe).
-    ...(b.rawPhotoLink || b.rawPhotoStatus || b.rawPhotoNotes || b.rawPhotoSubmittedAt
+    ...(b.rawPhotoLink ||
+    b.rawPhotoStatus ||
+    b.rawPhotoNotes ||
+    b.rawPhotoSubmittedAt ||
+    b.rawPhotoApprovedAt
       ? {
           raw_photo_link: b.rawPhotoLink ?? null,
           raw_photo_status: b.rawPhotoStatus ?? null,
           raw_photo_notes: b.rawPhotoNotes ?? null,
           raw_photo_submitted_at: b.rawPhotoSubmittedAt ?? null,
+          raw_photo_approved_at: b.rawPhotoApprovedAt ?? null,
         }
       : {}),
     ...(b.editedPhotoLink || b.editedPhotoDeliveredAt

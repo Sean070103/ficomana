@@ -40,6 +40,16 @@ export async function getBookingFromDb(client: SupabaseClient, id: string): Prom
   return mapDbBookingToModel(data)
 }
 
+export async function deleteBookingFromDb(client: SupabaseClient, id: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false
+  const { error } = await client.from('bookings').delete().eq('id', id)
+  if (error) {
+    console.error('deleteBookingFromDb:', error.message)
+    return false
+  }
+  return true
+}
+
 export async function saveBookingToDb(client: SupabaseClient, booking: Booking): Promise<Booking | null> {
   if (!isSupabaseConfigured()) return null
 

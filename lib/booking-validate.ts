@@ -24,6 +24,8 @@ export function validateBookingAvailability(
     return { ok: true }
   }
 
+  // Updates that keep the same slot are skipped by the API; when schedule changes,
+  // still exclude this booking id so the current occupant isn't blocked by itself.
   const blocked = options?.blockedSlots ?? []
   const ficoSpotBlocks = options?.ficoSpotBlocks ?? []
   const others = existing.filter(
@@ -37,6 +39,8 @@ export function validateBookingAvailability(
   if (usesMakeupSlots(booking.packageId)) {
     const slotId = booking.slotId
     if (!slotId) {
+      // Existing imported rows may lack slot_id — don't block staff updates on that alone.
+      if (options?.isUpdate) return { ok: true }
       return { ok: false, error: 'A session slot is required for this package.' }
     }
     if (isSlotBlocked(blocked, booking.bookingDate, slotId)) {
@@ -50,8 +54,6 @@ export function validateBookingAvailability(
       return { ok: false, error: 'This session slot is no longer available.' }
     }
   }
-
-  if (options?.isUpdate) return { ok: true }
 
   return { ok: true }
 }

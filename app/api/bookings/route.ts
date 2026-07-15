@@ -107,7 +107,7 @@ export async function POST(request: Request) {
     const incoming = (await request.json()) as Booking
 
     let isExisting = false
-    let priorBookingStatus: Booking['bookingStatus'] | undefined
+    let priorBooking: Booking | null = null
     if (isSupabaseConfigured()) {
       const admin = getSupabaseAdmin()
       if (!admin) {
@@ -116,14 +116,13 @@ export async function POST(request: Request) {
           { status: 500 },
         )
       }
-      const existing = await getBookingFromDb(admin, incoming.id)
-      isExisting = !!existing
-      priorBookingStatus = existing?.bookingStatus
+      priorBooking = await getBookingFromDb(admin, incoming.id)
+      isExisting = !!priorBooking
     } else {
-      const existing = await getBookingById(incoming.id)
-      isExisting = !!existing
-      priorBookingStatus = existing?.bookingStatus
+      priorBooking = await getBookingById(incoming.id)
+      isExisting = !!priorBooking
     }
+    const priorBookingStatus = priorBooking?.bookingStatus
 
     if (isExisting) {
       const { error: authError } = await requireStaffAuth()
@@ -145,6 +144,7 @@ export async function POST(request: Request) {
           rawPhotoStatus: undefined,
           rawPhotoNotes: undefined,
           rawPhotoSubmittedAt: undefined,
+          rawPhotoApprovedAt: undefined,
           editedPhotoLink: undefined,
           editedPhotoDeliveredAt: undefined,
           depositAmount: 500,
@@ -160,16 +160,27 @@ export async function POST(request: Request) {
           ],
         }
 
-    const availabilityPool = await loadAvailabilityBookings()
-    const blockedSlots = await listBlockedSlots()
-    const ficoSpotBlocks = await listFicoSpotBlocks()
-    const validation = validateBookingAvailability(booking, availabilityPool, {
-      isUpdate: isExisting,
-      blockedSlots,
-      ficoSpotBlocks,
-    })
-    if (!validation.ok) {
-      return NextResponse.json({ error: validation.error }, { status: 409 })
+    // Contact/status-only edits must not fail when the slot is already occupied
+    // (this booking itself, or a legacy double-book). Re-check capacity only if schedule changes.
+    const scheduleUnchanged =
+      !!priorBooking &&
+      priorBooking.bookingDate === booking.bookingDate &&
+      (priorBooking.slotId || '') === (booking.slotId || '') &&
+      priorBooking.bookingTime === booking.bookingTime &&
+      priorBooking.packageId === booking.packageId
+
+    if (!scheduleUnchanged) {
+      const availabilityPool = await loadAvailabilityBookings()
+      const blockedSlots = await listBlockedSlots()
+      const ficoSpotBlocks = await listFicoSpotBlocks()
+      const validation = validateBookingAvailability(booking, availabilityPool, {
+        isUpdate: isExisting,
+        blockedSlots,
+        ficoSpotBlocks,
+      })
+      if (!validation.ok) {
+        return NextResponse.json({ error: validation.error }, { status: 409 })
+      }
     }
 
     const db = getSupabaseAdmin()

@@ -51,6 +51,8 @@ export interface Booking {
   rawPhotoStatus?: 'Pending Review' | 'Approved' | 'Rejected'
   rawPhotoNotes?: string
   rawPhotoSubmittedAt?: string
+  /** When editors approved the 5-pick — starts the 15-day edit window. */
+  rawPhotoApprovedAt?: string
   /** Final edited photos Drive folder — sent to client by editor. */
   editedPhotoLink?: string
   editedPhotoDeliveredAt?: string

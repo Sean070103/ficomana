@@ -70,6 +70,16 @@ export async function upsertBooking(booking: Booking): Promise<Booking> {
   return booking
 }
 
+export async function deleteBookingFromStore(id: string): Promise<boolean> {
+  const store = await readStore()
+  const before = store.bookings.length
+  store.bookings = store.bookings.filter((b) => b.id !== id)
+  store.notifications = store.notifications.filter((n) => n.bookingId !== id)
+  if (store.bookings.length === before) return false
+  await writeStore(store)
+  return true
+}
+
 export async function listNotifications(): Promise<Notification[]> {
   const store = await readStore()
   return store.notifications.sort(

@@ -43,11 +43,14 @@ export async function POST(
     const rawPhotoStatus: Booking['rawPhotoStatus'] =
       action === 'Approve' ? 'Approved' : 'Rejected'
     const rawPhotoNotes = notes || reason || ''
+    const approvedAt =
+      action === 'Approve' ? booking.rawPhotoApprovedAt || new Date().toISOString() : undefined
 
     const updatedBooking: Booking = {
       ...booking,
       rawPhotoStatus,
       rawPhotoNotes,
+      rawPhotoApprovedAt: approvedAt,
     }
 
     const notificationType = action === 'Approve' ? 'RAW_PHOTO_APPROVED' : 'RAW_PHOTO_REJECTED'
@@ -64,9 +67,10 @@ export async function POST(
         return NextResponse.json({ error: 'Database admin client unavailable.' }, { status: 500 })
       }
 
-      const patch = {
+      const patch: Record<string, unknown> = {
         raw_photo_status: rawPhotoStatus,
         raw_photo_notes: rawPhotoNotes || null,
+        raw_photo_approved_at: approvedAt ?? null,
       }
 
       const { data, error } = await admin
@@ -83,7 +87,7 @@ export async function POST(
           if (!viaUpsert) {
             return NextResponse.json(
               {
-                error: `Database save failed: ${error.message}. Run migration 011_raw_photo_filtering.sql in Supabase.`,
+                error: `Database save failed: ${error.message}. Run migrations 011 and 015 in Supabase.`,
               },
               { status: 500 },
             )
@@ -93,7 +97,7 @@ export async function POST(
           const msg = saveErr instanceof Error ? saveErr.message : error.message
           return NextResponse.json(
             {
-              error: `${msg}. Run migration 011_raw_photo_filtering.sql in Supabase if columns are missing.`,
+              error: `${msg}. Run migrations 011_raw_photo_filtering.sql and 015_raw_photo_approved_at.sql if columns are missing.`,
             },
             { status: 500 },
           )
@@ -103,6 +107,9 @@ export async function POST(
           ...updatedBooking,
           rawPhotoStatus: (data?.raw_photo_status as Booking['rawPhotoStatus']) || rawPhotoStatus,
           rawPhotoNotes: data?.raw_photo_notes ? String(data.raw_photo_notes) : rawPhotoNotes,
+          rawPhotoApprovedAt: data?.raw_photo_approved_at
+            ? String(data.raw_photo_approved_at)
+            : approvedAt,
         }
       }
 

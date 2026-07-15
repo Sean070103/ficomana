@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
+  ArrowLeft,
   ArrowRight,
   CalendarDays,
   CheckCircle,
   Clock,
   ExternalLink,
+  Folder,
   FolderOpen,
   Image as ImageIcon,
   LayoutDashboard,
@@ -24,6 +26,7 @@ import {
   type RawPhotoWorkflowStatus,
 } from '@/lib/booking-display'
 import { countPendingRawPhotoReviews, hasRawPhotoSubmission } from '@/lib/raw-photo-display'
+import { EDITOR_DEADLINE_DAYS, getEditorDeadlineInfo } from '@/lib/editor-deadline'
 import { adminCard, adminCardHover, adminEmptyState, adminInput, adminPage, adminPanel, adminSpinner, adminSpinnerWrap, rawPhotoStatusBadge } from '@/lib/admin-ui'
 import AdminPageHeader from '@/components/admin-page-header'
 import AdminBookingCalendar from '@/components/admin-booking-calendar'
@@ -31,6 +34,17 @@ import AdminRawPhotoQueue from '@/components/admin-raw-photo-queue'
 import { useOnAdminDbSync } from '@/components/admin-auto-sync'
 import { useAdminToast } from '@/components/admin-toast-provider'
 import { isPlaceholderCustomerEmail } from '@/lib/customer-email'
+
+function formatDayFolderLabel(dateKey: string) {
+  const d = new Date(`${dateKey}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return dateKey
+  return d.toLocaleDateString('en-PH', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
 
 export type FilteringDashTab = 'overview' | 'queue' | 'calendar' | 'editor'
 
@@ -579,13 +593,43 @@ function EditorTab({
   const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>({})
   const [emailDrafts, setEmailDrafts] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'todo' | 'done' | 'all'>('todo')
+  const [filter, setFilter] = useState<'todo' | 'done' | 'all' | 'overdue'>('todo')
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   const visible = bookings.filter((b) => {
+    const deadline = getEditorDeadlineInfo(b)
     if (filter === 'todo') return !b.editedPhotoLink
     if (filter === 'done') return Boolean(b.editedPhotoLink)
+    if (filter === 'overdue') return deadline.overdue
     return true
   })
+
+  const dayFolders = useMemo(() => {
+    const map = new Map<string, { total: number; todo: number; overdue: number }>()
+    for (const b of visible) {
+      const day = b.bookingDate || 'undated'
+      const cur = map.get(day) || { total: 0, todo: 0, overdue: 0 }
+      cur.total += 1
+      if (!b.editedPhotoLink) cur.todo += 1
+      if (getEditorDeadlineInfo(b).overdue) cur.overdue += 1
+      map.set(day, cur)
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, stats]) => ({ date, ...stats }))
+  }, [visible])
+
+  const dayBookings = useMemo(() => {
+    if (!selectedDay) return []
+    return visible
+      .filter((b) => (b.bookingDate || 'undated') === selectedDay)
+      .sort((a, b) => a.bookingTime.localeCompare(b.bookingTime))
+  }, [visible, selectedDay])
+
+  const overdueCount = useMemo(
+    () => bookings.filter((b) => getEditorDeadlineInfo(b).overdue).length,
+    [bookings],
+  )
 
   const deliver = async (booking: Booking, sendEmailFlag: boolean) => {
     const link = (linkDrafts[booking.id] ?? booking.editedPhotoLink ?? '').trim()
@@ -593,6 +637,7 @@ function EditorTab({
       emailDrafts[booking.id] ??
       (isPlaceholderCustomerEmail(booking.customerEmail) ? '' : booking.customerEmail)
     ).trim()
+    const deadline = getEditorDeadlineInfo(booking)
 
     if (!link) {
       toast.warning('Drive link required', 'Paste the Google Drive folder of the edited photos.')
@@ -606,6 +651,12 @@ function EditorTab({
       if (!emailDraft || !emailDraft.includes('@') || isPlaceholderCustomerEmail(emailDraft)) {
         toast.warning('Client email required', 'Enter the client email before sending edited photos.')
         return
+      }
+      if (deadline.overdue) {
+        const ok = window.confirm(
+          `${booking.id} is past the ${EDITOR_DEADLINE_DAYS}-day edit deadline. Send the client email anyway?`,
+        )
+        if (!ok) return
       }
     }
 
@@ -655,12 +706,20 @@ function EditorTab({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-[11px] text-white/45">
             <span className="font-semibold text-amber-300">{awaitingEdit}</span> need edited link ·{' '}
-            <span className="font-semibold text-emerald-300">{delivered}</span> delivered
+            <span className="font-semibold text-emerald-300">{delivered}</span> delivered ·{' '}
+            <span className="font-semibold text-white/70">{EDITOR_DEADLINE_DAYS}-day</span> edit deadline
+            {overdueCount > 0 && (
+              <>
+                {' · '}
+                <span className="font-semibold text-red-300">{overdueCount} overdue</span>
+              </>
+            )}
           </p>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {(
               [
                 ['todo', 'To edit'],
+                ['overdue', 'Overdue'],
                 ['done', 'Delivered'],
                 ['all', 'All'],
               ] as const
@@ -668,7 +727,10 @@ function EditorTab({
               <button
                 key={id}
                 type="button"
-                onClick={() => setFilter(id)}
+                onClick={() => {
+                  setFilter(id)
+                  setSelectedDay(null)
+                }}
                 className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border transition-colors ${
                   filter === id
                     ? 'border-primary/40 bg-primary/15 text-white'
@@ -682,152 +744,253 @@ function EditorTab({
         </div>
       </div>
 
-      {visible.length === 0 ? (
-        <div className={`${adminEmptyState} p-16`}>
-          <PenTool className="w-7 h-7 text-white/30" />
-          <h3 className="text-sm font-bold uppercase tracking-wider text-white">
-            {filter === 'todo' ? 'No jobs waiting' : 'Nothing here'}
-          </h3>
-          <p className="text-xs text-white/40 max-w-md">
-            After editing, paste the Google Drive link of the finished photos and email the client.
-          </p>
-        </div>
-      ) : (
-        <div className="grid md:grid-cols-2 gap-4">
-          {visible.map((b) => {
-            const deliveredAlready = Boolean(b.editedPhotoLink)
-            const draft = linkDrafts[b.id] ?? b.editedPhotoLink ?? ''
-            const busy = savingId === b.id
-
-            return (
-              <div key={b.id} className={`${adminCard} ${adminCardHover} p-5 space-y-4`}>
-                <div className="flex justify-between items-start gap-3 border-b border-white/10 pb-3">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-white truncate">{b.customerName}</h3>
-                    <Link
-                      href={`/admin/bookings?search=${encodeURIComponent(b.id)}`}
-                      className="text-[10px] text-primary font-mono mt-0.5 hover:underline"
-                    >
-                      {b.id}
-                    </Link>
-                  </div>
-                  <span
-                    className={`text-[9px] font-bold px-2 py-0.5 uppercase shrink-0 border ${
-                      deliveredAlready
-                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                        : 'bg-green-500/15 text-green-400 border-green-500/30'
-                    }`}
-                  >
-                    {deliveredAlready ? 'Delivered' : 'Ready to edit'}
-                  </span>
-                </div>
-
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex justify-between gap-2">
-                    <span className="text-white/40">Shoot</span>
-                    <span className="text-white/80 text-right">
-                      {b.bookingDate} · {b.bookingTime}
+      {!selectedDay ? (
+        dayFolders.length === 0 ? (
+          <div className={`${adminEmptyState} p-16`}>
+            <Folder className="w-7 h-7 text-white/30" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+              {filter === 'todo' ? 'No jobs waiting' : 'Nothing here'}
+            </h3>
+            <p className="text-xs text-white/40 max-w-md">
+              Approved selections are grouped by shoot day. Open a day folder to edit and deliver.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+              Shoot-day folders
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {dayFolders.map((folder) => (
+                <button
+                  key={folder.date}
+                  type="button"
+                  onClick={() => setSelectedDay(folder.date)}
+                  className={`${adminCard} ${adminCardHover} p-4 text-left space-y-3`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <FolderOpen className="w-5 h-5 text-amber-300 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">
+                          {formatDayFolderLabel(folder.date)}
+                        </p>
+                        <p className="text-[10px] font-mono text-white/40 mt-0.5">{folder.date}</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-white/50 shrink-0">
+                      {folder.total}
                     </span>
                   </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-white/40">Package</span>
-                    <span className="text-white/80 text-right">{b.packageName}</span>
-                  </div>
-                  {b.customerEmail && !b.customerEmail.includes('imported@') && (
-                    <div className="flex justify-between gap-2">
-                      <span className="text-white/40">Email</span>
-                      <span className="text-white/70 text-right truncate max-w-[180px]">
-                        {b.customerEmail}
+                  <div className="flex flex-wrap gap-1.5 text-[9px] font-bold uppercase tracking-wider">
+                    {folder.todo > 0 && (
+                      <span className="px-2 py-0.5 border border-amber-500/30 bg-amber-500/10 text-amber-300">
+                        {folder.todo} to edit
                       </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <a
-                    href={b.rawPhotoLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider py-2.5 flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    Open 5-pick folder <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                  {b.driveLink && (
-                    <a
-                      href={b.driveLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full border border-white/15 bg-white/5 hover:bg-white/10 text-white/80 text-[10px] font-bold uppercase tracking-wider py-2.5 flex items-center justify-center gap-1.5 transition-colors"
-                    >
-                      Full gallery <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  )}
-                </div>
-
-                <div className="space-y-2 border-t border-white/10 pt-3">
-                  <label className="text-[10px] font-bold tracking-widest text-white/45 uppercase">
-                    Client email (for delivery)
-                  </label>
-                  <input
-                    type="email"
-                    value={
-                      emailDrafts[b.id] ??
-                      (isPlaceholderCustomerEmail(b.customerEmail) ? '' : b.customerEmail)
-                    }
-                    onChange={(e) =>
-                      setEmailDrafts((prev) => ({ ...prev, [b.id]: e.target.value }))
-                    }
-                    placeholder="client@email.com"
-                    className={adminInput}
-                  />
-
-                  <label className="text-[10px] font-bold tracking-widest text-white/45 uppercase">
-                    Edited photos Drive link
-                  </label>
-                  <input
-                    type="url"
-                    value={draft}
-                    onChange={(e) =>
-                      setLinkDrafts((prev) => ({ ...prev, [b.id]: e.target.value }))
-                    }
-                    placeholder="https://drive.google.com/drive/folders/..."
-                    className={adminInput}
-                  />
-                  <p className="text-[10px] text-white/40">
-                    Share the folder as Anyone with the link (Viewer), then send to the client.
-                  </p>
-                  <div className="flex flex-col gap-2 pt-1">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => deliver(b, true)}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold uppercase tracking-wider py-2.5 disabled:opacity-50"
-                    >
-                      {busy ? 'Saving…' : deliveredAlready ? 'Update & Re-email Client' : 'Save & Email Client'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => deliver(b, false)}
-                      className="w-full border border-white/15 text-white/60 hover:text-white hover:bg-white/[0.04] text-[10px] font-bold uppercase tracking-wider py-2 disabled:opacity-50"
-                    >
-                      Save link only
-                    </button>
+                    )}
+                    {folder.overdue > 0 && (
+                      <span className="px-2 py-0.5 border border-red-500/30 bg-red-500/10 text-red-300">
+                        {folder.overdue} overdue
+                      </span>
+                    )}
+                    {folder.todo === 0 && (
+                      <span className="px-2 py-0.5 border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+                        All delivered
+                      </span>
+                    )}
                   </div>
-                  {b.editedPhotoLink && (
-                    <a
-                      href={b.editedPhotoLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[10px] text-emerald-300 hover:underline pt-1"
-                    >
-                      Open delivered folder <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      ) : (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedDay(null)}
+              className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/60 hover:text-white"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> All day folders
+            </button>
+            <div className="text-right">
+              <p className="text-sm font-semibold text-white">{formatDayFolderLabel(selectedDay)}</p>
+              <p className="text-[10px] text-white/40 font-mono">{selectedDay}</p>
+            </div>
+          </div>
+
+          {dayBookings.length === 0 ? (
+            <div className={`${adminEmptyState} p-12`}>
+              <PenTool className="w-6 h-6 text-white/30" />
+              <p className="text-xs text-white/40">No bookings in this folder for the current filter.</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {dayBookings.map((b) => {
+                const deliveredAlready = Boolean(b.editedPhotoLink)
+                const draft = linkDrafts[b.id] ?? b.editedPhotoLink ?? ''
+                const busy = savingId === b.id
+                const deadline = getEditorDeadlineInfo(b)
+
+                return (
+                  <div key={b.id} className={`${adminCard} ${adminCardHover} p-5 space-y-4`}>
+                    <div className="flex justify-between items-start gap-3 border-b border-white/10 pb-3">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-white truncate">{b.customerName}</h3>
+                        <Link
+                          href={`/admin/bookings?search=${encodeURIComponent(b.id)}`}
+                          className="text-[10px] text-primary font-mono mt-0.5 hover:underline"
+                        >
+                          {b.id}
+                        </Link>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span
+                          className={`text-[9px] font-bold px-2 py-0.5 uppercase border ${
+                            deliveredAlready
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                              : 'bg-green-500/15 text-green-400 border-green-500/30'
+                          }`}
+                        >
+                          {deliveredAlready ? 'Delivered' : 'Ready to edit'}
+                        </span>
+                        <span
+                          className={`text-[9px] font-bold px-2 py-0.5 uppercase border ${
+                            deadline.delivered
+                              ? 'border-white/10 text-white/40'
+                              : deadline.overdue
+                                ? 'border-red-500/40 bg-red-500/15 text-red-300'
+                                : (deadline.daysLeft ?? 99) <= 3
+                                  ? 'border-amber-500/40 bg-amber-500/15 text-amber-300'
+                                  : 'border-white/15 text-white/55'
+                          }`}
+                        >
+                          {deadline.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-white/40">Shoot time</span>
+                        <span className="text-white/80 text-right">{b.bookingTime}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-white/40">Package</span>
+                        <span className="text-white/80 text-right">{b.packageName}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-white/40">Edit deadline</span>
+                        <span
+                          className={`text-right ${
+                            deadline.overdue ? 'text-red-300' : 'text-white/70'
+                          }`}
+                        >
+                          {deadline.end
+                            ? deadline.end.toLocaleDateString('en-PH', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <a
+                        href={b.rawPhotoLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider py-2.5 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        Open 5-pick folder <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                      {b.driveLink && (
+                        <a
+                          href={b.driveLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full border border-white/15 bg-white/5 hover:bg-white/10 text-white/80 text-[10px] font-bold uppercase tracking-wider py-2.5 flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          Full gallery <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 border-t border-white/10 pt-3">
+                      <label className="text-[10px] font-bold tracking-widest text-white/45 uppercase">
+                        Client email (for delivery)
+                      </label>
+                      <input
+                        type="email"
+                        value={
+                          emailDrafts[b.id] ??
+                          (isPlaceholderCustomerEmail(b.customerEmail) ? '' : b.customerEmail)
+                        }
+                        onChange={(e) =>
+                          setEmailDrafts((prev) => ({ ...prev, [b.id]: e.target.value }))
+                        }
+                        placeholder="client@email.com"
+                        className={adminInput}
+                      />
+
+                      <label className="text-[10px] font-bold tracking-widest text-white/45 uppercase">
+                        Edited photos Drive link
+                      </label>
+                      <input
+                        type="url"
+                        value={draft}
+                        onChange={(e) =>
+                          setLinkDrafts((prev) => ({ ...prev, [b.id]: e.target.value }))
+                        }
+                        placeholder="https://drive.google.com/drive/folders/..."
+                        className={adminInput}
+                      />
+                      {deadline.overdue && !deliveredAlready && (
+                        <p className="text-[10px] text-red-300">
+                          Past the {EDITOR_DEADLINE_DAYS}-day edit window — finish and deliver ASAP.
+                        </p>
+                      )}
+                      <div className="flex flex-col gap-2 pt-1">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => deliver(b, true)}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold uppercase tracking-wider py-2.5 disabled:opacity-50"
+                        >
+                          {busy
+                            ? 'Saving…'
+                            : deliveredAlready
+                              ? 'Update & Re-email Client'
+                              : 'Save & Email Client'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => deliver(b, false)}
+                          className="w-full border border-white/15 text-white/60 hover:text-white hover:bg-white/[0.04] text-[10px] font-bold uppercase tracking-wider py-2 disabled:opacity-50"
+                        >
+                          Save link only
+                        </button>
+                      </div>
+                      {b.editedPhotoLink && (
+                        <a
+                          href={b.editedPhotoLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] text-emerald-300 hover:underline pt-1"
+                        >
+                          Open delivered folder <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

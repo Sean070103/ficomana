@@ -98,6 +98,11 @@ function BookingsManagement() {
   const [editContactEmail, setEditContactEmail] = useState('')
   const [editContactPhone, setEditContactPhone] = useState('')
   const [editingContact, setEditingContact] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null)
+  const [deleteReason, setDeleteReason] = useState<'admin_error' | 'client_error'>('admin_error')
+  const [deleteNotes, setDeleteNotes] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // In-studio Payment states
   const [studioPayMethod, setStudioPayMethod] = useState<'Cash' | 'GCash' | 'Card' | 'Maya' | 'Bank Transfer'>('Cash')
@@ -395,6 +400,42 @@ function BookingsManagement() {
       toast.error('Save failed', err instanceof Error ? err.message : 'Could not save notes.')
     } finally {
       setSaveLoading(false)
+    }
+  }
+
+  const openDeleteModal = (booking: Booking) => {
+    setDeleteTarget(booking)
+    setDeleteReason('admin_error')
+    setDeleteNotes('')
+    setShowDeleteModal(true)
+  }
+
+  const handleDeleteBooking = async () => {
+    if (!deleteTarget) return
+    setDeleteLoading(true)
+    try {
+      const res = await fetch(`/api/bookings/${encodeURIComponent(deleteTarget.id)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: deleteReason, notes: deleteNotes.trim() || undefined }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to delete booking.')
+
+      if (selectedBooking?.id === deleteTarget.id) setSelectedBooking(null)
+      setShowDeleteModal(false)
+      setDeleteTarget(null)
+      fetchBookings(true)
+      toast.success(
+        'Booking deleted',
+        `${deleteTarget.id} removed (${deleteReason === 'admin_error' ? 'Admin error' : 'Client error'}).`,
+      )
+    } catch (err) {
+      console.error(err)
+      toast.error('Delete failed', err instanceof Error ? err.message : 'Could not delete booking.')
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -815,13 +856,22 @@ function BookingsManagement() {
                     </span>
                   </td>
                   <td className="p-4 pr-6 text-center">
-                    <button
-                      onClick={() => handleOpenDetails(b)}
-                      className="p-1.5 hover:bg-primary/5 rounded-full text-white/50 hover:text-primary transition-colors inline-flex"
-                      title="View details & Manage"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        onClick={() => handleOpenDetails(b)}
+                        className="p-1.5 hover:bg-primary/5 rounded-full text-white/50 hover:text-primary transition-colors inline-flex"
+                        title="View details & Manage"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openDeleteModal(b)}
+                        className="p-1.5 hover:bg-red-500/10 rounded-full text-white/40 hover:text-red-400 transition-colors inline-flex"
+                        title="Delete booking"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -1311,11 +1361,21 @@ function BookingsManagement() {
                 <button
                   onClick={() => handleUpdateStatus(selectedBooking, 'Cancelled')}
                   disabled={selectedBooking.bookingStatus === 'Cancelled' || selectedBooking.bookingStatus === 'Completed' || saveLoading}
-                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 sm:col-span-1 col-span-2"
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                 >
                   <XCircle className="w-3.5 h-3.5" /> Cancel
                 </button>
+                <button
+                  onClick={() => openDeleteModal(selectedBooking)}
+                  disabled={saveLoading || deleteLoading}
+                  className="bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-200 font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed col-span-2 sm:col-span-3"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete booking
+                </button>
               </div>
+              <p className="text-[10px] text-white/35">
+                Cancel keeps the record. Delete permanently removes it (admin/client mistake).
+              </p>
             </div>
           </div>
         </div>
@@ -1427,6 +1487,97 @@ function BookingsManagement() {
                 className="w-full text-white/40 hover:text-white/70 text-[10px] font-bold uppercase tracking-wider py-2"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && deleteTarget && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+          <div className="border border-red-500/30 bg-[#222222] shadow-2xl max-w-md w-full p-6 md:p-8 space-y-5">
+            <div className="flex justify-between items-start border-b border-white/10 pb-3">
+              <div>
+                <h3 className="font-bold text-white text-lg">Delete booking</h3>
+                <p className="text-[10px] text-white/40 font-mono mt-0.5">{deleteTarget.id}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setDeleteTarget(null)
+                }}
+                className="p-1 hover:bg-white/[0.05] rounded text-white/40"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-white/70 leading-relaxed">
+              Permanently remove <span className="text-white font-semibold">{deleteTarget.customerName}</span>
+              {' '}({deleteTarget.bookingDate}). This cannot be undone. Prefer Cancel if you only need to free the slot.
+            </p>
+
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold tracking-widest text-white/45 uppercase">Reason</p>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteReason('admin_error')}
+                  className={`text-left px-3 py-2.5 border text-xs transition-colors ${
+                    deleteReason === 'admin_error'
+                      ? 'border-primary/50 bg-primary/15 text-white'
+                      : 'border-white/10 text-white/60 hover:border-white/25'
+                  }`}
+                >
+                  <span className="font-bold uppercase tracking-wider text-[10px]">Admin error</span>
+                  <span className="block text-[11px] text-white/45 mt-0.5">Wrong slot, duplicate entry, staff mistake</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteReason('client_error')}
+                  className={`text-left px-3 py-2.5 border text-xs transition-colors ${
+                    deleteReason === 'client_error'
+                      ? 'border-primary/50 bg-primary/15 text-white'
+                      : 'border-white/10 text-white/60 hover:border-white/25'
+                  }`}
+                >
+                  <span className="font-bold uppercase tracking-wider text-[10px]">Client error</span>
+                  <span className="block text-[11px] text-white/45 mt-0.5">Wrong details, client asked to remove, spam</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold tracking-widest text-white/45 uppercase">
+                Notes (optional)
+              </label>
+              <input
+                value={deleteNotes}
+                onChange={(e) => setDeleteNotes(e.target.value)}
+                placeholder="Short note for your records…"
+                className={adminInput}
+              />
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={handleDeleteBooking}
+                className="w-full bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold uppercase tracking-wider py-3 disabled:opacity-50"
+              >
+                {deleteLoading ? 'Deleting…' : 'Delete permanently'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setDeleteTarget(null)
+                }}
+                className="w-full text-white/40 hover:text-white/70 text-[10px] font-bold uppercase tracking-wider py-2"
+              >
+                Keep booking
               </button>
             </div>
           </div>
