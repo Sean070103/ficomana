@@ -19,6 +19,7 @@ import {
   sendDepositApprovedEmails,
   sendBookingSubmittedEmail,
 } from '@/lib/email'
+import { isPlaceholderCustomerEmail } from '@/lib/customer-email'
 
 function depositPaymentFromBooking(booking: Booking): PaymentRecord | undefined {
   const history = booking.paymentHistory || []
@@ -124,41 +125,58 @@ export async function POST(request: Request) {
     }
     const priorBookingStatus = priorBooking?.bookingStatus
 
+    const { user: staffUser, error: staffAuthError } = await requireStaffAuth()
     if (isExisting) {
-      const { error: authError } = await requireStaffAuth()
-      if (authError) return authError
+      if (staffAuthError) return staffAuthError
     }
 
-    // Public creates: never trust client privilege fields (status, staff notes, etc.)
+    const isStaffCreate = !isExisting && !!staffUser && !staffAuthError
+
+    // Public creates: never trust client privilege fields (status, staff notes, etc.).
+    // Staff creates (walk-ins) may set Confirmed + receipt.
     const booking: Booking = isExisting
       ? incoming
-      : {
-          ...incoming,
-          bookingStatus: 'Pending Verification',
-          paymentStatus: 'Pending Verification',
-          rejectionReason: undefined,
-          rejectionReasonId: undefined,
-          staffNotes: undefined,
-          driveLink: undefined,
-          rawPhotoLink: undefined,
-          rawPhotoStatus: undefined,
-          rawPhotoNotes: undefined,
-          rawPhotoSubmittedAt: undefined,
-          rawPhotoApprovedAt: undefined,
-          editedPhotoLink: undefined,
-          editedPhotoDeliveredAt: undefined,
-          depositAmount: 500,
-          paymentHistory: [
-            {
-              id: 'PAY-' + Math.floor(1000 + Math.random() * 9000),
-              amount: 500,
-              method: incoming.paymentHistory?.[0]?.method || 'BPI',
-              type: 'Deposit',
-              transactionRef: incoming.transactionRef || incoming.paymentHistory?.[0]?.transactionRef,
-              date: new Date().toISOString(),
-            },
-          ],
-        }
+      : isStaffCreate
+        ? {
+            ...incoming,
+            depositAmount: Number(incoming.depositAmount) || 500,
+            driveLink: undefined,
+            rawPhotoLink: undefined,
+            rawPhotoStatus: undefined,
+            rawPhotoNotes: undefined,
+            rawPhotoSubmittedAt: undefined,
+            rawPhotoApprovedAt: undefined,
+            editedPhotoLink: undefined,
+            editedPhotoDeliveredAt: undefined,
+            paymentHistory: Array.isArray(incoming.paymentHistory) ? incoming.paymentHistory : [],
+          }
+        : {
+            ...incoming,
+            bookingStatus: 'Pending Verification',
+            paymentStatus: 'Pending Verification',
+            rejectionReason: undefined,
+            rejectionReasonId: undefined,
+            staffNotes: undefined,
+            driveLink: undefined,
+            rawPhotoLink: undefined,
+            rawPhotoStatus: undefined,
+            rawPhotoNotes: undefined,
+            rawPhotoSubmittedAt: undefined,
+            rawPhotoApprovedAt: undefined,
+            editedPhotoLink: undefined,
+            editedPhotoDeliveredAt: undefined,
+            depositAmount: 500,
+            paymentHistory: [
+              {
+                id: 'PAY-' + Math.floor(1000 + Math.random() * 9000),
+                amount: 500,
+                method: incoming.paymentHistory?.[0]?.method || 'BPI',
+                type: 'Deposit',
+                transactionRef: incoming.transactionRef || incoming.paymentHistory?.[0]?.transactionRef,
+                date: new Date().toISOString(),
+              },
+            ],
+          }
 
     // Contact/status-only edits must not fail when the slot is already occupied
     // (this booking itself, or a legacy double-book). Re-check capacity only if schedule changes.
@@ -205,13 +223,11 @@ export async function POST(request: Request) {
     if (!isExisting) {
       await notifyNewBooking(result)
       const customerEmail = booking.customerEmail?.trim()
-      if (customerEmail) {
+      if (customerEmail && !isPlaceholderCustomerEmail(customerEmail) && !isStaffCreate) {
         const emailResult = await sendBookingSubmittedEmail(bookingEmailPayload(result, booking))
         if (!emailResult.success) {
           emailErrors.push(emailResult.error || 'Failed to email customer about booking submission.')
         }
-      } else {
-        emailErrors.push('No customer email on booking — submission confirmation not sent.')
       }
     }
 

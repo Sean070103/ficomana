@@ -2,7 +2,14 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { getBookings, getBookingPackages, addNotification, Booking, PaymentRecord } from '@/lib/data-store'
+import {
+  getBookings,
+  getBookingPackages,
+  addNotification,
+  uploadReceipt,
+  Booking,
+  PaymentRecord,
+} from '@/lib/data-store'
 import { runAdminTransaction, formatEmailResult } from '@/lib/admin-actions'
 import { useAdminToast } from '@/components/admin-toast-provider'
 import AdminPageHeader from '@/components/admin-page-header'
@@ -36,7 +43,8 @@ import {
   X,
   Save,
   Check,
-  FileText
+  FileText,
+  Upload,
 } from 'lucide-react'
 import Image from 'next/image'
 import {
@@ -116,6 +124,7 @@ function BookingsManagement() {
   const [walkInPackage, setWalkInPackage] = useState('fico-package')
   const [walkInCategory, setWalkInCategory] = useState<BookingPackageCategory>('graduation')
   const [walkInSlotId, setWalkInSlotId] = useState('')
+  const [walkInReceiptFile, setWalkInReceiptFile] = useState<File | null>(null)
   const [walkInSaving, setWalkInSaving] = useState(false)
   const [allPackages, setAllPackages] = useState<BookingPackage[]>([])
 
@@ -181,6 +190,22 @@ function BookingsManagement() {
     try {
       const slot = walkInSlotId ? getSlotById(walkInSlotId) : undefined
       const id = generateBookingId(bookings.map((b) => b.id))
+
+      let receiptUrl: string | undefined
+      if (walkInReceiptFile) {
+        receiptUrl = await uploadReceipt(id, walkInReceiptFile)
+      }
+
+      const depositRecord: PaymentRecord | undefined = receiptUrl
+        ? {
+            id: 'PAY-' + Math.floor(1000 + Math.random() * 9000),
+            amount: 500,
+            method: 'Cash',
+            type: 'Deposit',
+            date: new Date().toISOString(),
+          }
+        : undefined
+
       await runAdminTransaction({
         id,
         customerName: walkInName,
@@ -201,16 +226,24 @@ function BookingsManagement() {
         bookingStatus: 'Confirmed',
         paymentStatus: 'Paid Deposit',
         createdAt: new Date().toISOString(),
-        paymentHistory: [],
+        receiptUrl,
+        paymentHistory: depositRecord ? [depositRecord] : [],
       })
       await addNotification(id, 'NEW_BOOKING', `Walk-in booking ${id} created for ${walkInName}.`)
+      if (receiptUrl) {
+        await addNotification(id, 'RECEIPT_UPLOAD', `Walk-in receipt uploaded for ${id}.`)
+      }
       setWalkInName('')
       setWalkInPhone('')
       setWalkInDate('')
       setWalkInSlotId('')
+      setWalkInReceiptFile(null)
       setShowWalkIn(false)
       await fetchBookings(true)
-      toast.success('Walk-in saved', `${id} confirmed in database.`)
+      toast.success(
+        'Walk-in saved',
+        receiptUrl ? `${id} confirmed with receipt on file.` : `${id} confirmed in database.`,
+      )
     } catch (err) {
       console.error(err)
       toast.error('Walk-in failed', err instanceof Error ? err.message : 'Could not save.')
@@ -704,6 +737,35 @@ function BookingsManagement() {
                 </select>
               </div>
             )}
+            <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
+              <span className={adminLabel}>Deposit receipt (optional)</span>
+              <label className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-white/20 bg-white/[0.03] px-3 py-3 cursor-pointer hover:border-white/35 transition-colors">
+                <Upload className="w-4 h-4 text-[#C4CEFF] shrink-0" />
+                <span className="text-xs text-white/70 min-w-0 truncate">
+                  {walkInReceiptFile
+                    ? walkInReceiptFile.name
+                    : 'Upload BPI / cash deposit receipt (JPG, PNG, WEBP, PDF)'}
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                  className="sr-only"
+                  onChange={(e) => setWalkInReceiptFile(e.target.files?.[0] ?? null)}
+                />
+                {walkInReceiptFile && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setWalkInReceiptFile(null)
+                    }}
+                    className="ml-auto text-[10px] font-bold uppercase tracking-wider text-white/45 hover:text-white"
+                  >
+                    Clear
+                  </button>
+                )}
+              </label>
+            </div>
             <button type="submit" disabled={walkInSaving} className={`${adminBtnPrimary} p-3 sm:col-span-2 lg:col-span-4 disabled:cursor-not-allowed active:scale-95 transition-transform`}>
               {walkInSaving ? 'Saving...' : 'Save Walk-in'}
             </button>
