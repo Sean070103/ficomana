@@ -46,6 +46,7 @@ import {
   Check,
   FileText,
   Upload,
+  Link2,
 } from 'lucide-react'
 import Image from 'next/image'
 import {
@@ -99,6 +100,7 @@ function BookingsManagement() {
   const [editDriveLink, setEditDriveLink] = useState('')
   const [saveLoading, setSaveLoading] = useState(false)
   const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [completeModalMode, setCompleteModalMode] = useState<'complete' | 'gallery'>('complete')
   const [completeDriveLink, setCompleteDriveLink] = useState('')
   const [completeSendEmail, setCompleteSendEmail] = useState(true)
   const [completeClientName, setCompleteClientName] = useState('')
@@ -349,8 +351,8 @@ function BookingsManagement() {
       const updatedBooking: Booking = {
         ...selectedBooking,
         paymentStatus: isFullyPaid ? 'Paid Full' : 'Paid Deposit',
-        bookingStatus: isFullyPaid ? 'Completed' : selectedBooking.bookingStatus,
-        paymentHistory: updatedHistory
+        // Do NOT auto-complete here — Complete Session is where staff paste Drive + email gallery.
+        paymentHistory: updatedHistory,
       }
 
       const { saved, emailErrors } = await runAdminTransaction(updatedBooking, [
@@ -367,7 +369,7 @@ function BookingsManagement() {
       } else if (isFullyPaid) {
         toast.success(
           'Studio payment recorded',
-          `₱${studioPayAmount.toFixed(2)} logged — session completed & receipt emailed.`,
+          `₱${studioPayAmount.toFixed(2)} logged · paid in full. Use Complete to send the Drive gallery.`,
         )
       } else {
         toast.success(
@@ -503,15 +505,20 @@ function BookingsManagement() {
     }
   }
 
+  const openGalleryLinkModal = (booking: Booking, mode: 'complete' | 'gallery' = 'gallery') => {
+    setCompleteModalMode(mode)
+    setCompleteDriveLink(booking.driveLink || '')
+    setCompleteSendEmail(true)
+    setCompleteClientName(booking.customerName || '')
+    setCompleteClientEmail(
+      isPlaceholderCustomerEmail(booking.customerEmail) ? '' : booking.customerEmail || '',
+    )
+    setShowCompleteModal(true)
+  }
+
   const handleUpdateStatus = async (booking: Booking, status: Booking['bookingStatus']) => {
     if (status === 'Completed') {
-      setCompleteDriveLink(booking.driveLink || '')
-      setCompleteSendEmail(true)
-      setCompleteClientName(booking.customerName || '')
-      setCompleteClientEmail(
-        isPlaceholderCustomerEmail(booking.customerEmail) ? '' : booking.customerEmail || '',
-      )
-      setShowCompleteModal(true)
+      openGalleryLinkModal(booking, 'complete')
       return
     }
 
@@ -594,13 +601,16 @@ function BookingsManagement() {
     const driveLink = completeDriveLink.trim()
     const clientName = completeClientName.trim()
     const clientEmail = completeClientEmail.trim()
+    const galleryOnly = completeModalMode === 'gallery'
+    const alreadyCompleted = selectedBooking.bookingStatus === 'Completed'
 
     if (!clientName) {
       toast.warning('Name required', 'Enter the client full name.')
       return
     }
 
-    if (opts.sendEmail) {
+    // Gallery send always needs a Drive link; Complete can optionally skip email
+    if (galleryOnly || opts.sendEmail) {
       if (!driveLink) {
         toast.warning('Drive link required', 'Paste the Google Drive gallery link to email the client.')
         return
@@ -609,6 +619,9 @@ function BookingsManagement() {
         toast.warning('Invalid link', 'Use a Google Drive link (https://drive.google.com/...).')
         return
       }
+    }
+
+    if (opts.sendEmail || galleryOnly) {
       if (!clientEmail || !clientEmail.includes('@') || isPlaceholderCustomerEmail(clientEmail)) {
         toast.warning('Client email required', 'Enter the client email to send the raw gallery link.')
         return
@@ -618,18 +631,23 @@ function BookingsManagement() {
     setSaveLoading(true)
     try {
       const paidSum = (selectedBooking.paymentHistory || []).reduce((acc, pay) => acc + pay.amount, 0)
+      const shouldEmail = galleryOnly ? true : opts.sendEmail
       const updatedBooking: Booking = {
         ...selectedBooking,
         customerName: clientName,
         customerEmail: clientEmail || selectedBooking.customerEmail,
         customerFbName: selectedBooking.customerFbName || clientName,
-        bookingStatus: 'Completed',
+        // Gallery send marks session complete so filtering can proceed; already-completed stays put.
+        bookingStatus:
+          selectedBooking.bookingStatus === 'Cancelled'
+            ? selectedBooking.bookingStatus
+            : 'Completed',
         paymentStatus: paidSum >= selectedBooking.price ? 'Paid Full' : selectedBooking.paymentStatus,
         driveLink: driveLink || selectedBooking.driveLink || undefined,
       }
 
       const emails =
-        opts.sendEmail && driveLink
+        shouldEmail && driveLink
           ? [{ action: 'gallery_link' as const, booking: updatedBooking, driveLink }]
           : []
 
@@ -646,14 +664,19 @@ function BookingsManagement() {
 
       const emailMsg = formatEmailResult(emailErrors)
       if (emailMsg) {
-        toast.warning('Completed — email issue', emailMsg)
-      } else if (opts.sendEmail && driveLink) {
+        toast.warning('Saved — email issue', emailMsg)
+      } else if (shouldEmail && driveLink) {
         toast.success(
-          'Session completed',
-          `${saved.id} marked complete · gallery emailed to ${saved.customerEmail}.`,
+          galleryOnly || alreadyCompleted ? 'Gallery emailed' : 'Session completed',
+          `${saved.id} · gallery emailed to ${saved.customerEmail}.`,
         )
       } else {
-        toast.success('Session completed', `${saved.id} marked complete (no gallery email sent).`)
+        toast.success(
+          alreadyCompleted ? 'Gallery link saved' : 'Session completed',
+          alreadyCompleted
+            ? `${saved.id} Drive link updated (no email sent).`
+            : `${saved.id} marked complete (no gallery email sent).`,
+        )
       }
     } catch (err) {
       console.error(err)
@@ -1438,13 +1461,27 @@ function BookingsManagement() {
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                 <button
+                  type="button"
+                  onClick={() => openGalleryLinkModal(selectedBooking, 'gallery')}
+                  disabled={selectedBooking.bookingStatus === 'Cancelled' || saveLoading}
+                  className="bg-primary hover:bg-[#03008F] text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 col-span-2 sm:col-span-3"
+                >
+                  <Link2 className="w-3.5 h-3.5" /> Send Google Drive Link
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleUpdateStatus(selectedBooking, 'Completed')}
-                  disabled={selectedBooking.bookingStatus === 'Completed' || selectedBooking.bookingStatus === 'Cancelled' || saveLoading}
+                  disabled={
+                    selectedBooking.bookingStatus === 'Completed' ||
+                    selectedBooking.bookingStatus === 'Cancelled' ||
+                    saveLoading
+                  }
                   className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                 >
                   <CheckCircle className="w-3.5 h-3.5" /> Complete
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleUpdateStatus(selectedBooking, 'No Show')}
                   disabled={selectedBooking.bookingStatus === 'No Show' || selectedBooking.bookingStatus === 'Cancelled' || saveLoading}
                   className="bg-white/10 hover:bg-white/20 text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
@@ -1452,6 +1489,7 @@ function BookingsManagement() {
                   <Clock className="w-3.5 h-3.5" /> No Show
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleUpdateStatus(selectedBooking, 'Cancelled')}
                   disabled={selectedBooking.bookingStatus === 'Cancelled' || selectedBooking.bookingStatus === 'Completed' || saveLoading}
                   className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
@@ -1459,6 +1497,7 @@ function BookingsManagement() {
                   <XCircle className="w-3.5 h-3.5" /> Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={() => openDeleteModal(selectedBooking)}
                   disabled={saveLoading || deleteLoading}
                   className="bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-200 font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed col-span-2 sm:col-span-3"
@@ -1467,7 +1506,7 @@ function BookingsManagement() {
                 </button>
               </div>
               <p className="text-[10px] text-white/35">
-                Cancel keeps the record. Delete permanently removes it (admin/client mistake).
+                Use <strong className="text-white/55">Send Google Drive Link</strong> anytime after payment to email the raw gallery. Cancel keeps the record; Delete permanently removes it.
               </p>
             </div>
           </div>
@@ -1479,7 +1518,9 @@ function BookingsManagement() {
           <div className="border border-white/10 bg-[#222222] shadow-2xl max-w-md w-full p-6 md:p-8 space-y-5">
             <div className="flex justify-between items-start border-b border-white/10 pb-3">
               <div>
-                <h3 className="font-bold text-white text-lg">Complete Session</h3>
+                <h3 className="font-bold text-white text-lg">
+                  {completeModalMode === 'gallery' ? 'Send Google Drive Link' : 'Complete Session'}
+                </h3>
                 <p className="text-[10px] text-white/40 font-mono mt-0.5">{selectedBooking.id}</p>
               </div>
               <button
@@ -1492,8 +1533,9 @@ function BookingsManagement() {
             </div>
 
             <p className="text-xs text-white/60 leading-relaxed">
-              Paste the Google Drive folder of this client&apos;s raw gallery. Confirm name + email so we can
-              email them the link and the page to submit their 5 chosen photos.
+              {completeModalMode === 'gallery'
+                ? 'Paste the Google Drive raw gallery folder, confirm name + email, then send it to the client. Works even if payment was already recorded.'
+                : "Paste the Google Drive folder of this client's raw gallery. Confirm name + email so we can email them the link and the page to submit their 5 chosen photos."}
             </p>
 
             <div className="space-y-2">
@@ -1543,28 +1585,38 @@ function BookingsManagement() {
               </p>
             </div>
 
-            <label className="flex items-start gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={completeSendEmail}
-                onChange={(e) => setCompleteSendEmail(e.target.checked)}
-                className="mt-0.5 w-3.5 h-3.5 text-primary border-white/20"
-              />
-              <span className="text-[11px] text-white/70 leading-snug">
-                Email gallery link + submit page to the client email above
-              </span>
-            </label>
+            {completeModalMode === 'complete' && (
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={completeSendEmail}
+                  onChange={(e) => setCompleteSendEmail(e.target.checked)}
+                  className="mt-0.5 w-3.5 h-3.5 text-primary border-white/20"
+                />
+                <span className="text-[11px] text-white/70 leading-snug">
+                  Email gallery link + submit page to the client email above
+                </span>
+              </label>
+            )}
 
             <div className="flex flex-col gap-2 border-t border-white/10 pt-4">
               <button
                 type="button"
                 disabled={saveLoading}
-                onClick={() => handleConfirmComplete({ sendEmail: completeSendEmail })}
+                onClick={() =>
+                  handleConfirmComplete({
+                    sendEmail: completeModalMode === 'gallery' ? true : completeSendEmail,
+                  })
+                }
                 className="w-full bg-green-600 hover:bg-green-700 text-white text-xs font-bold uppercase tracking-wider py-3 disabled:opacity-50"
               >
-                {completeSendEmail ? 'Complete & Email Client' : 'Complete Session'}
+                {completeModalMode === 'gallery'
+                  ? 'Save & Email Drive Link'
+                  : completeSendEmail
+                    ? 'Complete & Email Client'
+                    : 'Complete Session'}
               </button>
-              {completeSendEmail && (
+              {completeModalMode === 'complete' && completeSendEmail && (
                 <button
                   type="button"
                   disabled={saveLoading}

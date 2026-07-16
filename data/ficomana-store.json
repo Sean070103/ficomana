@@ -1,6 +1,44 @@
 {
   "bookings": [
     {
+      "id": "FM-100009",
+      "customerName": "Michael Almeria",
+      "customerEmail": "main.michael.almeria@cvsu.edu.ph",
+      "customerPhone": "09763250671",
+      "customerFbLink": "",
+      "customerFbName": "Michael Almeria",
+      "packageId": "fico-package",
+      "packageName": "FICO PACKAGE",
+      "bookingDate": "2026-07-15",
+      "bookingTime": "3:00 PM",
+      "arrivalTime": "Arrive anytime before 4:00 PM",
+      "isWalkIn": false,
+      "note": "Imported from legacy system · Original time: 3:00 PM",
+      "depositAmount": 500,
+      "price": 3000,
+      "bookingStatus": "Completed",
+      "paymentStatus": "Paid Full",
+      "createdAt": "2026-06-19T11:24:06+00:00",
+      "paymentHistory": [
+        {
+          "id": "dep-FM-100009",
+          "amount": 500,
+          "method": "BPI",
+          "type": "Deposit",
+          "date": "2026-06-19T11:24:06.000Z"
+        },
+        {
+          "id": "PAY-6161",
+          "amount": 2500,
+          "method": "Cash",
+          "type": "Balance Payment",
+          "date": "2026-07-16T01:43:35.373Z"
+        }
+      ],
+      "driveLink": "https://drive.google.com/drive/folders/1Edr_YjtkJQZ0oWBOyYlLv9RzpJRlNEF4?usp=drive_link",
+      "rawPhotoStatus": "Pending Review"
+    },
+    {
       "id": "FM-100002",
       "customerName": "Cielo Ortiz",
       "customerEmail": "cieloalmirezz@gmail.com",
