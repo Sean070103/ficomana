@@ -208,7 +208,7 @@ export default function Navbar() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        'fixed top-0 left-0 right-0 z-[100] px-4 sm:px-6 md:px-12 lg:px-16 pb-2.5 sm:pb-3 pt-[max(0.625rem,env(safe-area-inset-top,0px))] transition-[background-color,backdrop-filter,box-shadow,border-color] duration-500 ease-out',
+        'fixed top-0 left-0 right-0 z-[100] px-4 sm:px-6 md:px-12 lg:px-16 pb-2 sm:pb-3 pt-2 sm:pt-[max(0.625rem,env(safe-area-inset-top,0px))] transition-[background-color,backdrop-filter,box-shadow,border-color] duration-500 ease-out',
         isScrolled
           ? 'bg-black/90 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]'
           : 'bg-transparent border-b border-transparent',

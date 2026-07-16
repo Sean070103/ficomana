@@ -33,60 +33,74 @@ export default function Hero() {
   }
 
   return (
-    <section id="home" className="relative min-h-screen min-h-[100dvh] w-full overflow-hidden bg-black">
-      {/* Bleed past edges so transforms/subpixels never flash a black hairline at the top on mobile */}
-      <motion.div
-        className="absolute -top-1 -bottom-1 left-0 right-0 z-0 will-change-transform"
-        style={{ y: imageY }}
-      >
+    <section
+      id="home"
+      className="relative h-[100svh] min-h-[100svh] w-full overflow-hidden bg-black sm:h-auto sm:min-h-screen sm:min-h-[100dvh]"
+    >
+      {/* Mobile: static cover (no parallax) so the photo fills edge-to-edge with no top gap */}
+      <div className="absolute inset-0 z-0 sm:hidden">
+        <Image
+          src="/model/model_2.jpg"
+          alt="Graduation portrait at FICO MANA Studio"
+          fill
+          className="object-cover object-[68%_18%] brightness-[1.08] contrast-[1.04]"
+          priority
+          quality={95}
+          sizes="100vw"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
+      </div>
+
+      {/* Desktop / tablet: parallax image */}
+      <motion.div className="absolute inset-0 z-0 hidden sm:block" style={{ y: imageY }}>
         <motion.div
-          className="absolute inset-0 translate-x-0 sm:translate-x-[6%] md:translate-x-0 scale-[1.02]"
-          initial={{ scale: 1.06 }}
-          animate={{ scale: 1.02 }}
+          className="absolute inset-0 translate-x-[6%] md:translate-x-0"
+          initial={{ scale: 1.05 }}
+          animate={{ scale: 1 }}
           transition={{ duration: 14, ease: 'easeOut' }}
         >
           <Image
             src="/model/model_2.jpg"
             alt="Graduation portrait at FICO MANA Studio"
             fill
-            className="object-cover object-[center_12%] sm:object-[68%_18%] md:object-[72%_18%] brightness-[1.1] contrast-[1.04] max-sm:brightness-[1.08]"
+            className="object-cover object-[68%_18%] md:object-[72%_18%] brightness-[1.1] contrast-[1.04]"
             priority
             quality={95}
             sizes="100vw"
           />
         </motion.div>
 
-        <div className="absolute inset-0 hidden sm:block bg-gradient-to-r from-black/75 via-black/45 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent max-sm:from-black/70 max-sm:via-black/25 max-sm:to-transparent sm:from-black/80 sm:via-transparent md:from-black/70" />
-        <div className="absolute inset-0 hidden sm:block bg-gradient-to-t from-black/25 to-black/40" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent md:from-black/70" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-black/40" />
       </motion.div>
 
       <motion.div
         style={{ y: contentY, opacity: contentOpacity }}
-        className="relative z-10 min-h-screen min-h-[100dvh] sm:flex sm:flex-col sm:justify-start sm:items-start px-6 sm:px-6 md:px-12 lg:px-16 xl:px-20 pt-24 sm:pt-32 md:pt-40 pb-14 sm:pb-12 md:pb-14"
+        className="relative z-10 flex h-full min-h-[100svh] flex-col justify-end px-5 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pt-20 sm:min-h-[100dvh] sm:items-start sm:justify-start sm:px-6 sm:pb-12 sm:pt-32 md:px-12 md:pb-14 md:pt-40 lg:px-16 xl:px-20"
       >
-        {/* Mobile — pixel-match reference (no FICO MANA) */}
+        {/* Mobile — keep headline + CTAs inside the visible frame */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="absolute inset-x-0 bottom-0 px-5 pb-10 flex flex-col items-start text-left sm:hidden"
+          className="flex w-full flex-col items-start text-left sm:hidden"
         >
           <motion.p
             variants={itemVariants}
-            className="text-[13px] leading-[1.6] font-bold tracking-[0.22em] uppercase text-white mb-6 max-w-[15rem]"
+            className="mb-4 max-w-[15rem] text-[12px] font-bold uppercase leading-[1.5] tracking-[0.2em] text-white"
             style={{ fontFamily: 'var(--font-sans)' }}
           >
             The Portrait of Success
           </motion.p>
 
-          <motion.div variants={itemVariants} className="w-full flex flex-col items-start gap-5">
+          <motion.div variants={itemVariants} className="flex w-full flex-col items-start gap-3">
             <Button
               nativeButton={false}
               render={<Link href="#booking" />}
               className={cn(
                 buttonVariants({ size: 'lg' }),
-                'w-[94%] rounded-none bg-white text-black hover:bg-white/90 text-[10px] font-semibold tracking-[0.16em] uppercase h-11 px-4 transition-all duration-300 shadow-none justify-center',
+                'h-11 w-full justify-center rounded-none bg-white px-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-black shadow-none transition-all duration-300 hover:bg-white/90',
               )}
               style={{ fontFamily: 'var(--font-sans)' }}
             >
@@ -94,7 +108,7 @@ export default function Hero() {
             </Button>
             <Link
               href="/gallery"
-              className="pl-12 text-[10px] font-bold tracking-[0.2em] uppercase text-white hover:text-white/75 transition-colors"
+              className="w-full py-1 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:text-white/75"
               style={{ fontFamily: 'var(--font-sans)' }}
             >
               View Gallery
@@ -107,12 +121,12 @@ export default function Hero() {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="hidden sm:flex w-full max-w-md md:max-w-2xl flex-col items-start"
+          className="hidden w-full max-w-md flex-col items-start sm:flex md:max-w-2xl"
         >
-          <motion.div variants={itemVariants} className="flex items-center gap-3 mb-5 md:mb-6">
-            <span className="h-px w-10 sm:w-14 bg-gradient-to-r from-white/70 to-white/0" />
+          <motion.div variants={itemVariants} className="mb-5 flex items-center gap-3 md:mb-6">
+            <span className="h-px w-10 bg-gradient-to-r from-white/70 to-white/0 sm:w-14" />
             <span
-              className="text-[9px] sm:text-[10px] font-semibold tracking-[0.35em] uppercase text-white/50"
+              className="text-[9px] font-semibold uppercase tracking-[0.35em] text-white/50 sm:text-[10px]"
               style={{ fontFamily: 'var(--font-neue)' }}
             >
               Self Portrait Studio
@@ -121,7 +135,7 @@ export default function Hero() {
 
           <motion.p
             variants={itemVariants}
-            className="text-lg md:text-xl lg:text-2xl font-semibold tracking-[0.22em] uppercase mb-5 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)]"
+            className="mb-5 text-lg font-semibold uppercase tracking-[0.22em] text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)] md:text-xl lg:text-2xl"
             style={{ fontFamily: 'var(--font-neue)' }}
           >
             <span className="text-white">The Portrait </span>
@@ -130,19 +144,19 @@ export default function Hero() {
 
           <motion.p
             variants={itemVariants}
-            className="text-xl md:text-[1.75rem] lg:text-3xl font-normal italic text-white/95 leading-snug mb-8 md:mb-10"
+            className="mb-8 text-xl font-normal italic leading-snug text-white/95 md:mb-10 md:text-[1.75rem] lg:text-3xl"
             style={{ fontFamily: "'Times New Roman', Times, serif" }}
           >
             Creating Visuals That Celebrate Every Story
           </motion.p>
 
-          <motion.div variants={itemVariants} className="flex flex-row gap-4 w-auto">
+          <motion.div variants={itemVariants} className="flex w-auto flex-row gap-4">
             <Button
               nativeButton={false}
               render={<Link href="#booking" />}
               className={cn(
                 buttonVariants({ size: 'lg' }),
-                'w-auto rounded-none bg-white text-black hover:bg-white/90 text-[11px] font-bold tracking-[0.18em] uppercase h-12 px-8 transition-all duration-300',
+                'h-12 w-auto rounded-none bg-white px-8 text-[11px] font-bold uppercase tracking-[0.18em] text-black transition-all duration-300 hover:bg-white/90',
               )}
               style={{ fontFamily: 'var(--font-sans)' }}
             >
@@ -154,7 +168,7 @@ export default function Hero() {
               variant="outline"
               className={cn(
                 buttonVariants({ variant: 'outline', size: 'lg' }),
-                'w-auto rounded-none border-white/40 bg-black/20 text-white backdrop-blur-sm hover:border-white/70 hover:bg-white/10 text-[11px] font-bold tracking-[0.18em] uppercase h-12 px-8 transition-all duration-300',
+                'h-12 w-auto rounded-none border-white/40 bg-black/20 px-8 text-[11px] font-bold uppercase tracking-[0.18em] text-white backdrop-blur-sm transition-all duration-300 hover:border-white/70 hover:bg-white/10',
               )}
               style={{ fontFamily: 'var(--font-sans)' }}
             >
@@ -168,10 +182,10 @@ export default function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.6, duration: 0.8, ease }}
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-2 text-white/40 hover:text-white/70 transition-colors duration-300"
+          className="absolute bottom-6 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 text-white/40 transition-colors duration-300 hover:text-white/70 md:flex"
           aria-label="Scroll to gallery"
         >
-          <span className="text-[9px] tracking-[0.3em] uppercase" style={{ fontFamily: 'var(--font-neue)' }}>
+          <span className="text-[9px] uppercase tracking-[0.3em]" style={{ fontFamily: 'var(--font-neue)' }}>
             Explore
           </span>
           <motion.span
