@@ -1003,6 +1003,13 @@ export async function sendEditedPhotosEmail(booking: any, editedPhotoLink: strin
         </p>
       </div>
 
+      <div style="background-color: #FFFBEB; border: 1px solid #FDE68A; padding: 16px; margin: 0 0 18px; font-size: 12px; color: #78350F; line-height: 1.7;">
+        <strong style="color: #92400E; display: block; margin-bottom: 8px;">Note</strong>
+        Good day! Here are your enhanced copies na po. Thank you for your patience!<br/><br/>
+        Regarding po sa printed copies, <strong>2–3 weeks po</strong> upon getting the enhanced copies since by batch po ang pag-deliver ni supplier for frames. We will message you again po once ready to pickup / Lalamove na po.<br/><br/>
+        Thank you so much po ulit.
+      </div>
+
       <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 14px; margin: 0 0 18px; font-size: 12px; color: #475569; line-height: 1.6;">
         <strong style="color: #0F172A;">Details</strong><br/>
         Booking: <strong>${booking.id}</strong><br/>
