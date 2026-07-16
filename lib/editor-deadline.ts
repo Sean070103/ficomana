@@ -1,5 +1,5 @@
-/** Editor turnaround: 15 days from raw-photo approval. */
-export const EDITOR_DEADLINE_DAYS = 15
+/** Editor turnaround: 12 days from raw-photo approval. */
+export const EDITOR_DEADLINE_DAYS = 12
 
 export function getEditorDeadlineStart(booking: {
   rawPhotoApprovedAt?: string
