@@ -33,19 +33,23 @@ export default function Hero() {
   }
 
   return (
-    <section id="home" className="relative min-h-screen min-h-[100dvh] w-full overflow-hidden">
-      <motion.div className="absolute inset-0 z-0" style={{ y: imageY }}>
+    <section id="home" className="relative min-h-screen min-h-[100dvh] w-full overflow-hidden bg-black">
+      {/* Bleed past edges so transforms/subpixels never flash a black hairline at the top on mobile */}
+      <motion.div
+        className="absolute -top-1 -bottom-1 left-0 right-0 z-0 will-change-transform"
+        style={{ y: imageY }}
+      >
         <motion.div
-          className="absolute inset-0 translate-x-0 sm:translate-x-[6%] md:translate-x-0"
-          initial={{ scale: 1.05 }}
-          animate={{ scale: 1 }}
+          className="absolute inset-0 translate-x-0 sm:translate-x-[6%] md:translate-x-0 scale-[1.02]"
+          initial={{ scale: 1.06 }}
+          animate={{ scale: 1.02 }}
           transition={{ duration: 14, ease: 'easeOut' }}
         >
           <Image
             src="/model/model_2.jpg"
             alt="Graduation portrait at FICO MANA Studio"
             fill
-            className="object-cover object-[center_18%] sm:object-[68%_18%] md:object-[72%_18%] brightness-[1.1] contrast-[1.04] max-sm:brightness-[1.08]"
+            className="object-cover object-[center_12%] sm:object-[68%_18%] md:object-[72%_18%] brightness-[1.1] contrast-[1.04] max-sm:brightness-[1.08]"
             priority
             quality={95}
             sizes="100vw"
