@@ -19,7 +19,8 @@ export const metadata = rootMetadata
 
 export const viewport: Viewport = {
   colorScheme: 'dark',
-  themeColor: '#000000',
+  // Match hero backdrop so Android browser chrome blends with the photo (not a black strip)
+  themeColor: '#1c2e22',
   viewportFit: 'cover',
 }
 
@@ -29,11 +30,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`dark ${geistSans.variable} ${geistMono.variable} ${cormorant.variable} bg-background`}>
+    <html lang="en" className={`dark ${geistSans.variable} ${geistMono.variable} ${cormorant.variable}`} style={{ backgroundColor: '#1c2e22' }}>
       <head>
         <link rel="preload" href="/breanna-reel.mp4" as="video" type="video/mp4" />
       </head>
-      <body className="font-sans antialiased">
+      <body className="font-sans antialiased" style={{ backgroundColor: '#1c2e22' }}>
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

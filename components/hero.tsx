@@ -35,7 +35,7 @@ export default function Hero() {
   return (
     <section
       id="home"
-      className="relative h-[100svh] min-h-[100svh] w-full overflow-hidden bg-black sm:h-auto sm:min-h-screen sm:min-h-[100dvh]"
+      className="relative h-[100svh] min-h-[100svh] w-full overflow-hidden bg-[#1c2e22] sm:h-auto sm:min-h-screen sm:min-h-[100dvh] sm:bg-black"
     >
       {/* Mobile: static cover (no parallax) so the photo fills edge-to-edge with no top gap */}
       <div className="absolute inset-0 z-0 sm:hidden">
@@ -43,12 +43,13 @@ export default function Hero() {
           src="/model/model_2.jpg"
           alt="Graduation portrait at FICO MANA Studio"
           fill
-          className="object-cover object-[68%_6%] brightness-[1.08] contrast-[1.04]"
+          className="object-cover object-[68%_2%] brightness-[1.08] contrast-[1.04]"
           priority
           quality={95}
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
+        {/* Darken only the bottom for text/CTAs — keep the top of the photo clean */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
       </div>
 
       {/* Desktop / tablet: parallax image */}
