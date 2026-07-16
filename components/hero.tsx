@@ -43,7 +43,7 @@ export default function Hero() {
           src="/model/model_2.jpg"
           alt="Graduation portrait at FICO MANA Studio"
           fill
-          className="object-cover object-[68%_18%] brightness-[1.08] contrast-[1.04]"
+          className="object-cover object-[68%_6%] brightness-[1.08] contrast-[1.04]"
           priority
           quality={95}
           sizes="100vw"
