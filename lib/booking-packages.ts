@@ -133,5 +133,7 @@ export function parsePackagePrice(price: string): number {
 }
 
 export function usesMakeupSlots(packageId: string): boolean {
+  // Retired packages stay bookable historically; keep slot rules for admin/calendar.
+  if (packageId === 'fico-4') return true
   return getBookingPackage(packageId)?.slotType === 'makeup'
 }

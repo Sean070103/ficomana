@@ -195,5 +195,15 @@ export async function syncPackagesToDb(client: SupabaseClient): Promise<boolean>
     console.error('syncPackagesToDb:', error.message)
     return false
   }
+
+  // Retire packages removed from the seed catalog (still keep historical booking rows).
+  const { error: deactivateError } = await client
+    .from('packages')
+    .update({ is_active: false })
+    .in('id', ['fico-3', 'fico-4'])
+  if (deactivateError) {
+    console.error('syncPackagesToDb deactivate:', deactivateError.message)
+  }
+
   return true
 }

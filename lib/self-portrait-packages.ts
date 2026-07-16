@@ -40,30 +40,6 @@ export const ficoPackages: SelfPortraitPackage[] = [
       'NO PRINTED COPIES',
     ],
   },
-  {
-    id: 'fico-3',
-    tier: 'FICO 3',
-    title: 'Without Hair and Makeup',
-    price: 'Php 700',
-    includes: [
-      '15 mins studio shoot',
-      'Your choice of backdrop (1)',
-      'Soft copies of selected ENHANCED PHOTOS (10 photos)',
-      '2 4R-sized prints',
-    ],
-  },
-  {
-    id: 'fico-4',
-    tier: 'FICO 4',
-    title: 'With Hair and Makeup',
-    price: 'Php 1,000',
-    includes: [
-      '20 mins studio shoot',
-      'Your choice of backdrop (1)',
-      'Soft copies of ALL ENHANCED PHOTOS',
-      '3 4R-sized prints',
-    ],
-  },
 ]
 
 export const manaPackages: SelfPortraitPackage[] = [
