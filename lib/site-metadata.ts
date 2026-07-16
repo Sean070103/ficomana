@@ -76,7 +76,7 @@ export function createPageMetadata({
 export const rootMetadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: `${siteName} | Self Portrait Studio`,
+    default: siteName,
     template: `%s | ${siteName}`,
   },
   description: siteDescription,
@@ -97,13 +97,13 @@ export const rootMetadata: Metadata = {
     locale: 'en_PH',
     url: '/',
     siteName,
-    title: `${siteName} | Self Portrait Studio`,
+    title: siteName,
     description: siteDescription,
     images: [defaultOgImage],
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${siteName} | Self Portrait Studio`,
+    title: siteName,
     description: siteDescription,
     images: [defaultOgImage.url],
   },
