@@ -43,7 +43,7 @@ export default function Hero() {
           src="/model/model_2.jpg"
           alt="Graduation portrait at FICO MANA Studio"
           fill
-          className="object-cover object-[68%_2%] brightness-[1.08] contrast-[1.04]"
+          className="object-cover object-center brightness-[1.08] contrast-[1.04]"
           priority
           quality={95}
           sizes="100vw"
@@ -55,7 +55,7 @@ export default function Hero() {
       {/* Desktop / tablet: parallax image */}
       <motion.div className="absolute inset-0 z-0 hidden sm:block" style={{ y: imageY }}>
         <motion.div
-          className="absolute inset-0 translate-x-[6%] md:translate-x-0"
+          className="absolute inset-0"
           initial={{ scale: 1.05 }}
           animate={{ scale: 1 }}
           transition={{ duration: 14, ease: 'easeOut' }}
@@ -64,7 +64,7 @@ export default function Hero() {
             src="/model/model_2.jpg"
             alt="Graduation portrait at FICO MANA Studio"
             fill
-            className="object-cover object-[68%_18%] md:object-[72%_18%] brightness-[1.1] contrast-[1.04]"
+            className="object-cover object-center brightness-[1.1] contrast-[1.04]"
             priority
             quality={95}
             sizes="100vw"
