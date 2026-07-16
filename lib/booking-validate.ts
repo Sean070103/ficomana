@@ -4,6 +4,7 @@ import { isSlotBlocked } from '@/lib/blocked-slots'
 import type { FicoSpotBlock } from '@/lib/fico-spot-blocks'
 import { usesMakeupSlots } from '@/lib/booking-packages'
 import {
+  findSlotByBookingTime,
   isActiveBooking,
   isDateFullForPackage,
   isSlotTaken,
@@ -37,7 +38,9 @@ export function validateBookingAvailability(
   }
 
   if (usesMakeupSlots(booking.packageId)) {
-    const slotId = booking.slotId
+    const slotId =
+      booking.slotId ||
+      findSlotByBookingTime(booking.bookingTime || '')?.id
     if (!slotId) {
       // Existing imported rows may lack slot_id — don't block staff updates on that alone.
       if (options?.isUpdate) return { ok: true }

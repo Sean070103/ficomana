@@ -23,6 +23,7 @@ import {
   FICO_ARRIVAL_LABEL,
   FICO_BOOKING_TIME_LABEL,
   formatSlotBookingTime,
+  findSlotByBookingTime,
   getSlotById,
 } from '@/lib/booking-slots'
 import { generateBookingId } from '@/lib/booking-id'
@@ -284,7 +285,17 @@ function BookingsManagement() {
     const b = enrichBookingDisplay(booking)
     setSelectedBooking(b)
     setEditDate(b.bookingDate)
-    setEditTime(b.bookingTime)
+    // Prefer slotId → formatted label so the time <select> matches an option
+    const slotFromId = b.slotId ? getSlotById(b.slotId) : undefined
+    const slotFromTime = findSlotByBookingTime(b.bookingTime)
+    const resolvedEditSlot = slotFromId ?? slotFromTime
+    setEditTime(
+      usesMakeupSlots(b.packageId)
+        ? resolvedEditSlot
+          ? formatSlotBookingTime(resolvedEditSlot)
+          : b.bookingTime
+        : FICO_BOOKING_TIME_LABEL,
+    )
     setEditStaffNotes(b.staffNotes || '')
     setChargeRebookingFee(false)
     setEditDriveLink(booking.driveLink || '')
@@ -378,27 +389,47 @@ function BookingsManagement() {
 
     setSaveLoading(true)
     try {
-      const dateChanged = editDate !== selectedBooking.bookingDate || editTime !== selectedBooking.bookingTime
-      const addedFee = (dateChanged && chargeRebookingFee) ? 500 : 0
+      const isMakeup = usesMakeupSlots(selectedBooking.packageId)
+      const resolvedSlot = isMakeup ? findSlotByBookingTime(editTime) : undefined
+      if (isMakeup && !resolvedSlot) {
+        toast.error('Invalid slot', 'Pick a valid MANA session time slot.')
+        return
+      }
+
+      const nextTime = resolvedSlot ? formatSlotBookingTime(resolvedSlot) : FICO_BOOKING_TIME_LABEL
+      const dateChanged =
+        editDate !== selectedBooking.bookingDate ||
+        nextTime !== selectedBooking.bookingTime ||
+        (resolvedSlot?.id || '') !== (selectedBooking.slotId || '')
+      const addedFee = dateChanged && chargeRebookingFee ? 500 : 0
       const driveLinkChanged = editDriveLink !== (selectedBooking.driveLink || '')
 
       const updatedBooking: Booking = {
         ...selectedBooking,
         bookingDate: editDate,
-        bookingTime: editTime,
+        bookingTime: nextTime,
+        slotId: resolvedSlot?.id,
+        arrivalTime: resolvedSlot?.arrivalTime ?? (isMakeup ? selectedBooking.arrivalTime : FICO_ARRIVAL_LABEL),
+        shootTime: resolvedSlot?.shootTime ?? (isMakeup ? selectedBooking.shootTime : 'Flexible (before 4:00 PM)'),
         staffNotes: editStaffNotes,
         price: selectedBooking.price + addedFee,
-        driveLink: editDriveLink || undefined
+        driveLink: editDriveLink || undefined,
       }
-      
-      const { emailErrors } = await runAdminTransaction(updatedBooking, [
+
+      const { saved, emailErrors } = await runAdminTransaction(updatedBooking, [
         ...(dateChanged ? [{ action: 'booking_rescheduled' as const, booking: updatedBooking, rebookingFee: addedFee }] : []),
         ...(driveLinkChanged && editDriveLink
           ? [{ action: 'gallery_link' as const, booking: updatedBooking, driveLink: editDriveLink }]
           : []),
       ])
 
-      setSelectedBooking(updatedBooking)
+      setSelectedBooking(saved)
+      setEditDate(saved.bookingDate)
+      setEditTime(
+        usesMakeupSlots(saved.packageId) && saved.slotId && getSlotById(saved.slotId)
+          ? formatSlotBookingTime(getSlotById(saved.slotId)!)
+          : saved.bookingTime,
+      )
       setIsEditing(false)
       fetchBookings(true)
 

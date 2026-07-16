@@ -20,6 +20,37 @@ import {
   sendBookingSubmittedEmail,
 } from '@/lib/email'
 import { isPlaceholderCustomerEmail } from '@/lib/customer-email'
+import { usesMakeupSlots } from '@/lib/booking-packages'
+import {
+  findSlotByBookingTime,
+  formatSlotBookingTime,
+  getSlotById,
+  FICO_BOOKING_TIME_LABEL,
+  FICO_ARRIVAL_LABEL,
+} from '@/lib/booking-slots'
+
+/** Keep slotId in sync with bookingTime so reschedules pass capacity checks. */
+function normalizeBookingSchedule(booking: Booking): Booking {
+  if (usesMakeupSlots(booking.packageId)) {
+    // Prefer the time label staff just selected; fall back to stored slotId.
+    const slot = findSlotByBookingTime(booking.bookingTime) ?? (booking.slotId ? getSlotById(booking.slotId) : undefined)
+    if (!slot) return booking
+    return {
+      ...booking,
+      slotId: slot.id,
+      bookingTime: formatSlotBookingTime(slot),
+      arrivalTime: slot.arrivalTime,
+      shootTime: slot.shootTime,
+    }
+  }
+
+  return {
+    ...booking,
+    slotId: undefined,
+    bookingTime: booking.bookingTime || FICO_BOOKING_TIME_LABEL,
+    arrivalTime: booking.arrivalTime || FICO_ARRIVAL_LABEL,
+  }
+}
 
 function depositPaymentFromBooking(booking: Booking): PaymentRecord | undefined {
   const history = booking.paymentHistory || []
@@ -134,49 +165,51 @@ export async function POST(request: Request) {
 
     // Public creates: never trust client privilege fields (status, staff notes, etc.).
     // Staff creates (walk-ins) may set Confirmed + receipt.
-    const booking: Booking = isExisting
-      ? incoming
-      : isStaffCreate
-        ? {
-            ...incoming,
-            depositAmount: Number(incoming.depositAmount) || 500,
-            driveLink: undefined,
-            rawPhotoLink: undefined,
-            rawPhotoStatus: undefined,
-            rawPhotoNotes: undefined,
-            rawPhotoSubmittedAt: undefined,
-            rawPhotoApprovedAt: undefined,
-            editedPhotoLink: undefined,
-            editedPhotoDeliveredAt: undefined,
-            paymentHistory: Array.isArray(incoming.paymentHistory) ? incoming.paymentHistory : [],
-          }
-        : {
-            ...incoming,
-            bookingStatus: 'Pending Verification',
-            paymentStatus: 'Pending Verification',
-            rejectionReason: undefined,
-            rejectionReasonId: undefined,
-            staffNotes: undefined,
-            driveLink: undefined,
-            rawPhotoLink: undefined,
-            rawPhotoStatus: undefined,
-            rawPhotoNotes: undefined,
-            rawPhotoSubmittedAt: undefined,
-            rawPhotoApprovedAt: undefined,
-            editedPhotoLink: undefined,
-            editedPhotoDeliveredAt: undefined,
-            depositAmount: 500,
-            paymentHistory: [
-              {
-                id: 'PAY-' + Math.floor(1000 + Math.random() * 9000),
-                amount: 500,
-                method: incoming.paymentHistory?.[0]?.method || 'BPI',
-                type: 'Deposit',
-                transactionRef: incoming.transactionRef || incoming.paymentHistory?.[0]?.transactionRef,
-                date: new Date().toISOString(),
-              },
-            ],
-          }
+    const booking = normalizeBookingSchedule(
+      isExisting
+        ? incoming
+        : isStaffCreate
+          ? {
+              ...incoming,
+              depositAmount: Number(incoming.depositAmount) || 500,
+              driveLink: undefined,
+              rawPhotoLink: undefined,
+              rawPhotoStatus: undefined,
+              rawPhotoNotes: undefined,
+              rawPhotoSubmittedAt: undefined,
+              rawPhotoApprovedAt: undefined,
+              editedPhotoLink: undefined,
+              editedPhotoDeliveredAt: undefined,
+              paymentHistory: Array.isArray(incoming.paymentHistory) ? incoming.paymentHistory : [],
+            }
+          : {
+              ...incoming,
+              bookingStatus: 'Pending Verification',
+              paymentStatus: 'Pending Verification',
+              rejectionReason: undefined,
+              rejectionReasonId: undefined,
+              staffNotes: undefined,
+              driveLink: undefined,
+              rawPhotoLink: undefined,
+              rawPhotoStatus: undefined,
+              rawPhotoNotes: undefined,
+              rawPhotoSubmittedAt: undefined,
+              rawPhotoApprovedAt: undefined,
+              editedPhotoLink: undefined,
+              editedPhotoDeliveredAt: undefined,
+              depositAmount: 500,
+              paymentHistory: [
+                {
+                  id: 'PAY-' + Math.floor(1000 + Math.random() * 9000),
+                  amount: 500,
+                  method: incoming.paymentHistory?.[0]?.method || 'BPI',
+                  type: 'Deposit',
+                  transactionRef: incoming.transactionRef || incoming.paymentHistory?.[0]?.transactionRef,
+                  date: new Date().toISOString(),
+                },
+              ],
+            },
+    )
 
     // Contact/status-only edits must not fail when the slot is already occupied
     // (this booking itself, or a legacy double-book). Re-check capacity only if schedule changes.

@@ -358,6 +358,22 @@ export function formatSlotBookingTime(slot: SessionSlot): string {
   return `${slot.blockLabel} · ${slot.slotLabel}`
 }
 
+/** Resolve a MANA slot from a booking time label (ignores stored slotId). */
+export function findSlotByBookingTime(bookingTime: string): SessionSlot | undefined {
+  const time = (bookingTime || '').trim()
+  if (!time) return undefined
+
+  const exact = ALL_MANA_SLOTS.find((slot) => formatSlotBookingTime(slot) === time)
+  if (exact) return exact
+
+  const labelMatch = ALL_MANA_SLOTS.find(
+    (slot) => time.includes(slot.blockLabel) && time.includes(slot.slotLabel),
+  )
+  if (labelMatch) return labelMatch
+
+  return undefined
+}
+
 /** @deprecated use formatSlotBookingTime */
 export function formatMakeupBookingTime(slot: SessionSlot): string {
   return formatSlotBookingTime(slot)
