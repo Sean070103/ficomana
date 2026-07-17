@@ -1,6 +1,18 @@
 /** Editor turnaround: 12 days from raw-photo approval. */
 export const EDITOR_DEADLINE_DAYS = 12
 
+/** Local YYYY-MM-DD for editor day folders (approval day starts the edit clock). */
+export function getEditorFolderDayKey(booking: {
+  rawPhotoApprovedAt?: string
+  rawPhotoSubmittedAt?: string
+}): string {
+  const raw = booking.rawPhotoApprovedAt || booking.rawPhotoSubmittedAt
+  if (!raw) return 'undated'
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return 'undated'
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function getEditorDeadlineStart(booking: {
   rawPhotoApprovedAt?: string
   rawPhotoSubmittedAt?: string

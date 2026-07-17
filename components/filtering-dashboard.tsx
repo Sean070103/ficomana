@@ -26,8 +26,20 @@ import {
   type RawPhotoWorkflowStatus,
 } from '@/lib/booking-display'
 import { countPendingRawPhotoReviews, hasRawPhotoSubmission } from '@/lib/raw-photo-display'
-import { EDITOR_DEADLINE_DAYS, getEditorDeadlineInfo } from '@/lib/editor-deadline'
-import { adminCard, adminCardHover, adminEmptyState, adminInput, adminPage, adminPanel, adminSpinner, adminSpinnerWrap, rawPhotoStatusBadge } from '@/lib/admin-ui'
+import { EDITOR_DEADLINE_DAYS, getEditorDeadlineInfo, getEditorFolderDayKey } from '@/lib/editor-deadline'
+import {
+  adminBtnGhost,
+  adminBtnPrimary,
+  adminCard,
+  adminCardHover,
+  adminEmptyState,
+  adminInput,
+  adminPage,
+  adminPanel,
+  adminSpinner,
+  adminSpinnerWrap,
+  rawPhotoStatusBadge,
+} from '@/lib/admin-ui'
 import AdminPageHeader from '@/components/admin-page-header'
 import AdminBookingCalendar from '@/components/admin-booking-calendar'
 import AdminRawPhotoQueue from '@/components/admin-raw-photo-queue'
@@ -188,19 +200,19 @@ export default function FilteringDashboard({ initialSearch = '', initialTab }: P
     <div className={adminPage}>
       <AdminPageHeader
         title="Filtering Dashboard"
-        subtitle="Post-shoot pipeline — gallery links, client 5-pick review, calendar, and editor queue."
+        subtitle="Gallery → client 5-pick → review → editor delivery. Track every booking through the post-shoot pipeline."
         onRefresh={() => fetchData()}
         refreshing={refreshing}
       >
         <Link
           href="/admin/bookings"
-          className="inline-flex items-center gap-1.5 border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-colors"
+          className={`inline-flex items-center gap-1.5 px-4 py-2.5 ${adminBtnGhost}`}
         >
           All Bookings <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </AdminPageHeader>
 
-      <div className="flex border-b border-white/10 gap-1 overflow-x-auto">
+      <div className={`${adminCard} p-1.5 flex gap-1 overflow-x-auto`}>
         {tabs.map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
@@ -209,22 +221,22 @@ export default function FilteringDashboard({ initialSearch = '', initialTab }: P
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3.5 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
+              className={`px-3.5 py-2.5 text-[11px] font-semibold uppercase tracking-wider rounded-lg transition-all whitespace-nowrap flex items-center gap-2 ${
                 isActive
-                  ? 'border-primary text-white bg-white/[0.02]'
-                  : 'border-transparent text-white/50 hover:text-white hover:bg-white/[0.01]'
+                  ? 'bg-primary text-white shadow-[0_0_20px_rgba(5,0,208,0.25)]'
+                  : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
               {tab.label}
               {typeof tab.count === 'number' && tab.count > 0 && (
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                  className={`min-w-[1.25rem] text-center text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
                     isActive
-                      ? 'bg-primary text-white'
+                      ? 'bg-white/20 text-white'
                       : tab.id === 'queue'
-                        ? 'bg-amber-500/25 text-amber-400 border border-amber-500/30'
-                        : 'bg-white/10 text-white/60'
+                        ? 'bg-amber-500/25 text-amber-300'
+                        : 'bg-white/10 text-white/65'
                   }`}
                 >
                   {tab.count}
@@ -331,6 +343,11 @@ function OverviewTab({
     },
   ]
 
+  const pipelineTotal = Math.max(
+    1,
+    (Object.keys(counts) as RawPhotoWorkflowStatus[]).reduce((sum, s) => sum + counts[s], 0),
+  )
+
   const recentPending = relevant
     .filter((b) => getRawPhotoWorkflowStatus(b) === 'pending_review')
     .sort((a, b) => {
@@ -345,18 +362,23 @@ function OverviewTab({
       <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {kpis.map((kpi) => {
           const Icon = kpi.icon
+          const hot = kpi.value > 0 && (kpi.label === 'Pending Review' || kpi.label === 'Ready for Editor')
           return (
             <button
               key={kpi.label}
               type="button"
               onClick={() => onOpenTab(kpi.tab)}
-              className={`${adminCard} ${adminCardHover} p-5 text-left`}
+              className={`${adminCard} ${adminCardHover} p-5 text-left group relative overflow-hidden`}
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className={`absolute left-0 top-0 bottom-0 w-1 ${hot ? 'bg-primary' : 'bg-white/15'}`} />
+              <div className="flex items-start justify-between gap-3 pl-1">
                 <div>
                   <p className="text-[10px] font-bold tracking-widest text-white/40 uppercase">{kpi.label}</p>
-                  <p className="text-3xl font-bold text-white mt-2 tabular-nums">{kpi.value}</p>
+                  <p className="text-3xl font-bold text-white mt-2 tabular-nums tracking-tight">{kpi.value}</p>
                   <p className="text-[11px] text-white/45 mt-1.5 leading-snug">{kpi.desc}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-primary/80 mt-3 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1">
+                    Open <ArrowRight className="w-3 h-3" />
+                  </p>
                 </div>
                 <div className={`p-2.5 rounded-lg border ${kpi.accent}`}>
                   <Icon className="w-4 h-4" />
@@ -369,11 +391,11 @@ function OverviewTab({
 
       <div className="grid lg:grid-cols-2 gap-5">
         <div className={`${adminPanel} p-5`}>
-          <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center justify-between gap-3 mb-5">
             <div>
               <p className="text-[10px] font-bold tracking-widest text-white/40 uppercase">Pipeline</p>
               <p className="text-sm font-semibold text-white mt-0.5">
-                {relevant.length} active booking{relevant.length === 1 ? '' : 's'} · {submitted} submitted
+                {relevant.length} active · {submitted} submitted
               </p>
             </div>
             <button
@@ -384,15 +406,26 @@ function OverviewTab({
               Open queue <ArrowRight className="w-3 h-3" />
             </button>
           </div>
-          <div className="space-y-2">
-            {(Object.keys(counts) as RawPhotoWorkflowStatus[]).map((status) => (
-              <div key={status} className="flex items-center justify-between gap-3 py-2 border-b border-white/[0.06] last:border-0">
-                <span className={`px-2 py-0.5 text-[9px] font-bold uppercase border ${rawPhotoStatusBadge(status)}`}>
-                  {rawPhotoWorkflowLabel(status)}
-                </span>
-                <span className="text-sm font-semibold text-white tabular-nums">{counts[status]}</span>
-              </div>
-            ))}
+          <div className="space-y-3.5">
+            {(Object.keys(counts) as RawPhotoWorkflowStatus[]).map((status) => {
+              const pct = Math.round((counts[status] / pipelineTotal) * 100)
+              return (
+                <div key={status} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className={`px-2 py-0.5 text-[9px] font-bold uppercase border ${rawPhotoStatusBadge(status)}`}>
+                      {rawPhotoWorkflowLabel(status)}
+                    </span>
+                    <span className="text-sm font-semibold text-white tabular-nums">{counts[status]}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary/70 transition-all duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
 
@@ -400,7 +433,7 @@ function OverviewTab({
           <div className="p-4 border-b border-white/[0.08] flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-bold tracking-widest text-white/40 uppercase">Needs review</p>
-              <p className="text-sm font-semibold text-white mt-0.5">Latest submissions</p>
+              <p className="text-sm font-semibold text-white mt-0.5">Latest 5-pick submissions</p>
             </div>
             <button
               type="button"
@@ -413,7 +446,8 @@ function OverviewTab({
           {recentPending.length === 0 ? (
             <div className={`${adminEmptyState} m-5 border-none bg-transparent flex-1`}>
               <CheckCircle className="w-8 h-8 text-green-400/50" />
-              <p className="text-sm text-white/60">No pending reviews</p>
+              <p className="text-sm text-white/60">Queue is clear</p>
+              <p className="text-[11px] text-white/35">New client submissions will show up here.</p>
             </div>
           ) : (
             <div className="divide-y divide-white/[0.06]">
@@ -430,7 +464,10 @@ function OverviewTab({
                       {b.bookingDate} · {b.packageName}
                     </p>
                   </div>
-                  <span className="font-mono text-[10px] text-primary shrink-0">{b.id}</span>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className="font-mono text-[10px] text-primary">{b.id}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-amber-300/80">Review</span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -595,6 +632,7 @@ function EditorTab({
   const [savingId, setSavingId] = useState<string | null>(null)
   const [filter, setFilter] = useState<'todo' | 'done' | 'all' | 'overdue'>('todo')
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [autoOpenedToday, setAutoOpenedToday] = useState(false)
 
   const visible = bookings.filter((b) => {
     const deadline = getEditorDeadlineInfo(b)
@@ -607,7 +645,7 @@ function EditorTab({
   const dayFolders = useMemo(() => {
     const map = new Map<string, { total: number; todo: number; overdue: number }>()
     for (const b of visible) {
-      const day = b.bookingDate || 'undated'
+      const day = getEditorFolderDayKey(b)
       const cur = map.get(day) || { total: 0, todo: 0, overdue: 0 }
       cur.total += 1
       if (!b.editedPhotoLink) cur.todo += 1
@@ -615,15 +653,34 @@ function EditorTab({
       map.set(day, cur)
     }
     return Array.from(map.entries())
-      .sort(([a], [b]) => b.localeCompare(a))
       .map(([date, stats]) => ({ date, ...stats }))
+      .sort((a, b) => {
+        if (a.overdue !== b.overdue) return b.overdue - a.overdue
+        if (a.todo !== b.todo) return b.todo - a.todo
+        return b.date.localeCompare(a.date)
+      })
   }, [visible])
+
+  useEffect(() => {
+    if (autoOpenedToday || selectedDay || dayFolders.length === 0) return
+    const today = todayKey()
+    const todayFolder = dayFolders.find((f) => f.date === today && f.todo > 0)
+    if (todayFolder) setSelectedDay(today)
+    setAutoOpenedToday(true)
+  }, [dayFolders, selectedDay, autoOpenedToday])
 
   const dayBookings = useMemo(() => {
     if (!selectedDay) return []
     return visible
-      .filter((b) => (b.bookingDate || 'undated') === selectedDay)
-      .sort((a, b) => a.bookingTime.localeCompare(b.bookingTime))
+      .filter((b) => getEditorFolderDayKey(b) === selectedDay)
+      .sort((a, b) => {
+        const aOver = getEditorDeadlineInfo(a).overdue ? 1 : 0
+        const bOver = getEditorDeadlineInfo(b).overdue ? 1 : 0
+        if (aOver !== bOver) return bOver - aOver
+        const aStart = getEditorDeadlineInfo(a).start?.getTime() ?? 0
+        const bStart = getEditorDeadlineInfo(b).start?.getTime() ?? 0
+        return bStart - aStart
+      })
   }, [visible, selectedDay])
 
   const overdueCount = useMemo(
@@ -692,55 +749,61 @@ function EditorTab({
 
   return (
     <div className="space-y-5">
-      <div className={`${adminCard} p-4 space-y-3`}>
+      <div className={`${adminPanel} p-4 space-y-4`}>
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
           <input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search approved bookings by name, email, or ID…"
+            placeholder="Search by name, email, or booking ID…"
             className={`${adminInput} pl-11`}
           />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[11px] text-white/45">
-            <span className="font-semibold text-amber-300">{awaitingEdit}</span> need edited link ·{' '}
-            <span className="font-semibold text-emerald-300">{delivered}</span> delivered ·{' '}
-            <span className="font-semibold text-white/70">{EDITOR_DEADLINE_DAYS}-day</span> edit deadline
-            {overdueCount > 0 && (
-              <>
-                {' · '}
-                <span className="font-semibold text-red-300">{overdueCount} overdue</span>
-              </>
-            )}
-          </p>
-          <div className="flex flex-wrap gap-1">
-            {(
-              [
-                ['todo', 'To edit'],
-                ['overdue', 'Overdue'],
-                ['done', 'Delivered'],
-                ['all', 'All'],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => {
-                  setFilter(id)
-                  setSelectedDay(null)
-                }}
-                className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border transition-colors ${
-                  filter === id
-                    ? 'border-primary/40 bg-primary/15 text-white'
-                    : 'border-white/10 text-white/50 hover:text-white'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+            {awaitingEdit} to edit
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+            {delivered} delivered
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/60">
+            {EDITOR_DEADLINE_DAYS}-day deadline
+          </span>
+          {overdueCount > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-red-300">
+              {overdueCount} overdue
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1 p-1 rounded-lg bg-black/30 border border-white/[0.06]">
+          {(
+            [
+              ['todo', 'To edit'],
+              ['overdue', 'Overdue'],
+              ['done', 'Delivered'],
+              ['all', 'All'],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                setFilter(id)
+                setSelectedDay(null)
+                setAutoOpenedToday(false)
+              }}
+              className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors ${
+                filter === id
+                  ? 'bg-primary text-white'
+                  : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -752,71 +815,119 @@ function EditorTab({
               {filter === 'todo' ? 'No jobs waiting' : 'Nothing here'}
             </h3>
             <p className="text-xs text-white/40 max-w-md">
-              Approved selections are grouped by shoot day. Open a day folder to edit and deliver.
+              When editors approve a 5-pick, that booking lands in today&apos;s approval folder and the{' '}
+              {EDITOR_DEADLINE_DAYS}-day edit clock starts.
             </p>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-              Shoot-day folders
-            </p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                Approval-day folders
+              </p>
+              <p className="text-[10px] text-white/35">{dayFolders.length} folder{dayFolders.length === 1 ? '' : 's'}</p>
+            </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {dayFolders.map((folder) => (
-                <button
-                  key={folder.date}
-                  type="button"
-                  onClick={() => setSelectedDay(folder.date)}
-                  className={`${adminCard} ${adminCardHover} p-4 text-left space-y-3`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <FolderOpen className="w-5 h-5 text-amber-300 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">
-                          {formatDayFolderLabel(folder.date)}
-                        </p>
-                        <p className="text-[10px] font-mono text-white/40 mt-0.5">{folder.date}</p>
+              {dayFolders.map((folder) => {
+                const isToday = folder.date === todayKey()
+                const done = folder.total - folder.todo
+                const progress = folder.total > 0 ? Math.round((done / folder.total) * 100) : 0
+                return (
+                  <button
+                    key={folder.date}
+                    type="button"
+                    onClick={() => setSelectedDay(folder.date)}
+                    className={`${adminCard} ${adminCardHover} p-4 text-left space-y-3 ${
+                      folder.overdue > 0 ? 'ring-1 ring-red-500/30' : isToday ? 'ring-1 ring-primary/35' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`rounded-lg border p-2 ${
+                            folder.overdue > 0
+                              ? 'border-red-500/30 bg-red-500/10 text-red-300'
+                              : folder.todo > 0
+                                ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                          }`}
+                        >
+                          <FolderOpen className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-white truncate">
+                              {formatDayFolderLabel(folder.date)}
+                            </p>
+                            {isToday && (
+                              <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
+                                Today
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] font-mono text-white/40 mt-0.5">{folder.date}</p>
+                        </div>
+                      </div>
+                      <span className="text-lg font-bold text-white tabular-nums shrink-0">{folder.total}</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-white/40">
+                        <span>
+                          {done}/{folder.total} delivered
+                        </span>
+                        <span>{progress}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            progress === 100 ? 'bg-emerald-400/80' : 'bg-primary/70'
+                          }`}
+                          style={{ width: `${progress}%` }}
+                        />
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold text-white/50 shrink-0">
-                      {folder.total}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 text-[9px] font-bold uppercase tracking-wider">
-                    {folder.todo > 0 && (
-                      <span className="px-2 py-0.5 border border-amber-500/30 bg-amber-500/10 text-amber-300">
-                        {folder.todo} to edit
-                      </span>
-                    )}
-                    {folder.overdue > 0 && (
-                      <span className="px-2 py-0.5 border border-red-500/30 bg-red-500/10 text-red-300">
-                        {folder.overdue} overdue
-                      </span>
-                    )}
-                    {folder.todo === 0 && (
-                      <span className="px-2 py-0.5 border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
-                        All delivered
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
+
+                    <div className="flex flex-wrap gap-1.5 text-[9px] font-bold uppercase tracking-wider">
+                      {folder.todo > 0 && (
+                        <span className="px-2 py-0.5 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-300">
+                          {folder.todo} to edit
+                        </span>
+                      )}
+                      {folder.overdue > 0 && (
+                        <span className="px-2 py-0.5 rounded-md border border-red-500/30 bg-red-500/10 text-red-300">
+                          {folder.overdue} overdue
+                        </span>
+                      )}
+                      {folder.todo === 0 && (
+                        <span className="px-2 py-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+                          All delivered
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className={`${adminCard} p-4 flex flex-wrap items-center justify-between gap-3`}>
             <button
               type="button"
               onClick={() => setSelectedDay(null)}
-              className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/60 hover:text-white"
+              className={`inline-flex items-center gap-1.5 px-3 py-2 ${adminBtnGhost}`}
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> All day folders
+              <ArrowLeft className="w-3.5 h-3.5" /> All folders
             </button>
             <div className="text-right">
               <p className="text-sm font-semibold text-white">{formatDayFolderLabel(selectedDay)}</p>
-              <p className="text-[10px] text-white/40 font-mono">{selectedDay}</p>
+              <p className="text-[10px] text-white/40 font-mono mt-0.5">
+                Approved {selectedDay}
+                {selectedDay === todayKey() ? ' · Today' : ''} · {dayBookings.length} job
+                {dayBookings.length === 1 ? '' : 's'}
+              </p>
             </div>
           </div>
 
@@ -834,7 +945,12 @@ function EditorTab({
                 const deadline = getEditorDeadlineInfo(b)
 
                 return (
-                  <div key={b.id} className={`${adminCard} ${adminCardHover} p-5 space-y-4`}>
+                  <div
+                    key={b.id}
+                    className={`${adminCard} ${adminCardHover} p-5 space-y-4 ${
+                      deadline.overdue && !deliveredAlready ? 'ring-1 ring-red-500/25' : ''
+                    }`}
+                  >
                     <div className="flex justify-between items-start gap-3 border-b border-white/10 pb-3">
                       <div className="min-w-0">
                         <h3 className="font-semibold text-white truncate">{b.customerName}</h3>
@@ -847,7 +963,7 @@ function EditorTab({
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <span
-                          className={`text-[9px] font-bold px-2 py-0.5 uppercase border ${
+                          className={`text-[9px] font-bold px-2 py-0.5 uppercase rounded-md border ${
                             deliveredAlready
                               ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                               : 'bg-green-500/15 text-green-400 border-green-500/30'
@@ -856,7 +972,7 @@ function EditorTab({
                           {deliveredAlready ? 'Delivered' : 'Ready to edit'}
                         </span>
                         <span
-                          className={`text-[9px] font-bold px-2 py-0.5 uppercase border ${
+                          className={`text-[9px] font-bold px-2 py-0.5 uppercase rounded-md border ${
                             deadline.delivered
                               ? 'border-white/10 text-white/40'
                               : deadline.overdue
@@ -871,20 +987,23 @@ function EditorTab({
                       </div>
                     </div>
 
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex justify-between gap-2">
-                        <span className="text-white/40">Shoot time</span>
-                        <span className="text-white/80 text-right">{b.bookingTime}</span>
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="rounded-lg border border-white/[0.08] bg-black/20 p-2.5">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-white/35">Approved</p>
+                        <p className="text-white/80 mt-1 font-mono text-[10px] leading-snug">
+                          {b.rawPhotoApprovedAt
+                            ? new Date(b.rawPhotoApprovedAt).toLocaleString('en-PH', {
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                              })
+                            : '—'}
+                        </p>
                       </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-white/40">Package</span>
-                        <span className="text-white/80 text-right">{b.packageName}</span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-white/40">Edit deadline</span>
-                        <span
-                          className={`text-right ${
-                            deadline.overdue ? 'text-red-300' : 'text-white/70'
+                      <div className="rounded-lg border border-white/[0.08] bg-black/20 p-2.5">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-white/35">Deadline</p>
+                        <p
+                          className={`mt-1 text-[10px] leading-snug ${
+                            deadline.overdue ? 'text-red-300 font-semibold' : 'text-white/80'
                           }`}
                         >
                           {deadline.end
@@ -894,16 +1013,24 @@ function EditorTab({
                                 year: 'numeric',
                               })
                             : '—'}
-                        </span>
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.08] bg-black/20 p-2.5 col-span-2">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-white/35">Shoot · Package</p>
+                        <p className="text-white/80 mt-1 text-[11px] leading-snug">
+                          {b.bookingDate} · {b.bookingTime}
+                          <span className="text-white/40"> · </span>
+                          {b.packageName}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <a
                         href={b.rawPhotoLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider py-2.5 flex items-center justify-center gap-1.5 transition-colors"
+                        className={`col-span-2 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider ${adminBtnPrimary}`}
                       >
                         Open 5-pick folder <ExternalLink className="w-3.5 h-3.5" />
                       </a>
@@ -912,7 +1039,7 @@ function EditorTab({
                           href={b.driveLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="w-full border border-white/15 bg-white/5 hover:bg-white/10 text-white/80 text-[10px] font-bold uppercase tracking-wider py-2.5 flex items-center justify-center gap-1.5 transition-colors"
+                          className={`col-span-2 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider ${adminBtnGhost}`}
                         >
                           Full gallery <ExternalLink className="w-3.5 h-3.5" />
                         </a>
@@ -920,8 +1047,8 @@ function EditorTab({
                     </div>
 
                     <div className="space-y-2 border-t border-white/10 pt-3">
-                      <label className="text-[10px] font-bold tracking-widest text-white/45 uppercase">
-                        Client email (for delivery)
+                      <label className="text-[10px] font-bold tracking-widest text-[#C4CEFF] uppercase">
+                        Client email
                       </label>
                       <input
                         type="email"
@@ -936,7 +1063,7 @@ function EditorTab({
                         className={adminInput}
                       />
 
-                      <label className="text-[10px] font-bold tracking-widest text-white/45 uppercase">
+                      <label className="text-[10px] font-bold tracking-widest text-[#C4CEFF] uppercase">
                         Edited photos Drive link
                       </label>
                       <input
@@ -958,7 +1085,7 @@ function EditorTab({
                           type="button"
                           disabled={busy}
                           onClick={() => deliver(b, true)}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold uppercase tracking-wider py-2.5 disabled:opacity-50"
+                          className="w-full rounded-lg bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold uppercase tracking-wider py-2.5 disabled:opacity-50 transition-colors"
                         >
                           {busy
                             ? 'Saving…'
@@ -970,7 +1097,7 @@ function EditorTab({
                           type="button"
                           disabled={busy}
                           onClick={() => deliver(b, false)}
-                          className="w-full border border-white/15 text-white/60 hover:text-white hover:bg-white/[0.04] text-[10px] font-bold uppercase tracking-wider py-2 disabled:opacity-50"
+                          className={`w-full px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${adminBtnGhost}`}
                         >
                           Save link only
                         </button>
