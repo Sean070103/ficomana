@@ -11,6 +11,7 @@ import {
   PaymentRecord,
 } from '@/lib/data-store'
 import { runAdminTransaction, formatEmailResult } from '@/lib/admin-actions'
+import { dispatchEmail } from '@/lib/email-dispatch'
 import { useAdminToast } from '@/components/admin-toast-provider'
 import AdminPageHeader from '@/components/admin-page-header'
 import { useOnAdminDbSync } from '@/components/admin-auto-sync'
@@ -47,6 +48,7 @@ import {
   FileText,
   Upload,
   Link2,
+  Bell,
 } from 'lucide-react'
 import Image from 'next/image'
 import {
@@ -514,6 +516,28 @@ function BookingsManagement() {
       isPlaceholderCustomerEmail(booking.customerEmail) ? '' : booking.customerEmail || '',
     )
     setShowCompleteModal(true)
+  }
+
+  const handleSendShootReminder = async (booking: Booking) => {
+    if (isPlaceholderCustomerEmail(booking.customerEmail)) {
+      toast.warning('Client email required', 'Add a valid client email before sending the shoot reminder.')
+      return
+    }
+    if (!window.confirm(`Send shoot reminder email to ${booking.customerEmail}?`)) return
+
+    setSaveLoading(true)
+    try {
+      const result = await dispatchEmail({ action: 'booking_reminder', booking })
+      if (!result.success) {
+        toast.warning('Reminder not sent', result.error || 'Email failed.')
+      } else {
+        toast.success('Reminder sent', `Shoot reminder emailed to ${booking.customerEmail}.`)
+      }
+    } catch (err) {
+      toast.error('Reminder failed', err instanceof Error ? err.message : 'Could not send email.')
+    } finally {
+      setSaveLoading(false)
+    }
   }
 
   const handleUpdateStatus = async (booking: Booking, status: Booking['bookingStatus']) => {
@@ -1462,6 +1486,20 @@ function BookingsManagement() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                 <button
                   type="button"
+                  onClick={() => handleSendShootReminder(selectedBooking)}
+                  disabled={
+                    selectedBooking.bookingStatus === 'Cancelled' ||
+                    selectedBooking.bookingStatus === 'Completed' ||
+                    selectedBooking.bookingStatus === 'No Show' ||
+                    saveLoading ||
+                    isPlaceholderCustomerEmail(selectedBooking.customerEmail)
+                  }
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 col-span-2 sm:col-span-3"
+                >
+                  <Bell className="w-3.5 h-3.5" /> Send Shoot Reminder
+                </button>
+                <button
+                  type="button"
                   onClick={() => openGalleryLinkModal(selectedBooking, 'gallery')}
                   disabled={selectedBooking.bookingStatus === 'Cancelled' || saveLoading}
                   className="bg-primary hover:bg-[#03008F] text-white font-bold py-2.5 uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 col-span-2 sm:col-span-3"
@@ -1506,6 +1544,7 @@ function BookingsManagement() {
                 </button>
               </div>
               <p className="text-[10px] text-white/35">
+                Use <strong className="text-white/55">Send Shoot Reminder</strong> the day before the session.
                 Use <strong className="text-white/55">Send Google Drive Link</strong> anytime after payment to email the raw gallery. Cancel keeps the record; Delete permanently removes it.
               </p>
             </div>

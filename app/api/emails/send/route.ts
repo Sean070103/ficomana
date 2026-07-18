@@ -14,6 +14,7 @@ import {
   sendFinalOfficialReceiptEmail,
   sendBookingCancelledEmail,
   sendBookingRescheduledEmail,
+  sendBookingReminderEmail,
   sendGalleryLinkEmail,
 } from '@/lib/email'
 
@@ -81,6 +82,9 @@ export async function POST(request: Request) {
         break
       case 'booking_rescheduled':
         result = await sendBookingRescheduledEmail(booking, rebookingFee ?? 0)
+        break
+      case 'booking_reminder':
+        result = await sendBookingReminderEmail(booking)
         break
       case 'gallery_link':
         if (!driveLink) return NextResponse.json({ error: 'Drive link required' }, { status: 400 })

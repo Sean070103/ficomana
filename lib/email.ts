@@ -913,14 +913,63 @@ export async function sendRawPhotoSubmittedEmails(booking: any) {
   return failed || { success: true }
 }
 
-export async function sendBookingReminderEmail(booking: Record<string, unknown>) {
-  const template = getServerEmailTemplate('booking_reminder')
-  const { subject, body } = renderTemplate(template, templateVars(booking))
+export async function sendBookingReminderEmail(booking: any) {
+  if (isPlaceholderCustomerEmail(booking.customerEmail)) {
+    return { success: false, error: 'Client email is missing or is a placeholder.' }
+  }
+
+  const arrival = booking.arrivalTime || booking.bookingTime || '—'
+  const shoot = booking.shootTime || booking.bookingTime || '—'
+  const subject = `Reminder — Your FICO MANA Session Tomorrow · ${booking.id}`
+  const html = brandedEmail(
+    'Session Reminder',
+    `
+      <p>Hello <strong>${booking.customerName}</strong>,</p>
+      <p>This is a friendly reminder for your upcoming studio session. We look forward to seeing you!</p>
+
+      <div style="background-color: #EEF0FF; padding: 18px; border: 1px solid #D4D8F0; margin: 22px 0;">
+        <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">Booking Code</td>
+            <td style="padding: 6px 0; font-weight: bold; font-family: monospace; color: #0500D0;">${booking.id}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">Package</td>
+            <td style="padding: 6px 0; font-weight: bold;">${booking.packageName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">Shoot Date</td>
+            <td style="padding: 6px 0; font-weight: bold;">${booking.bookingDate}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">Arrival Time</td>
+            <td style="padding: 6px 0; font-weight: bold; color: #0500D0;">${arrival}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5A5A8A;">Shoot Time</td>
+            <td style="padding: 6px 0; font-weight: bold;">${shoot}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color: #FFFBEB; border-left: 4px solid #F59E0B; padding: 14px; margin: 0 0 18px; font-size: 12px; color: #92400E; line-height: 1.6;">
+        <strong>Please note:</strong> Arrival time and shoot time are different. Please arrive at
+        <strong>${arrival}</strong> so your shoot can begin on schedule at <strong>${shoot}</strong>.
+      </div>
+
+      <p style="font-size: 12px; color: #5A5A8A; line-height: 1.6;">
+        <strong>Preparation:</strong> Bring a valid ID and come photo-ready. Late arrivals beyond 15 minutes may incur a ₱500 fee or forfeit the slot at staff discretion.
+      </p>
+      <p style="font-size: 12px; color: #5A5A8A; line-height: 1.6;">${LATE_FEE_POLICY}</p>
+      <p style="font-size: 12px; color: #5A5A8A;">Questions? Reply to this email or call +63 49 576 5176.</p>
+    `,
+  )
+
   return sendEmail({
-    bookingId: String(booking.id),
-    to: String(booking.customerEmail),
+    bookingId: booking.id,
+    to: booking.customerEmail,
     subject,
-    html: body,
+    html,
   })
 }
 

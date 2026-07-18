@@ -13,6 +13,7 @@ export type EmailAction =
   | 'final_receipt'
   | 'booking_cancelled'
   | 'booking_rescheduled'
+  | 'booking_reminder'
   | 'gallery_link'
 
 export type EmailDispatchPayload = {
