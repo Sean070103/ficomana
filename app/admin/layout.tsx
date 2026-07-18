@@ -275,7 +275,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                               {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <div className="flex gap-2">
-                              {n.bookingId && (
+                              {n.bookingId && !n.bookingId.startsWith('OPS-') && (
                                 <Link
                                   href={
                                     n.type.startsWith('RAW_PHOTO')
@@ -287,6 +287,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                   {...(n.type.startsWith('RAW_PHOTO') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                                 >
                                   View
+                                </Link>
+                              )}
+                              {n.type === 'OPS_REMINDER' && (
+                                <Link
+                                  href="/admin/emails"
+                                  onClick={() => setShowNotifDrawer(false)}
+                                  className="text-[10px] text-amber-300 font-semibold hover:underline hover:text-white"
+                                >
+                                  Email logs
                                 </Link>
                               )}
                               {!n.isRead && (

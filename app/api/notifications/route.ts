@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { isSupabaseConfigured } from '@/lib/supabase/env'
 import { listNotificationsFromDb, addNotificationToDb } from '@/lib/supabase-store'
 import type { Notification } from '@/lib/data-store'
+import { getActiveEmailStorageReminder } from '@/lib/ops-subscriptions'
 
 function mergeNotifications(primary: Notification[], secondary: Notification[]) {
   const map = new Map<string, Notification>()
@@ -24,10 +25,32 @@ function mergeNotifications(primary: Notification[], secondary: Notification[]) 
   )
 }
 
+/** Ensure the email-storage renewal reminder exists in DB so mark-read works. */
+async function ensureOpsReminders(existing: Notification[]): Promise<Notification[]> {
+  const draft = getActiveEmailStorageReminder()
+  if (!draft) return existing
+
+  const already = existing.find(
+    (n) => n.type === 'OPS_REMINDER' && n.bookingId === draft.bookingId,
+  )
+  if (already) return existing
+
+  const admin = getSupabaseAdmin()
+  if (isSupabaseConfigured() && admin) {
+    const saved = await addNotificationToDb(admin, draft.bookingId, draft.type, draft.message)
+    if (saved) return [saved, ...existing]
+  }
+
+  const saved = await addServerNotification(draft.bookingId, draft.type, draft.message)
+  return [saved, ...existing]
+}
+
 export async function GET() {
   try {
     const { error: authError } = await requireStaffAuth()
     if (authError) return authError
+
+    let notifications: Notification[] = []
 
     if (isSupabaseConfigured()) {
       const admin = getSupabaseAdmin()
@@ -35,13 +58,17 @@ export async function GET() {
         const fromDb = await listNotificationsFromDb(admin)
         if (fromDb) {
           const fileNotifications = await listNotifications()
-          return NextResponse.json(mergeNotifications(fromDb, fileNotifications))
+          notifications = mergeNotifications(fromDb, fileNotifications)
         }
       }
     }
 
-    const fileNotifications = await listNotifications()
-    return NextResponse.json(fileNotifications)
+    if (notifications.length === 0) {
+      notifications = await listNotifications()
+    }
+
+    notifications = await ensureOpsReminders(notifications)
+    return NextResponse.json(notifications)
   } catch (error) {
     return NextResponse.json({ error: 'Failed to load notifications' }, { status: 500 })
   }

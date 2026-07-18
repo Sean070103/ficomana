@@ -71,6 +71,7 @@ export interface Notification {
     | 'RAW_PHOTO_APPROVED'
     | 'RAW_PHOTO_REJECTED'
     | 'EDITED_PHOTOS_READY'
+    | 'OPS_REMINDER'
   message: string
   isRead: boolean
   createdAt: string

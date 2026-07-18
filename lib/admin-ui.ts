@@ -118,6 +118,8 @@ export function notificationTypeBadge(type: string) {
       return 'text-cyan-400'
     case 'CANCELLED':
       return 'text-white/40'
+    case 'OPS_REMINDER':
+      return 'text-amber-300'
     default:
       return 'text-white/60'
   }
