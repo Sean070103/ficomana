@@ -16,6 +16,7 @@ import {
 import { adminPage, adminCard, adminPanel, adminCardHover, adminSpinnerWrap, adminSpinner, adminEmptyState } from '@/lib/admin-ui'
 import AdminBookingSearch from '@/components/admin-booking-search'
 import AdminPageHeader from '@/components/admin-page-header'
+import AdminOpsNotes from '@/components/admin-ops-notes'
 import { useOnAdminDbSync } from '@/components/admin-auto-sync'
 import { useAdminToast } from '@/components/admin-toast-provider'
 import { downloadDayBookingsExcel } from '@/lib/export-day-bookings'
@@ -200,6 +201,8 @@ export default function DashboardOverview() {
           })}
         </div>
       </AdminPageHeader>
+
+      <AdminOpsNotes />
 
       <AdminBookingSearch bookings={bookings} />
 

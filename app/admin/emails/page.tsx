@@ -16,6 +16,7 @@ import {
   emailStatusBadge,
 } from '@/lib/admin-ui'
 import AdminPageHeader from '@/components/admin-page-header'
+import AdminOpsNotes from '@/components/admin-ops-notes'
 import { useOnAdminDbSync } from '@/components/admin-auto-sync'
 import { useAdminToast } from '@/components/admin-toast-provider'
 
@@ -81,6 +82,8 @@ export default function EmailLogsConsole() {
         onRefresh={() => fetchLogs()}
         refreshing={refreshing}
       />
+
+      <AdminOpsNotes />
 
       <div className={`${adminCard} p-4`}>
         <div className="relative">
