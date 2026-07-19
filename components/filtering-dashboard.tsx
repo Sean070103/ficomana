@@ -25,7 +25,9 @@ import {
   rawPhotoWorkflowLabel,
   type RawPhotoWorkflowStatus,
 } from '@/lib/booking-display'
+import { buildDayPriorityMap, getDayPriorityCount, sortBookingsByDayPriority } from '@/lib/booking-priority'
 import { countPendingRawPhotoReviews, hasRawPhotoSubmission } from '@/lib/raw-photo-display'
+import BookingPrioritySelect from '@/components/booking-priority-select'
 import { EDITOR_DEADLINE_DAYS, getEditorDeadlineInfo, getEditorFolderDayKey } from '@/lib/editor-deadline'
 import {
   adminBtnGhost,
@@ -151,10 +153,15 @@ export default function FilteringDashboard({ initialSearch = '', initialTab }: P
 
   const dayBookings = useMemo(
     () =>
-      calendarBookings
-        .filter((b) => b.bookingDate === selectedDate)
-        .sort((a, b) => a.bookingTime.localeCompare(b.bookingTime)),
+      sortBookingsByDayPriority(
+        calendarBookings.filter((b) => b.bookingDate === selectedDate),
+      ),
     [calendarBookings, selectedDate],
+  )
+
+  const dayPriorityMap = useMemo(
+    () => buildDayPriorityMap(calendarBookings),
+    [calendarBookings],
   )
 
   const editorQueue = useMemo(() => {
@@ -273,6 +280,8 @@ export default function FilteringDashboard({ initialSearch = '', initialTab }: P
           <FilteringDaySessions
             bookings={dayBookings}
             date={selectedDate}
+            priorityMap={dayPriorityMap}
+            maxPriority={getDayPriorityCount(calendarBookings, selectedDate)}
             onReview={(id) => {
               setQueueSearch(id)
               setActiveTab('queue')
@@ -481,10 +490,14 @@ function OverviewTab({
 function FilteringDaySessions({
   bookings,
   date,
+  priorityMap,
+  maxPriority,
   onReview,
 }: {
   bookings: Booking[]
   date: string
+  priorityMap: Map<string, number>
+  maxPriority: number
   onReview: (bookingId: string) => void
 }) {
   const label = date
@@ -538,17 +551,24 @@ function FilteringDaySessions({
               return (
                 <div key={b.id} className="p-4 space-y-3 hover:bg-white/[0.02] transition-colors">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{b.customerName}</p>
-                      <p className="text-[11px] text-white/40 mt-1">
-                        {b.bookingTime} · {b.packageName}
-                      </p>
-                      <Link
-                        href={`/admin/bookings?search=${encodeURIComponent(b.id)}`}
-                        className="font-mono text-[10px] text-primary hover:underline mt-1 inline-block"
-                      >
-                        {b.id}
-                      </Link>
+                    <div className="min-w-0 flex items-start gap-3">
+                      <BookingPrioritySelect
+                        priority={priorityMap.get(b.id) ?? null}
+                        maxPriority={maxPriority}
+                        className="shrink-0 mt-0.5"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{b.customerName}</p>
+                        <p className="text-[11px] text-white/40 mt-1">
+                          {b.bookingTime} · {b.packageName}
+                        </p>
+                        <Link
+                          href={`/admin/bookings?search=${encodeURIComponent(b.id)}`}
+                          className="font-mono text-[10px] text-primary hover:underline mt-1 inline-block"
+                        >
+                          {b.id}
+                        </Link>
+                      </div>
                     </div>
                     {workflow && (
                       <span className={`px-2 py-0.5 text-[8px] font-bold uppercase border shrink-0 ${rawPhotoStatusBadge(workflow)}`}>

@@ -1,4 +1,5 @@
 import type { Booking } from '@/lib/data-store'
+import { buildDayPriorityMap, sortBookingsByDayPriority } from '@/lib/booking-priority'
 
 function escapeCsv(value: string | number | undefined | null): string {
   const s = value == null ? '' : String(value)
@@ -18,11 +19,13 @@ function paymentSummary(booking: Booking): string {
 
 /** Download day bookings as a UTF-8 CSV file (opens in Excel). */
 export function downloadDayBookingsExcel(bookings: Booking[], date: string) {
-  const rows = bookings
-    .filter((b) => b.bookingDate === date && b.bookingStatus !== 'Cancelled')
-    .sort((a, b) => a.bookingTime.localeCompare(b.bookingTime))
+  const dayRows = sortBookingsByDayPriority(
+    bookings.filter((b) => b.bookingDate === date && b.bookingStatus !== 'Cancelled'),
+  )
+  const priorities = buildDayPriorityMap(bookings)
 
   const headers = [
+    'Client',
     'Booking ID',
     'Customer Name',
     'Email',
@@ -46,8 +49,9 @@ export function downloadDayBookingsExcel(bookings: Booking[], date: string) {
 
   const lines = [
     headers.join(','),
-    ...rows.map((b) =>
+    ...dayRows.map((b) =>
       [
+        priorities.get(b.id) ?? '',
         b.id,
         b.customerName,
         b.customerEmail,

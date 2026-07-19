@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getBookings, Booking } from '@/lib/data-store'
 import Link from 'next/link'
 import {
@@ -17,8 +17,10 @@ import { adminPage, adminCard, adminPanel, adminCardHover, adminSpinnerWrap, adm
 import AdminBookingSearch from '@/components/admin-booking-search'
 import AdminPageHeader from '@/components/admin-page-header'
 import AdminOpsNotes from '@/components/admin-ops-notes'
+import BookingPrioritySelect from '@/components/booking-priority-select'
 import { useOnAdminDbSync } from '@/components/admin-auto-sync'
 import { useAdminToast } from '@/components/admin-toast-provider'
+import { buildDayPriorityMap, getDayPriorityCount, sortBookingsByDayPriority } from '@/lib/booking-priority'
 import { downloadDayBookingsExcel } from '@/lib/export-day-bookings'
 
 export default function DashboardOverview() {
@@ -98,6 +100,14 @@ export default function DashboardOverview() {
 
   useOnAdminDbSync(() => fetchStats(true))
 
+  const todayStr = new Date().toISOString().split('T')[0]
+  const todaysList = useMemo(
+    () => sortBookingsByDayPriority(bookings.filter((b) => b.bookingDate === todayStr)),
+    [bookings, todayStr],
+  )
+  const todayPriorityMap = useMemo(() => buildDayPriorityMap(bookings), [bookings])
+  const todayPriorityCount = getDayPriorityCount(bookings, todayStr)
+
   if (loading) {
     return (
       <div className={adminSpinnerWrap}>
@@ -151,9 +161,6 @@ export default function DashboardOverview() {
       icon: TrendingUp,
     },
   ]
-
-  const todayStr = new Date().toISOString().split('T')[0]
-  const todaysList = bookings.filter((b) => b.bookingDate === todayStr)
 
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const weeklyRevenue = (() => {
@@ -260,12 +267,19 @@ export default function DashboardOverview() {
               </div>
             ) : (
               todaysList.map((b) => (
-                <div key={b.id} className="py-3 flex justify-between items-center text-xs hover:bg-white/[0.02] transition-colors px-1 -mx-1">
-                  <div className="space-y-1">
-                    <p className="font-semibold text-white">{b.customerName}</p>
-                    <p className="text-white/40 font-mono text-[10px]">Time: {b.bookingTime}</p>
+                <div key={b.id} className="py-3 flex justify-between items-center gap-3 text-xs hover:bg-white/[0.02] transition-colors px-1 -mx-1">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <BookingPrioritySelect
+                      priority={todayPriorityMap.get(b.id) ?? null}
+                      maxPriority={todayPriorityCount}
+                      className="shrink-0"
+                    />
+                    <div className="space-y-1 min-w-0">
+                      <p className="font-semibold text-white truncate">{b.customerName}</p>
+                      <p className="text-white/40 font-mono text-[10px]">Time: {b.bookingTime}</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0">
                     <span className="font-semibold text-primary">{b.packageName}</span>
                     <span
                       className={`px-2 py-0.5 text-[9px] font-bold uppercase ${

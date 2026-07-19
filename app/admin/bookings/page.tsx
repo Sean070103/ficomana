@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   getBookings,
@@ -29,8 +29,10 @@ import {
 } from '@/lib/booking-slots'
 import { generateBookingId } from '@/lib/booking-id'
 import { enrichBookingDisplay, filterBookings } from '@/lib/booking-display'
+import { buildDayPriorityMap, getDayPriorityCount } from '@/lib/booking-priority'
 import { isPlaceholderCustomerEmail } from '@/lib/customer-email'
 import AdminReceiptActions from '@/components/admin-receipt-actions'
+import BookingPrioritySelect from '@/components/booking-priority-select'
 import { 
   Search, 
   Filter, 
@@ -257,7 +259,7 @@ function BookingsManagement() {
     }
   }
 
-  // Apply filters in real time
+  // Apply filters in real time (sorted by day priority: earliest session = #1)
   useEffect(() => {
     setFilteredBookings(
       filterBookings(bookings, {
@@ -269,6 +271,9 @@ function BookingsManagement() {
       }),
     )
   }, [searchTerm, statusFilter, paymentFilter, packageFilter, dateFilter, bookings])
+
+  /** Client numbers from full day roster so filters don't renumber Client 1, 2, …. */
+  const dayPriorityMap = useMemo(() => buildDayPriorityMap(bookings), [bookings])
 
   const hasActiveFilters =
     Boolean(searchTerm.trim()) ||
@@ -949,10 +954,11 @@ function BookingsManagement() {
 
       {/* TABLE */}
       <div className="border border-white/10 bg-white/[0.02] overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[1000px]">
+        <table className="w-full text-left border-collapse min-w-[1100px]">
           <thead>
             <tr className="bg-white/[0.03] border-b border-white/10 text-[10px] font-bold tracking-widest text-white/40 uppercase">
-              <th className="p-4 pl-6">Reference</th>
+              <th className="p-4 pl-6">Client</th>
+              <th className="p-4">Reference</th>
               <th className="p-4">Customer</th>
               <th className="p-4">Package</th>
               <th className="p-4">Date & Time</th>
@@ -966,14 +972,20 @@ function BookingsManagement() {
           <tbody className="divide-y divide-white/5 text-xs">
             {filteredBookings.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-12 text-center text-white/45 font-semibold">
+                <td colSpan={10} className="p-12 text-center text-white/45 font-semibold">
                   No bookings matching current search criteria.
                 </td>
               </tr>
             ) : (
               filteredBookings.map((b) => (
                 <tr key={b.id} className="hover:bg-white/[0.03]/50 transition-colors">
-                  <td className="p-4 pl-6 font-mono font-bold text-primary">{b.id}</td>
+                  <td className="p-4 pl-6">
+                    <BookingPrioritySelect
+                      priority={dayPriorityMap.get(b.id) ?? null}
+                      maxPriority={getDayPriorityCount(bookings, b.bookingDate)}
+                    />
+                  </td>
+                  <td className="p-4 font-mono font-bold text-primary">{b.id}</td>
                   <td className="p-4">
                     <div className="font-semibold text-white">{b.customerName}</div>
                     <div className="text-[10px] text-white/45 mt-0.5">{b.customerEmail}</div>
@@ -1260,7 +1272,14 @@ function BookingsManagement() {
                     </>
                   ) : (
                     <>
-                      <div className="col-span-2">
+                      <div>
+                        <p className="text-white/40 font-medium mb-1.5">Client #</p>
+                        <BookingPrioritySelect
+                          priority={dayPriorityMap.get(selectedBooking.id) ?? null}
+                          maxPriority={getDayPriorityCount(bookings, selectedBooking.bookingDate)}
+                        />
+                      </div>
+                      <div>
                         <p className="text-white/40 font-medium">Appointment Time</p>
                         <p className="font-semibold text-white/90 mt-0.5">
                           {selectedBooking.bookingDate} at {selectedBooking.bookingTime}

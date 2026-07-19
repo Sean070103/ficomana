@@ -1,4 +1,5 @@
 import type { Booking } from '@/lib/data-store'
+import { sortBookingsByDayPriority } from '@/lib/booking-priority'
 
 /** Pull structured values embedded in the note field (core-schema fallback). */
 export function extractNoteField(note: string | undefined, label: string): string | undefined {
@@ -212,7 +213,5 @@ export function filterBookings(bookings: Booking[], filters: BookingFilterOption
     result = result.filter((booking) => getRawPhotoWorkflowStatus(booking) === rawPhotoFilter)
   }
 
-  return result.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  )
+  return sortBookingsByDayPriority(result)
 }
