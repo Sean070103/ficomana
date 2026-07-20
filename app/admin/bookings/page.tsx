@@ -1563,7 +1563,7 @@ function BookingsManagement() {
                 </button>
               </div>
               <p className="text-[10px] text-white/35">
-                Use <strong className="text-white/55">Send Shoot Reminder</strong> the day before the session.
+                Use <strong className="text-white/55">Send Shoot Reminder</strong> on the morning of the session (email says “today”).
                 Use <strong className="text-white/55">Send Google Drive Link</strong> anytime after payment to email the raw gallery. Cancel keeps the record; Delete permanently removes it.
               </p>
             </div>

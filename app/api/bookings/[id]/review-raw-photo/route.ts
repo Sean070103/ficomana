@@ -123,9 +123,15 @@ export async function POST(
     const emailErrors: string[] = []
     try {
       if (action === 'Approve') {
-        await sendRawPhotoApprovedEmail(saved)
+        const emailResult = await sendRawPhotoApprovedEmail(saved)
+        if (emailResult && emailResult.success === false) {
+          emailErrors.push(emailResult.error || 'Failed to send approval email.')
+        }
       } else {
-        await sendRawPhotoRejectedEmail(saved, reason!, notes)
+        const emailResult = await sendRawPhotoRejectedEmail(saved, reason!, notes)
+        if (emailResult && emailResult.success === false) {
+          emailErrors.push(emailResult.error || 'Failed to send rejection email.')
+        }
       }
     } catch (err) {
       console.error('Failed to send raw photo status email:', err)

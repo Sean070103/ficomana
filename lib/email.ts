@@ -920,12 +920,13 @@ export async function sendBookingReminderEmail(booking: any) {
 
   const arrival = booking.arrivalTime || booking.bookingTime || '—'
   const shoot = booking.shootTime || booking.bookingTime || '—'
-  const subject = `Reminder — Your FICO MANA Session Tomorrow · ${booking.id}`
+  const subject = `Reminder — Your Graduation Pictorial is Today · ${booking.id}`
   const html = brandedEmail(
     'Session Reminder',
     `
       <p>Hello <strong>${booking.customerName}</strong>,</p>
-      <p>This is a friendly reminder for your upcoming studio session. We look forward to seeing you!</p>
+      <p>Good day! 🌸✨<br/>
+      Welcome to FICO MANA Studio. This is a friendly reminder that your Graduation Pictorial is scheduled for <strong>today</strong>. We look forward to seeing you! 📸🎓</p>
 
       <div style="background-color: #EEF0FF; padding: 18px; border: 1px solid #D4D8F0; margin: 22px 0;">
         <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
@@ -952,15 +953,28 @@ export async function sendBookingReminderEmail(booking: any) {
         </table>
       </div>
 
-      <div style="background-color: #FFFBEB; border-left: 4px solid #F59E0B; padding: 14px; margin: 0 0 18px; font-size: 12px; color: #92400E; line-height: 1.6;">
-        <strong>Please note:</strong> Arrival time and shoot time are different. Please arrive at
-        <strong>${arrival}</strong> so your shoot can begin on schedule at <strong>${shoot}</strong>.
-      </div>
+      <p style="font-size: 14px; font-weight: bold; color: #0500D0; margin: 0 0 10px;">General Reminders</p>
+      <ul style="font-size: 13px; color: #334155; line-height: 1.7; padding-left: 18px; margin: 0 0 20px;">
+        <li><strong>Arrival Time:</strong> 15 mins before the booked schedule</li>
+        <li><strong>Grace period for late arrivals:</strong> 15 minutes</li>
+        <li><strong>Late fee:</strong> ₱300 (for arrivals beyond the grace period)</li>
+      </ul>
 
-      <p style="font-size: 12px; color: #5A5A8A; line-height: 1.6;">
-        <strong>Preparation:</strong> Bring a valid ID and come photo-ready. Late arrivals beyond 15 minutes may incur a ₱500 fee or forfeit the slot at staff discretion.
-      </p>
-      <p style="font-size: 12px; color: #5A5A8A; line-height: 1.6;">${LATE_FEE_POLICY}</p>
+      <p style="font-size: 14px; font-weight: bold; color: #0500D0; margin: 0 0 10px;">For MANA Package Clients</p>
+      <ul style="font-size: 13px; color: #334155; line-height: 1.7; padding-left: 18px; margin: 0 0 20px;">
+        <li>Please do not use conditioner before your appointment.</li>
+        <li>Arrive with a bare face (no makeup).</li>
+        <li>Wear a tube top.</li>
+        <li>If you wear contact lenses, please put them on before arriving or before your hair and makeup session begins.</li>
+        <li>Hair extensions are available in Brown and Black only. If your hair color is different, please bring your own matching hair extensions.</li>
+      </ul>
+
+      <p style="font-size: 14px; font-weight: bold; color: #0500D0; margin: 0 0 10px;">For FICO Package (Male) Clients</p>
+      <ul style="font-size: 13px; color: #334155; line-height: 1.7; padding-left: 18px; margin: 0 0 20px;">
+        <li>Wear or bring a plain white shirt.</li>
+        <li>You may bring your own Barong Tagalog. If needed, we have Barong Tagalog available in sizes XS, M, XL, and 3XL.</li>
+      </ul>
+
       <p style="font-size: 12px; color: #5A5A8A;">Questions? Reply to this email or call +63 49 576 5176.</p>
     `,
   )

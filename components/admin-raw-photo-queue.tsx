@@ -113,6 +113,9 @@ export default function AdminRawPhotoQueue({
       await animateCardExit(booking.id, 'approve')
 
       toast.success('Selection approved', `${booking.id} is approved for editing.`)
+      if (Array.isArray(data.emailErrors) && data.emailErrors.length > 0) {
+        toast.warning('Approved — email issue', data.emailErrors.join(' · '))
+      }
       try {
         await dismissBookingNotifications(booking.id)
       } catch (err) {
@@ -159,7 +162,11 @@ export default function AdminRawPhotoQueue({
       setRejectionReason('blurry')
       await animateCardExit(rejectedId, 'reject')
 
-      toast.success('Selection rejected', `${rejectedId} was rejected. Client notified.`)
+      if (Array.isArray(data.emailErrors) && data.emailErrors.length > 0) {
+        toast.warning('Rejected — email issue', data.emailErrors.join(' · '))
+      } else {
+        toast.success('Selection rejected', `${rejectedId} was rejected. Client notified.`)
+      }
       try {
         await dismissBookingNotifications(rejectedId)
       } catch (err) {

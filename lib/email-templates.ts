@@ -33,10 +33,11 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'booking_reminder',
     name: 'Session Reminder',
-    subject: 'Reminder — Your FICO MANA Session on {{bookingDate}}',
+    subject: 'Reminder — Your Graduation Pictorial is Today · {{bookingId}}',
     body: `<h2>FICO MANA</h2>
 <p>Hello <strong>{{customerName}}</strong>,</p>
-<p>This is a friendly reminder for your upcoming session.</p>
+<p>Good day! 🌸✨<br/>
+Welcome to FICO MANA Studio. This is a friendly reminder that your Graduation Pictorial is scheduled for today. We look forward to seeing you! 📸🎓</p>
 <table>
 <tr><td>Reference</td><td><strong>{{bookingId}}</strong></td></tr>
 <tr><td>Package</td><td><strong>{{packageName}}</strong></td></tr>
@@ -44,8 +45,25 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
 <tr><td>Arrival Time</td><td><strong>{{arrivalTime}}</strong></td></tr>
 <tr><td>Shoot Time</td><td><strong>{{shootTime}}</strong></td></tr>
 </table>
-<p><strong>Please note:</strong> Arrival time and shoot time are different. Arrive at <strong>{{arrivalTime}}</strong> so your shoot can begin at <strong>{{shootTime}}</strong>.</p>
-<p>{{lateFeePolicy}}</p>`,
+<p><strong>General Reminders</strong></p>
+<ul>
+<li>Arrival Time: 15 mins before the booked schedule</li>
+<li>Grace period for late arrivals: 15 minutes</li>
+<li>Late fee: ₱300 (for arrivals beyond the grace period)</li>
+</ul>
+<p><strong>For MANA Package Clients</strong></p>
+<ul>
+<li>Please do not use conditioner before your appointment.</li>
+<li>Arrive with a bare face (no makeup).</li>
+<li>Wear a tube top.</li>
+<li>If you wear contact lenses, please put them on before arriving or before your hair and makeup session begins.</li>
+<li>Hair extensions are available in Brown and Black only. If your hair color is different, please bring your own matching hair extensions.</li>
+</ul>
+<p><strong>For FICO Package (Male) Clients</strong></p>
+<ul>
+<li>Wear or bring a plain white shirt.</li>
+<li>You may bring your own Barong Tagalog. If needed, we have Barong Tagalog available in sizes XS, M, XL, and 3XL.</li>
+</ul>`,
   },
   {
     id: 'payment_received',
