@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
-import { User, Users, GraduationCap, ChevronLeft, ChevronRight, Check, RefreshCw, Upload, Copy, ArrowRight } from 'lucide-react'
+import { User, Users, GraduationCap, ChevronLeft, ChevronRight, ChevronDown, Check, RefreshCw, Upload, Copy, ArrowRight } from 'lucide-react'
 import SectionHeader from '@/components/section-header'
 import SectionShell from '@/components/section-shell'
 import BookingSlotPicker from '@/components/booking-slot-picker'
@@ -430,19 +430,49 @@ function BookingForm() {
               {filteredPackages.map((pkg) => {
                 const Icon = getPackageIcon(pkg)
                 const selected = selectedSession?.id === pkg.id
+                const subtitle = pkg.description.split('.')[0]?.trim() || pkg.description
                 return (
-                  <button
+                  <div
                     key={pkg.id}
-                    type="button"
-                    onClick={() => setSelectedSession(pkg)}
-                    className={`text-left p-5 border rounded-sm transition-colors ${
+                    className={`border rounded-sm transition-colors ${
                       selected ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-white/10 hover:border-white/25'
                     }`}
                   >
-                    <Icon className={`w-5 h-5 mb-2 ${selected ? 'text-white' : 'text-white/40'}`} />
-                    <p className="font-semibold text-sm text-white">{pkg.title}</p>
-                    <p className="text-white font-medium mt-1">{pkg.price}</p>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSession(pkg)}
+                      className="w-full text-left p-5 pb-3"
+                    >
+                      <Icon className={`w-5 h-5 mb-2 ${selected ? 'text-white' : 'text-white/40'}`} />
+                      <p className="font-semibold text-sm text-white tracking-wide">{pkg.title}</p>
+                      {subtitle && (
+                        <p className="text-[11px] text-white/55 mt-1 leading-snug">{subtitle}</p>
+                      )}
+                      <p className="text-white font-medium mt-2">{pkg.price}</p>
+                    </button>
+
+                    {pkg.features.length > 0 && (
+                      <details className="group border-t border-white/10 mx-0">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white/45 hover:text-white/70 select-none [&::-webkit-details-marker]:hidden">
+                          <span>Includes</span>
+                          <ChevronDown className="w-3.5 h-3.5 shrink-0 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <ul className="px-5 pb-4 divide-y divide-white/[0.06]">
+                          {pkg.features.map((item, i) => (
+                            <li
+                              key={item}
+                              className="flex items-start gap-3 py-2 first:pt-0 last:pb-0"
+                            >
+                              <span className="text-[9px] font-light tabular-nums text-white/30 w-5 shrink-0 pt-0.5">
+                                {String(i + 1).padStart(2, '0')}
+                              </span>
+                              <span className="text-[11px] text-white/70 leading-relaxed">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </div>
                 )
               })}
             </div>

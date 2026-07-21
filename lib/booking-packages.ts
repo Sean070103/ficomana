@@ -39,8 +39,7 @@ const graduationPackages: BookingPackage[] = [
     title: 'FICO PACKAGE',
     price: '₱3,500',
     duration: '30 mins',
-    description:
-      'Without Hair and Makeup. Perfect for graduation portraits with professional lighting and studio equipment.',
+    description: 'Without Hair and Makeup.',
     features: [
       'Free use of Toga & Cap',
       'Free use of Alampay',
@@ -62,8 +61,7 @@ const graduationPackages: BookingPackage[] = [
     title: 'MANA PACKAGE',
     price: '₱6,500',
     duration: '2 hours',
-    description:
-      'With Hair and Makeup. A complete graduation experience with styling, shoot, and premium prints.',
+    description: 'With Hair and Makeup.',
     features: [
       'Free use of Toga & Cap',
       'Free use of Alampay',
@@ -76,7 +74,6 @@ const graduationPackages: BookingPackage[] = [
       '1 pc. 8R Glass-to-Glass Frame',
       'Get ALL RAW Copies',
       'Receive 5 enhanced photos 14 days after selection',
-      'Professional hair & makeup',
     ],
     slotType: 'makeup',
   },

@@ -25,7 +25,7 @@ export const PACKAGE_SEED_ROWS: PackageSeedRow[] = [
     price_display: '₱3,500',
     price_amount: 3500,
     duration: '30 mins',
-    description: 'Without Hair and Makeup. Graduation portraits with professional lighting.',
+    description: 'Without Hair and Makeup.',
     features: [
       'Free use of Toga & Cap',
       'Free use of Alampay',
@@ -49,7 +49,7 @@ export const PACKAGE_SEED_ROWS: PackageSeedRow[] = [
     price_display: '₱6,500',
     price_amount: 6500,
     duration: '2 hours',
-    description: 'With Hair and Makeup. Complete graduation experience.',
+    description: 'With Hair and Makeup.',
     features: [
       'Free use of Toga & Cap',
       'Free use of Alampay',
@@ -62,7 +62,6 @@ export const PACKAGE_SEED_ROWS: PackageSeedRow[] = [
       '1 pc. 8R Glass-to-Glass Frame',
       'Get ALL RAW Copies',
       'Receive 5 enhanced photos 14 days after selection',
-      'Professional hair & makeup',
     ],
     slot_type: 'makeup',
     sort_order: 2,
