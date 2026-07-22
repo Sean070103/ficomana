@@ -731,7 +731,7 @@ function EditorTab({
       }
       if (deadline.overdue) {
         const ok = window.confirm(
-          `${booking.id} is past the ${EDITOR_DEADLINE_DAYS}-day edit deadline. Send the client email anyway?`,
+          `${booking.id} is past the ${EDITOR_DEADLINE_DAYS} working-day edit deadline. Send the client email anyway?`,
         )
         if (!ok) return
       }
@@ -789,7 +789,7 @@ function EditorTab({
             {delivered} delivered
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/60">
-            {EDITOR_DEADLINE_DAYS}-day deadline
+            {EDITOR_DEADLINE_DAYS} working-day deadline
           </span>
           {overdueCount > 0 && (
             <span className="inline-flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-red-300">
@@ -835,15 +835,16 @@ function EditorTab({
               {filter === 'todo' ? 'No jobs waiting' : 'Nothing here'}
             </h3>
             <p className="text-xs text-white/40 max-w-md">
-              When editors approve a 5-pick, that booking lands in today&apos;s approval folder and the{' '}
-              {EDITOR_DEADLINE_DAYS}-day edit clock starts.
+              Approved 5-picks are grouped by shoot day. The {EDITOR_DEADLINE_DAYS} working-day edit
+              clock starts the day after the shoot — or from approval if the client submits late, so
+              editors always get the full window.
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-                Approval-day folders
+                Shoot-day folders
               </p>
               <p className="text-[10px] text-white/35">{dayFolders.length} folder{dayFolders.length === 1 ? '' : 's'}</p>
             </div>
@@ -1097,7 +1098,7 @@ function EditorTab({
                       />
                       {deadline.overdue && !deliveredAlready && (
                         <p className="text-[10px] text-red-300">
-                          Past the {EDITOR_DEADLINE_DAYS}-day edit window — finish and deliver ASAP.
+                          Past the {EDITOR_DEADLINE_DAYS} working-day edit window — finish and deliver ASAP.
                         </p>
                       )}
                       <div className="flex flex-col gap-2 pt-1">
