@@ -151,10 +151,17 @@ export default function EmailLogsConsole() {
               </button>
             </div>
 
-            <div className="flex-1 bg-black/40 p-6 overflow-y-auto flex justify-center items-start">
-              <div
-                className="bg-white shadow-md p-8 max-w-[600px] w-full border border-white/10 overflow-x-auto min-h-[400px]"
-                dangerouslySetInnerHTML={{ __html: selectedLog.body }}
+            <div className="flex-1 bg-black/40 p-4 sm:p-6 overflow-y-auto flex justify-center items-start">
+              {/* iframe isolates email HTML from admin dark-theme text (avoids white-on-white). */}
+              <iframe
+                title="Email body preview"
+                srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/><base target="_blank"/><style>
+                  html,body{margin:0;padding:0;background:#f1f5f9;color:#0f172a;}
+                  body{padding:16px;font-family:system-ui,-apple-system,sans-serif;}
+                  a{color:#0500D0;}
+                </style></head><body>${selectedLog.body}</body></html>`}
+                className="w-full max-w-[640px] min-h-[420px] h-[min(60vh,560px)] bg-white shadow-md border border-white/10 rounded-sm"
+                sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
               />
             </div>
 

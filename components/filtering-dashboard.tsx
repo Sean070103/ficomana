@@ -26,7 +26,7 @@ import {
   type RawPhotoWorkflowStatus,
 } from '@/lib/booking-display'
 import { buildDayPriorityMap, getDayPriorityCount, sortBookingsByDayPriority } from '@/lib/booking-priority'
-import { countPendingRawPhotoReviews, hasRawPhotoSubmission } from '@/lib/raw-photo-display'
+import { countPendingRawPhotoReviews, hasRawPhotoSubmission, isPendingRawPhotoReview } from '@/lib/raw-photo-display'
 import BookingPrioritySelect from '@/components/booking-priority-select'
 import { EDITOR_DEADLINE_DAYS, getEditorDeadlineInfo, getEditorFolderDayKey } from '@/lib/editor-deadline'
 import {
@@ -293,11 +293,16 @@ export default function FilteringDashboard({ initialSearch = '', initialTab }: P
       {activeTab === 'editor' && (
         <EditorTab
           bookings={editorQueue}
+          allBookings={bookings}
           search={editorSearch}
           onSearchChange={setEditorSearch}
           awaitingEdit={pipeline.awaitingEdit}
           delivered={pipeline.counts.delivered}
           onDelivered={() => fetchData(true)}
+          onOpenReviewQueue={(id) => {
+            setQueueSearch(id)
+            setActiveTab('queue')
+          }}
         />
       )}
     </div>
@@ -633,18 +638,22 @@ function FilteringDaySessions({
 
 function EditorTab({
   bookings,
+  allBookings,
   search,
   onSearchChange,
   awaitingEdit,
   delivered,
   onDelivered,
+  onOpenReviewQueue,
 }: {
   bookings: Booking[]
+  allBookings: Booking[]
   search: string
   onSearchChange: (value: string) => void
   awaitingEdit: number
   delivered: number
   onDelivered: () => void
+  onOpenReviewQueue: (bookingId: string) => void
 }) {
   const toast = useAdminToast()
   const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>({})
@@ -681,13 +690,34 @@ function EditorTab({
       })
   }, [visible])
 
+  const term = search.trim().toLowerCase()
+  const pendingMatch = useMemo(() => {
+    if (!term) return null
+    return (
+      allBookings.find(
+        (b) =>
+          isPendingRawPhotoReview(b) &&
+          (b.id.toLowerCase().includes(term) ||
+            b.customerName.toLowerCase().includes(term) ||
+            b.customerEmail.toLowerCase().includes(term)),
+      ) || null
+    )
+  }, [allBookings, term])
+
+  // When searching, jump straight into the matching shoot-day folder(s).
   useEffect(() => {
-    if (autoOpenedToday || selectedDay || dayFolders.length === 0) return
+    if (!term || visible.length === 0) return
+    const days = [...new Set(visible.map((b) => getEditorFolderDayKey(b)))]
+    if (days.length === 1) setSelectedDay(days[0])
+  }, [term, visible])
+
+  useEffect(() => {
+    if (autoOpenedToday || selectedDay || dayFolders.length === 0 || term) return
     const today = todayKey()
     const todayFolder = dayFolders.find((f) => f.date === today && f.todo > 0)
     if (todayFolder) setSelectedDay(today)
     setAutoOpenedToday(true)
-  }, [dayFolders, selectedDay, autoOpenedToday])
+  }, [dayFolders, selectedDay, autoOpenedToday, term])
 
   const dayBookings = useMemo(() => {
     if (!selectedDay) return []
@@ -797,6 +827,27 @@ function EditorTab({
             </span>
           )}
         </div>
+
+        {pendingMatch && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-amber-200">
+                {pendingMatch.id} is waiting in Review Queue
+              </p>
+              <p className="text-[11px] text-amber-200/70 mt-0.5">
+                Shoot {pendingMatch.bookingDate}. Approve the 5-pick first — then it appears in the{' '}
+                {pendingMatch.bookingDate} shoot-day folder here.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onOpenReviewQueue(pendingMatch.id)}
+              className={`shrink-0 ${adminBtnPrimary}`}
+            >
+              Open Review Queue
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-1 p-1 rounded-lg bg-black/30 border border-white/[0.06]">
           {(
